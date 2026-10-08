@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: edumanage-crm
+    runtime: node
+    rootDir: backend
+    buildCommand: bash build.sh
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      # Davomat boti — ota-onalar guruhiga hisobot va qarzdorlik xabarnomasi
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      # SMS (Eskiz.uz) — qarzdorga telefon orqali xabar
+      - key: ESKIZ_EMAIL
+        sync: false
+      - key: ESKIZ_PASSWORD
+        sync: false
+      - key: ESKIZ_FROM
+        value: "4546"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # ─── XAVFSIZLIK (majburiy) ─────────────────────────────────────────
+      # Sessiya tokenlarini imzolash kaliti. Render uni O'ZI generatsiya
+      # qiladi. ⚠️ Bu qiymatni almashtirish barcha sessiyalarni yopadi.
+      - key: AUTH_SECRET
+        generateValue: true
+
+      # Portallar qaysi domenlardan kelishi mumkin (vergul bilan).
+      # Backend portallarni o'zi bersa (bitta domen) — bo'sh qoldirish mumkin.
+      # Vercel ishlatilsa: https://admin.example.com,https://mentor.example.com
+      # Pastki domenlar uchun: *.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      # Portallar BOSHQA domenda bo'lsa 1 qiling (cookie SameSite=None; Secure).
+      - key: CROSS_SITE_AUTH
+        value: "0"
+
+      # Birinchi admin paroli. Bo'sh qoldirilsa server tasodifiy parol
+      # generatsiya qilib LOGGA bir marta chiqaradi.
+      - key: BOOTSTRAP_ADMIN_USER
+        value: admin
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+
+      # Eski (xeshlanmagan) parollar bilan kirishga ruxsat. Barcha foydalanuvchi
+      # bir marta kirib bo'lgach 0 ga o'zgartiring — o'shanda parollar
+      # to'liq scrypt'ga ko'chgan bo'ladi.
+      - key: ALLOW_LEGACY_PASSWORDS
+        value: "1"
