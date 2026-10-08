@@ -70,13 +70,8 @@ async function saveAdminCred(login, pass) {
     await crmAlert(PASSWORD_ADMIN_ONLY_MSG, { title: '🔒 Parol' });
     return { ok: false, error: PASSWORD_ADMIN_ONLY_MSG };
   }
-  // Parolni almashtirish serverda bajariladi.
-  const cur = await crmPrompt('Joriy parolingizni kiriting:', {
-    title: '🔐 Tasdiqlash',
-    password: true,
-  });
-  if (cur === null) return { ok: false };
-  const r = await window.CRMAuth.changePassword(cur, pass);
+  // Login/parol serverda yangilanadi — joriy parol so'ralmaydi.
+  const r = await window.CRMAuth.updateCredentials(login, pass);
   if (!r || !r.ok) await crmAlert('Parol almashtirilmadi: ' + ((r && r.error) || 'xatolik'));
   else await crmAlert('✅ Parol almashtirildi.');
   return r;
@@ -213,20 +208,14 @@ async function promptPasswordChange() {
     return;
   }
 
-  const cur = await crmPrompt("Xavfsizlik uchun parolni almashtirish shart.\n\nJoriy parolingiz:", {
-    title: '🔐 Parolni almashtirish',
-    password: true,
-    okText: 'Davom etish',
-  });
-  if (cur === null) { await window.CRMAuth.logout(); location.reload(); return; }
-  const next = await crmPrompt("Yangi parol (kamida 6 belgi):", {
+  const next = await crmPrompt("Xavfsizlik uchun parolni almashtirish shart.\n\nYangi parol (kamida 5 belgi):", {
     title: '🔐 Yangi parol',
     password: true,
     okText: 'Saqlash',
   });
   if (next === null) { await window.CRMAuth.logout(); location.reload(); return; }
 
-  const r = await window.CRMAuth.changePassword(cur, next);
+  const r = await window.CRMAuth.updateCredentials(null, next);
   if (!r || !r.ok) {
     await crmAlert("Parol almashtirilmadi: " + ((r && r.error) || 'xatolik'));
     return promptPasswordChange();

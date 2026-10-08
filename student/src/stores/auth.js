@@ -128,11 +128,11 @@ export function useAuthStore() {
     }
   }
 
-  /** Parolni almashtirish (majburiy holatda ham shu ishlatiladi). */
-  async function changePassword(currentPassword, newPassword) {
+  /** Login va/yoki parolni yangilash — joriy parol so'ralmaydi. */
+  async function updateCredentials(username, newPassword) {
     const A = crmAuth()
     if (!A) return { ok: false, error: 'Sessiya qatlami yuklanmadi' }
-    const r = await A.changePassword(currentPassword, newPassword)
+    const r = await A.updateCredentials(username, newPassword)
     if (r?.ok) applyUser(r.user || A.user())
     return r
   }
@@ -178,7 +178,7 @@ export function useAuthStore() {
     init,
     login,
     logout,
-    changePassword,
+    updateCredentials,
     getAllUsers,
   }
 }

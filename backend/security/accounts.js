@@ -329,25 +329,50 @@ export async function authenticate(username, password, req) {
   return { ok: true, account: fresh, upgraded };
 }
 
-/** Parol almashtirish — eskisini bilish shart, tarixdagi parollar taqiqlanadi. */
-export async function changePassword(accountId, currentPassword, newPassword, req) {
+/**
+ * Admin o'z login va/yoki parolini yangilaydi — joriy parol so'ralmaydi
+ * (so'rov baribir faqat kirgan admin sessiyasi bilan keladi).
+ */
+export async function updateOwnCredentials(accountId, { username, password }, req) {
   const acc = await findById(accountId);
   if (!acc) return { ok: false, error: "Hisob topilmadi" };
 
-  let valid = false;
-  if (acc.passwordHash) valid = await verifyPassword(currentPassword, acc.passwordHash);
-  if (!valid && acc.legacyPassword && CONFIG.allowLegacyPasswords)
-    valid = verifyLegacyPassword(currentPassword, acc.legacyPassword);
-  if (!valid) {
-    await audit("auth.password.change_failed", {
-      req,
-      actor: { sub: String(acc._id), username: acc.username },
-      severity: "warn",
-    });
-    return { ok: false, code: "invalid-credentials", error: "Joriy parol noto'g'ri" };
+  let newUsername = null;
+  if (username != null && String(username).trim() !== "") {
+    newUsername = safeUsername(username);
+    if (!newUsername) return { ok: false, error: "Login yaroqsiz (3–64 belgi: a-z 0-9 . _ - @ +)" };
+    if (newUsername === acc.username) newUsername = null;
+    else if (await db().collection(COL).findOne({ username: newUsername }))
+      return { ok: false, code: "username-taken", error: "Bu login band — boshqasini tanlang" };
+  }
+  if (!newUsername && !password) return { ok: false, error: "Yangi login yoki parol kiriting" };
+
+  // Avval parolni tekshiramiz — login yarim yo'lda o'zgarib qolmasin
+  if (password) {
+    const strength = checkPasswordStrength(password, { minLength: CONFIG.passwordMinLength });
+    if (!strength.ok) return { ok: false, code: "weak-password", error: strength.error };
   }
 
-  return applyNewPassword(acc, newPassword, req, "auth.password.changed");
+  if (newUsername) {
+    await db()
+      .collection(COL)
+      .updateOne({ _id: acc._id }, { $set: { username: newUsername, updatedAt: new Date() } });
+    invalidateAccount(String(acc._id), acc.username);
+    invalidateAccount(String(acc._id), newUsername);
+    await audit("auth.username.changed", {
+      req,
+      actor: { sub: String(acc._id), username: acc.username, role: acc.role },
+      target: { username: newUsername },
+      severity: "warn",
+    });
+    acc.username = newUsername;
+  }
+
+  if (password) {
+    const out = await applyNewPassword(acc, password, req, "auth.password.changed");
+    if (!out.ok) return out;
+  }
+  return { ok: true };
 }
 
 /**

@@ -95,7 +95,7 @@
                   "
                 >
                   ⚠️ Parolni faqat shu yerdan — admin panelidan — o'zgartirish
-                  mumkin. Tasdiqlash uchun joriy parol so'raladi. Saqlangach
+                  mumkin. Joriy parol so'ralmaydi. Saqlangach
                   boshqa qurilmalardagi sessiyalar yopiladi va yangi parol
                   bilan qaytadan kirish kerak bo'ladi. Mentor va talabalarning
                   parolini quyidagi kartochkalardan siz belgilaysiz — ular

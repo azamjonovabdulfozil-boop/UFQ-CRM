@@ -113,9 +113,9 @@ const TRANSLATIONS = {
     all_mentors:'Barcha mentorlar', salary:'Oylik', expense:'Xarajat', income:'Daromad', clear:'Tozalash', placeholder:'Xabar yozing...',
     welcome_mentor:'Xush kelibsiz, Mentor', welcome_student:'Xush kelibsiz, Talaba', title_mentor:'Mentor Panel', title_student:'Talaba Panel',
     login_credentials_title:'Login va parol (Student Panel)', login_credentials_hint:'Ushbu login va parol orqali talaba Student Panelga kira oladi.',
-    login_label:'Login', password_label:'Parol', pass_keep_current:'Bo\'sh qoldiring — o\'zgarmaydi', pass_min_chars:'Kamida 6 belgi',
+    login_label:'Login', password_label:'Parol', pass_keep_current:'Bo\'sh qoldiring — o\'zgarmaydi', pass_min_chars:'Kamida 5 belgi',
     suggest_btn:'Taklif qilish', generate_btn:'Yaratish', login_too_short:'Login kamida 3 belgidan iborat bo\'lsin!',
-    pass_too_short:'Parol kamida 6 belgidan iborat bo\'lsin!', login_taken:'Bu login band! Boshqasini tanlang.',
+    pass_too_short:'Parol kamida 5 belgidan iborat bo\'lsin!', login_taken:'Bu login band! Boshqasini tanlang.',
     cred_saved_title:'Kirish ma\'lumotlari saqlandi!', cred_saved_warning:'Parol xesh qilib saqlanadi va qayta ko\'rsatilmaydi — hozir nusxalab oling!',
     copy_btn:'Nusxalash', ok_btn:'Tushunarli', copied_msg:'Nusxalandi!',
     simple_grading:'Oddiy baholash', criteria_grading:'Mezonlar bo\'yicha', group_label:'Guruh', search_label:'Qidiruv',
@@ -194,9 +194,9 @@ const TRANSLATIONS = {
     all_mentors:'Все менторы', salary:'Зарплата', expense:'Расход', income:'Доход', clear:'Очистить', placeholder:'Напишите сообщение...',
     welcome_mentor:'Добро пожаловать, Ментор', welcome_student:'Добро пожаловать, Ученик', title_mentor:'Панель ментора', title_student:'Панель ученика',
     login_credentials_title:'Логин и пароль (Панель ученика)', login_credentials_hint:'С помощью этого логина и пароля ученик сможет войти в Панель ученика.',
-    login_label:'Логин', password_label:'Пароль', pass_keep_current:'Оставьте пустым — не изменится', pass_min_chars:'Минимум 6 символов',
+    login_label:'Логин', password_label:'Пароль', pass_keep_current:'Оставьте пустым — не изменится', pass_min_chars:'Минимум 5 символов',
     suggest_btn:'Предложить', generate_btn:'Создать', login_too_short:'Логин должен содержать минимум 3 символа!',
-    pass_too_short:'Пароль должен содержать минимум 6 символов!', login_taken:'Этот логин занят! Выберите другой.',
+    pass_too_short:'Пароль должен содержать минимум 5 символов!', login_taken:'Этот логин занят! Выберите другой.',
     cred_saved_title:'Данные для входа сохранены!', cred_saved_warning:'Пароль хранится в виде хеша и больше не будет показан — скопируйте сейчас!',
     copy_btn:'Копировать', ok_btn:'Понятно', copied_msg:'Скопировано!',
     simple_grading:'Простая оценка', criteria_grading:'По критериям', group_label:'Группа', search_label:'Поиск',
@@ -275,9 +275,9 @@ const TRANSLATIONS = {
     all_mentors:'All mentors', salary:'Salary', expense:'Expense', income:'Income', clear:'Clear', placeholder:'Type a message...',
     welcome_mentor:'Welcome, Mentor', welcome_student:'Welcome, Student', title_mentor:'Mentor Panel', title_student:'Student Panel',
     login_credentials_title:'Login & Password (Student Panel)', login_credentials_hint:'The student can log into the Student Panel using this login and password.',
-    login_label:'Login', password_label:'Password', pass_keep_current:'Leave blank to keep current', pass_min_chars:'At least 6 characters',
+    login_label:'Login', password_label:'Password', pass_keep_current:'Leave blank to keep current', pass_min_chars:'At least 5 characters',
     suggest_btn:'Suggest', generate_btn:'Generate', login_too_short:'Login must be at least 3 characters!',
-    pass_too_short:'Password must be at least 6 characters!', login_taken:'This login is taken! Choose another.',
+    pass_too_short:'Password must be at least 5 characters!', login_taken:'This login is taken! Choose another.',
     cred_saved_title:'Login credentials saved!', cred_saved_warning:'The password is stored hashed and won\'t be shown again — copy it now!',
     copy_btn:'Copy', ok_btn:'Got it', copied_msg:'Copied!',
     simple_grading:'Simple grading', criteria_grading:'By criteria', group_label:'Group', search_label:'Search',
@@ -666,7 +666,7 @@ function renderSettingsPanel(){
       const _me=(window.CRMAuth&&window.CRMAuth.user())||{};
       const _login=_me.username||getCurrentUser().username||'admin';
       const li=document.getElementById('sett-admin-login');
-      if(li){li.value=_login;li.readOnly=true;li.title="Loginni o'zgartirish uchun administratorga murojaat qiling";}
+      if(li){li.value=_login;li.readOnly=false;li.title='';}
       const pi=document.getElementById('sett-admin-pass');if(pi)pi.value='';
       const pi2=document.getElementById('sett-admin-pass2');if(pi2)pi2.value='';
       const cur=document.getElementById('sett-admin-current');if(cur)cur.textContent=_login;

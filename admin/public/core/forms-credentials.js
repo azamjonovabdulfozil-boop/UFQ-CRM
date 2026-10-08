@@ -448,7 +448,7 @@ async function saveModal() {
       document.getElementById("f-login").focus();
       return;
     }
-    if (passVal && passVal.length < 6) {
+    if (passVal && passVal.length < 5) {
       toast("⚠️ " + t("pass_too_short"));
       document.getElementById("f-pass").focus();
       return;
@@ -1135,46 +1135,55 @@ function initApp() {
 }
 
 // ===================== ADMIN SELF CREDENTIALS =====================
-// ⚠️ Parol endi serverda almashtiriladi (/api/auth/change-password) va joriy
-// parolni bilish SHART. Ilgari u localStorage'ga ochiq matnda yozilardi va
-// joriy parolsiz almashtirilardi — ya'ni qurilma qoshiga o'tirgan yoki XSS
-// topgan har kim admin parolini o'zgartira olardi.
+// Admin o'z login va parolini serverda (/api/auth/change-password) yangilaydi.
+// Joriy parol so'ralmaydi — so'rov baribir faqat kirgan admin sessiyasi bilan boradi.
 async function saveAdminCredentials() {
+  const loginEl = document.getElementById("sett-admin-login");
   const passEl = document.getElementById("sett-admin-pass");
   const pass2El = document.getElementById("sett-admin-pass2");
+  const me = (window.CRMAuth && window.CRMAuth.user()) || {};
+  const login = (loginEl?.value || "").trim().toLowerCase();
   const pass = (passEl?.value || "").trim();
   const pass2 = (pass2El?.value || "").trim();
+  const loginChanged = !!login && login !== String(me.username || "").toLowerCase();
 
-  if (pass.length < 6) {
-    toast("⚠️ Parol kamida 6 ta belgi bo'lsin!");
+  if (!loginChanged && !pass) {
+    toast("⚠️ Yangi login yoki parol kiriting");
     return;
   }
-  if (pass !== pass2) {
+  if (loginChanged && login.length < 3) {
+    toast("⚠️ Login kamida 3 ta belgi bo'lsin!");
+    return;
+  }
+  if (pass && pass.length < 5) {
+    toast("⚠️ Parol kamida 5 ta belgi bo'lsin!");
+    return;
+  }
+  if (pass && pass !== pass2) {
     toast("⚠️ Parollar bir xil emas!");
     return;
   }
 
-  // ⚠️ Parolni faqat ADMIN o'zgartira oladi (server ham shuni talab qiladi).
+  // ⚠️ Faqat ADMIN o'zgartira oladi (server ham shuni talab qiladi).
   if (!(window.CRMAuth && window.CRMAuth.role() === "admin")) {
-    toast("🔒 Parolni faqat administrator o'zgartiradi");
+    toast("🔒 Login/parolni faqat administrator o'zgartiradi");
     return;
   }
 
-  const current = await crmPrompt("Tasdiqlash uchun JORIY parolingizni kiriting:", {
-    title: "🔐 Tasdiqlash",
-    password: true,
-  });
-  if (current === null) return;
-
-  const r = await window.CRMAuth.changePassword(current, pass);
+  const r = await window.CRMAuth.updateCredentials(loginChanged ? login : null, pass || null);
   if (!r || !r.ok) {
-    toast("⚠️ " + ((r && r.error) || "Parol almashtirilmadi"));
+    toast("⚠️ " + ((r && r.error) || "Saqlanmadi"));
     return;
   }
 
-  toast("✅ Parol yangilandi. Boshqa qurilmalardagi sessiyalar yopildi.");
+  const newLogin = (r.user && r.user.username) || login;
+  const cur = document.getElementById("sett-admin-current");
+  if (cur) cur.textContent = newLogin;
+  if (loginEl) loginEl.value = newLogin;
   if (passEl) passEl.value = "";
   if (pass2El) pass2El.value = "";
+  const what = loginChanged && pass ? "Login va parol yangilandi" : loginChanged ? "Login yangilandi" : "Parol yangilandi";
+  toast("✅ " + what + ". Boshqa qurilmalardagi sessiyalar yopildi.");
 }
 
 // ===================== BLOKLANGAN QURILMALAR (ADMIN) =====================
@@ -1280,8 +1289,8 @@ function saveMentorCredentials() {
     toast("⚠️ Login kamida 2 ta belgi!");
     return;
   }
-  if (!pass || pass.length < 6) {
-    toast("⚠️ Parol kamida 6 ta belgi!");
+  if (!pass || pass.length < 5) {
+    toast("⚠️ Parol kamida 5 ta belgi!");
     return;
   }
   // Login boshqa foydalanuvchida bormi?
@@ -1387,8 +1396,8 @@ function saveStudentCredentials() {
     toast("⚠️ Login kamida 2 ta belgi!");
     return;
   }
-  if (!pass || pass.length < 6) {
-    toast("⚠️ Parol kamida 6 ta belgi!");
+  if (!pass || pass.length < 5) {
+    toast("⚠️ Parol kamida 5 ta belgi!");
     return;
   }
   const existing = getStudentUsers();

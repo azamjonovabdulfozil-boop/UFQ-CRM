@@ -90,7 +90,8 @@ export const CONFIG = {
   maxSessionsPerUser: int(process.env.MAX_SESSIONS_PER_USER, 10),
 
   // ── Parol siyosati ─────────────────────────────────────────────────────
-  passwordMinLength: int(process.env.PASSWORD_MIN_LENGTH, 6),
+  // Parol uchun yagona talab — kamida 5 belgi (env orqali o'zgartirilmaydi).
+  passwordMinLength: 5,
   passwordMaxLength: 200,
   passwordHistory: int(process.env.PASSWORD_HISTORY, 0),
   // Eski (ochiq matnli / sha256) parollar bilan kirishga ruxsat. Birinchi

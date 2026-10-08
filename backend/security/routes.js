@@ -23,7 +23,7 @@ import { issueToken } from "./crypto.js";
 import { CONFIG } from "./config.js";
 import {
   authenticate,
-  changePassword,
+  updateOwnCredentials,
   adminResetPassword,
   publicView,
   listAccounts,
@@ -216,7 +216,7 @@ export function createAuthRouter() {
   // ── Parolni almashtirish ────────────────────────────────────────────────
   //
   // ⚠️ SIYOSAT: parolni faqat ADMIN panelidan o'zgartirish mumkin.
-  //   • admin — shu yerdan o'z parolini almashtiradi (joriy parolni bilishi shart);
+  //   • admin — shu yerdan o'z login va parolini almashtiradi (joriy parol so'ralmaydi);
   //   • mentor/talaba — umuman almashtira olmaydi, adminga murojaat qiladi.
   // Portallardan "parolni almashtirish" oynasi olib tashlandi, lekin himoya
   // UI da emas, aynan shu yerda — so'rovni qo'lda yuborish ham ish bermaydi.
@@ -229,13 +229,13 @@ export function createAuthRouter() {
         error: "Parolni faqat administrator o'zgartiradi. Iltimos, administratorga murojaat qiling.",
       });
     }
-    const current = req.body?.currentPassword ?? req.body?.oldPassword;
     const next = req.body?.newPassword ?? req.body?.password;
-    if (typeof next !== "string" || !next)
-      return res.status(400).json({ ok: false, error: "Yangi parol kerak" });
+    const username = req.body?.username;
+    if ((next != null && typeof next !== "string") || (username != null && typeof username !== "string"))
+      return res.status(400).json({ ok: false, error: "Noto'g'ri so'rov" });
 
-    const out = await changePassword(req.user.sub, current, next, req);
-    if (!out.ok) return res.status(out.code === "invalid-credentials" ? 401 : 400).json(out);
+    const out = await updateOwnCredentials(req.user.sub, { username, password: next || "" }, req);
+    if (!out.ok) return res.status(400).json(out);
 
     // Barcha eski sessiyalar yopiladi, shu qurilma uchun yangisi ochiladi
     await revokeAllForAccount(req.user.sub, "password-changed");

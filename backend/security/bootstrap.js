@@ -26,7 +26,9 @@ export async function bootstrapSecurity(getDb) {
 
   // ── 1. Eski admin credential (KV) ────────────────────────────────────────
   try {
-    const kv = await db.collection("kv").findOne({ key: ADMIN_CRED_KEY });
+    // Admin allaqachon bo'lsa ko'chirmaymiz — aks holda admin loginini
+    // o'zgartirgandan keyin eski login qayta tiklanib qolardi.
+    const kv = (await countAdmins()) === 0 ? await db.collection("kv").findOne({ key: ADMIN_CRED_KEY }) : null;
     if (kv?.value) {
       const c = JSON.parse(String(kv.value));
       if (c?.login && c?.pass) {

@@ -111,7 +111,7 @@
       refresh: function () { return Promise.resolve(true); },
       getToken: function () { return Promise.resolve(null); },
       tokenSync: function () { return null; },
-      changePassword: function () { return Promise.resolve({ ok: false, error: "Demo rejim" }); },
+      updateCredentials: function () { return Promise.resolve({ ok: false, error: "Demo rejim" }); },
       restore: function () { return Promise.resolve(demoUser); },
       user: function () { return demoUser; },
       role: function () { return "admin"; },
@@ -307,12 +307,13 @@
     );
   }
 
-  function changePassword(currentPassword, newPassword) {
+  /** O'z login va/yoki parolini yangilash — joriy parol so'ralmaydi. */
+  function updateCredentials(username, newPassword) {
     return getToken()
       .then(function (t) {
         return postJson(
           "/api/auth/change-password",
-          { currentPassword: currentPassword, newPassword: newPassword },
+          { username: username || undefined, newPassword: newPassword || undefined },
           t ? { Authorization: "Bearer " + t } : null,
         );
       })
@@ -406,7 +407,7 @@
     tokenSync: function () {
       return state.accessToken && Date.now() < state.expiresAt ? state.accessToken : null;
     },
-    changePassword: changePassword,
+    updateCredentials: updateCredentials,
     /**
      * Sahifa ochilganda cookie orqali sessiyani tiklaydi.
      * Token allaqachon yaroqli bo'lsa — serverga bekorga bormaydi (har
