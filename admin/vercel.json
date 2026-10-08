@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://ufq-crm.onrender.com/api/:path*"
+      "destination": "https://ufq-crm-fxh5.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

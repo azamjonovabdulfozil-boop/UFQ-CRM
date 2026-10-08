@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       // PROD backend — faqat localhost BO'LMAGAN muhitda ishlatiladi
       // (main.js dagi resolveBackend() qarang).
       __API_BASE__: JSON.stringify(
-        env.VITE_API_URL || "https://ufq-crm.onrender.com"
+        env.VITE_API_URL || "https://ufq-crm-fxh5.onrender.com"
       ),
       // Localda backend qaysi portda turadi (backend/.env dagi PORT)
       __LOCAL_API_PORT__: JSON.stringify(env.LOCAL_API_PORT || "3000"),
