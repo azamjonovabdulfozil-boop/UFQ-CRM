@@ -374,11 +374,6 @@ async function applyNewPassword(acc, newPassword, req, event, actor = null, must
   });
   if (!strength.ok) return { ok: false, code: "weak-password", error: strength.error };
 
-  // Oldingi parollarni qayta ishlatishga yo'l qo'ymaymiz
-  for (const old of acc.passwordHistory || [])
-    if (await verifyPassword(newPassword, old))
-      return { ok: false, code: "password-reused", error: "Bu paroldan yaqinda foydalangansiz" };
-
   const hash = await hashPassword(newPassword);
   const history = [acc.passwordHash, ...(acc.passwordHistory || [])]
     .filter(Boolean)

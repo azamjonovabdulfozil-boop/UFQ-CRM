@@ -85,58 +85,16 @@ export function timingSafeStr(a, b) {
 
 // ─── Parol siyosati ───────────────────────────────────────────────────────────
 
-const COMMON = new Set([
-  "password", "parol", "123456", "12345678", "123456789", "qwerty", "admin",
-  "admin123", "admin1234", "iloveyou", "welcome", "letmein", "abc123",
-  "password1", "passw0rd", "qwerty123", "1q2w3e4r", "111111", "000000",
-  "student", "mentor", "edumanage", "crm12345", "ufqcrm", "salom123",
-]);
-
 /**
  * @returns {{ok:boolean, error?:string, score:number}}
- * Uzunlik — asosiy mezon (NIST SP 800-63B): 12+ belgili ibora murakkab
- * "Pa$$w0rd" dan kuchliroq. Shu sabab qattiq "1 ta katta harf" talabi emas,
- * uzunlik + lug'at tekshiruvi ishlatiladi.
  */
-export function checkPasswordStrength(password, { minLength = 10, username = "", name = "" } = {}) {
+export function checkPasswordStrength(password, { minLength = 6 } = {}) {
+  // Talab bitta: parol uzunligi kamida minLength belgi bo'lsin.
   const pw = String(password ?? "");
   if (pw.length < minLength)
     return { ok: false, score: 0, error: `Parol kamida ${minLength} belgi bo'lsin` };
   if (pw.length > 200) return { ok: false, score: 0, error: "Parol 200 belgidan uzun bo'lmasin" };
-  if (/^\s|\s$/.test(pw)) return { ok: false, score: 0, error: "Parol bo'sh joy bilan boshlanmasin/tugamasin" };
-
-  const low = pw.toLowerCase();
-  if (COMMON.has(low)) return { ok: false, score: 0, error: "Bu parol juda ko'p ishlatiladi — boshqasini tanlang" };
-  for (const c of COMMON) if (c.length >= 6 && low.includes(c))
-    return { ok: false, score: 0, error: `Parol ichida ommabop so'z bor ("${c}")` };
-
-  const u = String(username || "").toLowerCase();
-  if (u.length >= 3 && low.includes(u))
-    return { ok: false, score: 0, error: "Parol login bilan bir xil bo'lmasin" };
-  for (const part of String(name || "").toLowerCase().split(/\s+/))
-    if (part.length >= 4 && low.includes(part))
-      return { ok: false, score: 0, error: "Parol ism-familiyani o'z ichiga olmasin" };
-
-  if (/^(.)\1+$/.test(pw)) return { ok: false, score: 0, error: "Parol bir xil belgilardan iborat" };
-  if (isSequential(low)) return { ok: false, score: 0, error: "Parol ketma-ket belgilardan iborat (12345, qwerty…)" };
-
-  let score = 1;
-  if (pw.length >= 12) score++;
-  if (pw.length >= 16) score++;
-  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^\w\s]/].filter((re) => re.test(pw)).length;
-  if (classes >= 3) score++;
-  if (new Set(pw).size >= 10) score++;
-  return { ok: true, score: Math.min(score, 5) };
-}
-
-function isSequential(s) {
-  if (s.length < 4) return false;
-  const rows = "abcdefghijklmnopqrstuvwxyz0123456789qwertyuiopasdfghjklzxcvbnm";
-  for (let i = 0; i + s.length <= rows.length; i++) {
-    const seg = rows.slice(i, i + s.length);
-    if (seg === s || [...seg].reverse().join("") === s) return true;
-  }
-  return false;
+  return { ok: true, score: pw.length >= 12 ? 3 : 1 };
 }
 
 // ─── Tasodifiy qiymatlar ──────────────────────────────────────────────────────

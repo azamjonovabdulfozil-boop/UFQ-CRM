@@ -219,7 +219,7 @@ async function promptPasswordChange() {
     okText: 'Davom etish',
   });
   if (cur === null) { await window.CRMAuth.logout(); location.reload(); return; }
-  const next = await crmPrompt("Yangi parol (kamida 10 belgi, oson topiladigan so'z bo'lmasin):", {
+  const next = await crmPrompt("Yangi parol (kamida 6 belgi):", {
     title: '🔐 Yangi parol',
     password: true,
     okText: 'Saqlash',

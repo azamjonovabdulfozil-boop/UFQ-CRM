@@ -90,9 +90,9 @@ export const CONFIG = {
   maxSessionsPerUser: int(process.env.MAX_SESSIONS_PER_USER, 10),
 
   // ── Parol siyosati ─────────────────────────────────────────────────────
-  passwordMinLength: int(process.env.PASSWORD_MIN_LENGTH, 10),
+  passwordMinLength: int(process.env.PASSWORD_MIN_LENGTH, 6),
   passwordMaxLength: 200,
-  passwordHistory: int(process.env.PASSWORD_HISTORY, 5),
+  passwordHistory: int(process.env.PASSWORD_HISTORY, 0),
   // Eski (ochiq matnli / sha256) parollar bilan kirishga ruxsat. Birinchi
   // muvaffaqiyatli kirishda parol avtomatik scrypt'ga ko'chiriladi.
   allowLegacyPasswords: bool(process.env.ALLOW_LEGACY_PASSWORDS, true),

@@ -437,7 +437,7 @@ async function saveModal() {
       document.getElementById("f-login").focus();
       return;
     }
-    if (passVal && passVal.length < 4) {
+    if (passVal && passVal.length < 6) {
       toast("⚠️ " + t("pass_too_short"));
       document.getElementById("f-pass").focus();
       return;
@@ -1118,8 +1118,8 @@ async function saveAdminCredentials() {
   const pass = (passEl?.value || "").trim();
   const pass2 = (pass2El?.value || "").trim();
 
-  if (pass.length < 10) {
-    toast("⚠️ Parol kamida 10 ta belgi bo'lsin!");
+  if (pass.length < 6) {
+    toast("⚠️ Parol kamida 6 ta belgi bo'lsin!");
     return;
   }
   if (pass !== pass2) {
@@ -1166,8 +1166,8 @@ function saveMentorCredentials() {
     toast("⚠️ Login kamida 2 ta belgi!");
     return;
   }
-  if (!pass || pass.length < 4) {
-    toast("⚠️ Parol kamida 4 ta belgi!");
+  if (!pass || pass.length < 6) {
+    toast("⚠️ Parol kamida 6 ta belgi!");
     return;
   }
   // Login boshqa foydalanuvchida bormi?
@@ -1273,8 +1273,8 @@ function saveStudentCredentials() {
     toast("⚠️ Login kamida 2 ta belgi!");
     return;
   }
-  if (!pass || pass.length < 4) {
-    toast("⚠️ Parol kamida 4 ta belgi!");
+  if (!pass || pass.length < 6) {
+    toast("⚠️ Parol kamida 6 ta belgi!");
     return;
   }
   const existing = getStudentUsers();
