@@ -44,6 +44,8 @@ export const SCRIPT_GROUPS = [
   ["debtors.js"],
   // Sertifikatlar — D (data-finance) va brending sozlamalariga tayanadi
   ["certificates.js"],
+  // Kengaytirilgan dashboard analitikasi — render funksiyalarini o'raydi
+  ["dash-analytics.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 

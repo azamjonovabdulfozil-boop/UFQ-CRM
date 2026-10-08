@@ -40,6 +40,8 @@ export const SCRIPT_GROUPS = [
   // Group 6: coin-system va forms — parallel
   ["mentor-coin-give.js", "forms-credentials.js"],
   // Group 7: live-sync + responsive-ui (oxirida, hammasi yuklanganidan keyin)
+  // Kengaytirilgan dashboard analitikasi — render funksiyalarini o'raydi
+  ["dash-analytics.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 

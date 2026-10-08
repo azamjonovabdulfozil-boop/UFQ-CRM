@@ -42,6 +42,8 @@ export const SCRIPT_GROUPS = [
   // Group 7: live-sync + responsive-ui (oxirida, hammasi yuklanganidan keyin)
   // Sertifikatlarim sahifasi — D (data-finance) ga tayanadi
   ["certificates.js"],
+  // Kengaytirilgan dashboard analitikasi — render funksiyalarini o'raydi
+  ["dash-analytics.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 
