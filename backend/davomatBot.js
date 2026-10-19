@@ -394,7 +394,7 @@ async function handleUpdate(u) {
     await sendMessage(
       chat.id,
       "👋 Bu — davomat hisoboti boti. U faqat ota-onalar guruhiga yozadi.\n\n" +
-        "To'lov xabarlari uchun o'quv markazi bergan shaxsiy havolani oching.",
+        "To'lov eslatmalari uchun o'quv markazining QARZDORLAR botini oching.",
     );
   } catch (e) {}
 }

@@ -700,6 +700,174 @@
 
   window.csRemoveImageBackground = removeImageBackground;
 
+  // ───────────────────────────────────────────────────────────────
+  // SUN'IY INTELLEKT BILAN FONNI OLIB TASHLASH (mahsulot yuklanganda)
+  // Bir xil rangli bo'lmagan fon (xona, stol, manzara, soya) ham olib
+  // tashlanadi. @imgly/background-removal brauzerning O'ZIDA ishlaydi —
+  // rasm hech qanday serverga yuborilmaydi. Model birinchi marta bir
+  // marta yuklanadi (~80 MB) va brauzer keshida qoladi.
+  // Ishlamasa (internet yo'q, eski brauzer, vaqt tugadi) — yuqoridagi
+  // oddiy (bir xil rangli fon) usuliga qaytiladi.
+  // ───────────────────────────────────────────────────────────────
+  var BG_AI_URL =
+    "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
+  var BG_AI_MODEL = "isnet_fp16";
+  var BG_AI_TIMEOUT = 180000; // 3 daqiqa (birinchi marta model yuklanadi)
+  var _bgAiMod = null;
+
+  function _loadBgAi() {
+    if (!_bgAiMod)
+      _bgAiMod = import(BG_AI_URL).catch(function (e) {
+        _bgAiMod = null;
+        throw e;
+      });
+    return _bgAiMod;
+  }
+
+  // data: URL → Blob (fetch(data:) CSP da taqiqlangan bo'lishi mumkin)
+  function _dataUrlToBlob(u) {
+    var m = /^data:([^;,]+)(;base64)?,(.*)$/i.exec(u);
+    if (!m) throw new Error("data URL emas");
+    var raw = m[2] ? atob(m[3]) : decodeURIComponent(m[3]);
+    var arr = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return new Blob([arr], { type: m[1] });
+  }
+
+  // Shaffof rasmni buyum chegarasigacha kesib, hajmi cheklangan PNG qiladi
+  function _trimTransparentPng(img) {
+    var w = img.naturalWidth || img.width,
+      h = img.naturalHeight || img.height;
+    var pre = Math.min(1, WORK_MAX_SIDE / Math.max(w, h));
+    w = Math.max(1, Math.round(w * pre));
+    h = Math.max(1, Math.round(h * pre));
+    var cv = document.createElement("canvas");
+    cv.width = w;
+    cv.height = h;
+    var ctx = cv.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, w, h);
+    var d = ctx.getImageData(0, 0, w, h).data;
+    var minX = w, minY = h, maxX = -1, maxY = -1, solid = 0;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] > 12) {
+          solid++;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    // Hech narsa qolmadi yoki deyarli hech narsa o'chmadi — natija yaroqsiz
+    var ratio = solid / (w * h);
+    if (maxX < minX || ratio < 0.01 || ratio > 0.985) return null;
+    var pad = 2;
+    var x0 = Math.max(0, minX - pad),
+      y0 = Math.max(0, minY - pad),
+      cw = Math.min(w, maxX + pad + 1) - x0,
+      ch = Math.min(h, maxY + pad + 1) - y0;
+    var scale = Math.min(1, PNG_MAX_SIDE / Math.max(cw, ch));
+    var out = _cropToPng(cv, x0, y0, cw, ch, scale);
+    var guard = 0;
+    while (out.length > PNG_MAX_BYTES && scale > 0.25 && guard++ < 4) {
+      scale *= 0.75;
+      out = _cropToPng(cv, x0, y0, cw, ch, scale);
+    }
+    return out;
+  }
+
+  /** Faqat AI: data URL → shaffof PNG data URL (Promise). */
+  function _aiRemove(dataUrl, onProgress) {
+    return _loadBgAi().then(function (mod) {
+      var fn = mod && (mod.removeBackground || (mod.default && mod.default.removeBackground));
+      if (typeof fn !== "function") throw new Error("kutubxona topilmadi");
+      var got = {};
+      return fn(_dataUrlToBlob(dataUrl), {
+        model: BG_AI_MODEL,
+        output: { format: "image/png", quality: 1 },
+        progress: function (key, cur, total) {
+          if (!onProgress || !total) return;
+          got[key] = cur / total;
+          // Model fayllari yuklanishi — umumiy foiz
+          var keys = Object.keys(got).filter(function (k) {
+            return /fetch/i.test(k);
+          });
+          if (!keys.length) return;
+          var sum = 0;
+          keys.forEach(function (k) {
+            sum += got[k];
+          });
+          onProgress(Math.round((sum / keys.length) * 100));
+        },
+      }).then(function (blob) {
+        return new Promise(function (resolve, reject) {
+          var url = URL.createObjectURL(blob);
+          var im = new Image();
+          im.onload = function () {
+            try {
+              resolve(_trimTransparentPng(im));
+            } catch (e) {
+              reject(e);
+            } finally {
+              URL.revokeObjectURL(url);
+            }
+          };
+          im.onerror = function () {
+            URL.revokeObjectURL(url);
+            reject(new Error("natija o'qilmadi"));
+          };
+          im.src = url;
+        });
+      });
+    });
+  }
+
+  /**
+   * Yuklangan mahsulot rasmining fonini olib tashlaydi: avval AI, bo'lmasa
+   * oddiy usul. cb(natija) — fon olinmasa asl rasm qaytadi.
+   * @param {(pct:number)=>void} [onProgress] model yuklanish foizi
+   */
+  function removeImageBackgroundAI(src, cb, onProgress) {
+    if (!src || /^data:image\/svg/i.test(src)) return cb(src);
+
+    // Tashqi havola — avval proxy orqali data URL ga aylantiramiz
+    if (!/^data:/i.test(src)) {
+      return fetchImageAsDataUrl(src, function (dataUrl) {
+        if (!dataUrl) return cb(src);
+        removeImageBackgroundAI(dataUrl, function (out) {
+          // Fon olinmagan bo'lsa — asl havola saqlanadi (base64 nusxa emas)
+          cb(out && out !== dataUrl ? out : src);
+        }, onProgress);
+      });
+    }
+
+    var done = false;
+    var fallback = function () {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      removeImageBackground(src, cb);
+    };
+    var timer = setTimeout(fallback, BG_AI_TIMEOUT);
+    _aiRemove(src, onProgress)
+      .then(function (out) {
+        if (done) return;
+        if (!out) return fallback();
+        done = true;
+        clearTimeout(timer);
+        cb(out);
+      })
+      .catch(function (e) {
+        try {
+          console.warn("[coin-shop] AI fon olib tashlash ishlamadi:", e && e.message);
+        } catch (_) {}
+        fallback();
+      });
+  }
+  window.csRemoveImageBackgroundAI = removeImageBackgroundAI;
+
   function coinPill(n, big) {
     var fs = big ? "15px" : "12px",
       pad = big ? "5px 14px" : "3px 10px";
@@ -1409,10 +1577,24 @@
         setPreview(null);
         return;
       }
-      setBusy("⏳ " + tl("Yuklanmoqda…", "Загрузка…", "Loading…"));
-      setNote("");
+      setBusy(
+        "🤖 " +
+          tl(
+            "Orqa fon olib tashlanmoqda…",
+            "Удаляем фон…",
+            "Removing background…",
+          ),
+      );
+      setNote(
+        "⏳ " +
+          tl(
+            "Birinchi marta sun'iy intellekt modeli yuklanadi (~1 daqiqa), keyingi safar tez ishlaydi.",
+            "В первый раз загружается модель ИИ (~1 мин), далее работает быстро.",
+            "The AI model loads the first time (~1 min); after that it is fast.",
+          ),
+      );
       window._cspPending = new Promise(function (resolve) {
-        removeImageBackground(raw, function (out) {
+        removeImageBackgroundAI(raw, function (out) {
           window._cspImg = out || raw;
           setPreview(window._cspImg);
           // Fon olib tashlanmagan bo'lsa — jim qolmaymiz, sababini aytamiz
@@ -1446,6 +1628,12 @@
           }
           window._cspPending = null;
           resolve(window._cspImg);
+        }, function (pct) {
+          setBusy(
+            "🤖 " +
+              tl("Model yuklanmoqda", "Загрузка модели", "Loading model") +
+              " " + pct + "%",
+          );
         });
       });
     }

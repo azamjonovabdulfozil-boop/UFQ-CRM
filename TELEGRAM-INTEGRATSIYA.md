@@ -332,3 +332,18 @@ Javob — har talaba uchun alohida natija:
 
 Xato kodlari: `no-group-chat`, `bad-phone`, `no-config`, `test-mode`,
 `not-template`, `blocked`, `provider`.
+
+## 🤖 Qarzdorlar boti (alohida bot)
+
+Qarzdor talabaning ota-onasiga (yoki o'ziga) to'lov eslatmasi **shaxsiy Telegram** orqali ketadi.
+
+1. Telegramda **@BotFather** → `/newbot` → yangi bot oching (davomat botidan **alohida**).
+2. Admin panel → **Qarzdorlar** → **🤖 Qarzdorlar boti** kartasiga tokenni qo'yib **Saqlang**.
+   Token tekshiriladi, bazaga saqlanadi va bot darhol ishga tushadi (server qayta ishga tushirilmaydi).
+   Muqobil: serverda `QARZDOR_BOT_TOKEN` muhit o'zgaruvchisi.
+3. Kartadagi bot havolasini ota-onalarga yuboring. Ular botda `/start` → **📱 Raqamni yuborish** bosadi.
+   Raqam CRM dagi talaba (`phone`) yoki ota-ona (`parentPhone`) raqamiga mos kelsa — ulanadi.
+4. Qarzdorlar ro'yxatida **🤖 Bot** (bitta talaba) yoki **🤖 Bot orqali** (tanlanganlar) tugmasi bilan yuboring.
+
+Ulanishlar `debtor_bot_links` kolleksiyasida (telefon raqami bo'yicha), token `app_settings` da saqlanadi.
+`/stop` — foydalanuvchi xabarlarni o'chiradi; botni bloklagan foydalanuvchi avtomatik ro'yxatdan chiqariladi.

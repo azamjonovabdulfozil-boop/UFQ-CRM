@@ -2005,3 +2005,15 @@ button > .ic:only-child,.badge > .ic:only-child{margin-right:0}
 @media(max-width:600px){
   .debt-item .li-right{flex-wrap:wrap;justify-content:flex-end;}
 }
+
+/* 🤖 Qarzdorlar boti kartasi (debtors.js → _debtRenderBotCard) */
+.debt-bot-card{background:var(--bg);border:1.5px solid var(--border);border-left:4px solid #229ed9;border-radius:var(--r-lg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow-sm);}
+.debt-bot-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.debt-bot-head{font-size:15px;font-weight:800;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.debt-bot-st{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--bg3);color:var(--text3);}
+.debt-bot-st-ok{background:var(--teal-light);color:var(--teal-text);}
+.debt-bot-st-bad{background:var(--orange-light);color:var(--orange-text);}
+.debt-bot-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:13px;}
+.debt-bot-info a{color:var(--accent);font-weight:700;word-break:break-all;}
+.debt-bot-form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.debt-bot-form input{flex:1;min-width:220px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-md);background:var(--bg3);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12.5px;}

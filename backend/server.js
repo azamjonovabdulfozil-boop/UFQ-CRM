@@ -21,6 +21,14 @@ import {
 // Qarzdorga xabar ikki kanal orqali ketadi: ota-onalar Telegram guruhiga
 // (yuqoridagi bot) yoki telefon raqamiga SMS (quyidagi modul).
 import { sendSms, smsStatus, smsReady, normalizePhone } from "./smsSender.js";
+// Uchinchi kanal — qarzdorlar uchun ALOHIDA Telegram bot (shaxsiy chatga).
+// Token admin panelidan (Qarzdorlar → 🤖 Qarzdorlar boti) qo'yiladi.
+import {
+  initQarzdorBot,
+  setQarzdorToken,
+  qarzdorStatus,
+  sendToStudent,
+} from "./qarzdorBot.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -1231,6 +1239,59 @@ app.get("/api/notify/status", requireStaff, async (_req, res) => {
   });
 });
 
+// ─── 🤖 Qarzdorlar boti (alohida token) ─────────────────────────────────────
+const loadCrmMain = async () =>
+  (await getDb().collection("crm_data").findOne({ _type: "main" })) || {};
+
+/** Bot holati + qaysi talabalar botga ulangan. Token hech qachon qaytarilmaydi. */
+app.get("/api/debtor-bot/status", requireStaff, async (req, res) => {
+  try {
+    res.json(await qarzdorStatus(await loadCrmMain()));
+  } catch (e) {
+    fail(res, e, req);
+  }
+});
+
+/** Tokenni qo'yish / almashtirish (bo'sh token — o'chirish). Faqat admin. */
+app.post("/api/debtor-bot/token", requireAdmin, writeLimiter, async (req, res) => {
+  try {
+    const out = await setQarzdorToken(req.body?.token);
+    await audit("debtorbot.token", {
+      req, actor: req.user,
+      meta: { ok: out.ok, removed: !!out.removed, username: out.username || "" },
+      severity: "warn",
+    });
+    if (!out.ok) return res.status(400).json(out);
+    res.json(out);
+  } catch (e) {
+    fail(res, e, req);
+  }
+});
+
+/** 🤖 Talabaning (ota-onasining) shaxsiy Telegramiga — qarzdorlar boti orqali. */
+app.post("/api/notify/bot", requireStaff, expensiveLimiter, async (req, res) => {
+  const { items, error } = parseNotifyBody(req.body);
+  if (error) return res.status(400).json({ ok: false, error });
+  try {
+    const D = await loadCrmMain();
+    const results = [];
+    for (const { studentId, groupId, text } of items) {
+      if (groupId != null) {
+        results.push({ groupId, ok: false, error: "Bot uchun studentId kerak" });
+        continue;
+      }
+      results.push({ studentId, ...(await sendToStudent(D, studentId, text)) });
+    }
+    await audit("notify.bot", {
+      req, actor: req.user,
+      meta: { total: results.length, sent: results.filter((r) => r.ok).length },
+    });
+    res.json(notifySummary(results));
+  } catch (e) {
+    fail(res, e, req);
+  }
+});
+
 /** Raqam SMS uchun yaroqlimi — ro'yxatda belgi ko'rsatish uchun. */
 app.post("/api/notify/check-phones", requireStaff, (req, res) => {
   const phones = Array.isArray(req.body?.phones) ? req.body.phones : [];
@@ -1684,9 +1745,12 @@ app.get("/sert/:no", publicLookupLimiter, (req, res) => {
     .btn{font-size:18px;padding:19px 14px}
   }
   @media print{
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     body{background:#fff;padding:0}
+    .wrap{max-width:none;margin:0}
     .top,.status,table,.btn,.foot{display:none!important}
-    .sheet{box-shadow:none;border-radius:0}
+    .sheet{box-shadow:none;border-radius:0;width:297mm!important;height:210mm!important}
+    .sheet.portrait{width:210mm!important;height:297mm!important}
   }
 </style>
 </head>
@@ -1842,6 +1906,20 @@ app.get("/sert/:no", publicLookupLimiter, (req, res) => {
       sheet.innerHTML = certRenderHtml(c, "", res.d.tpl, res.d.tplImage);
       fit();
       setTimeout(fit, 300);
+      // Uzun ism chegaradan chiqmasin (shrift yuklangach yana bir bor)
+      if (typeof _certFitWhenReady === "function") _certFitWhenReady(sheet.firstElementChild);
+
+      // Chop etish — aniq A4 varaq (albom yoki kitob)
+      var portrait = typeof certIsPortrait === "function" && certIsPortrait(res.d.tpl);
+      if (portrait) sheet.classList.add("portrait");
+      var ps = document.createElement("style");
+      ps.textContent = "@page{size:A4 " + (portrait ? "portrait" : "landscape") + ";margin:0}";
+      document.head.appendChild(ps);
+      window.addEventListener("beforeprint", function () {
+        var inner = sheet.firstElementChild;
+        if (inner) inner.style.transform = "scale(" + ((portrait ? 793.7 : 1122.5) / 1000) + ")";
+      });
+      window.addEventListener("afterprint", fit);
 
       document.getElementById("pdf").disabled = false;
       render();
@@ -2058,6 +2136,8 @@ async function start() {
   // Telegram yangilanishlarini kuzatish — talabalar "/start s<id>" bosganda
   // ularning chat id si shu halqa orqali yozib olinadi.
   startTelegramPolling();
+  // Qarzdorlar boti — token bazadan o'qiladi (bo'lmasa QARZDOR_BOT_TOKEN env)
+  if (mongoOk) await initQarzdorBot({ getDb });
 
   app.listen(PORT, "0.0.0.0", () => {
     const base = `http://localhost:${PORT}`;

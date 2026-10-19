@@ -21,6 +21,12 @@
  * foydalanuvchiga birinchi bo'lib yoza olmaydi — u avval botni o'zi ishga
  * tushirishi shart. Talabadan hech narsa talab qilmaydigan kanal — SMS.
  * Shu sabab avvalgi "shaxsiy havola + Start" oqimi olib tashlandi.
+ *
+ *   🤖 Qarzdorlar boti — ALOHIDA Telegram bot (o'z tokeni bilan). Token shu
+ *      sahifadagi "🤖 Qarzdorlar boti" kartasiga qo'yiladi. Ota-ona botni
+ *      ochib /start → "📱 Raqamni yuborish" bosadi; raqam CRM dagi talaba
+ *      (yoki ota-ona) raqamiga mos kelsa, xabarlar uning shaxsiy chatiga
+ *      keladi. Kim ulanganini ro'yxatdagi "🤖" belgisi ko'rsatadi.
  */
 
 var _debtSelected = {}; // studentId → true
@@ -28,6 +34,7 @@ var _debtMsgs = []; // oynada ochilgan xabarlar (avtomatik yozilgan)
 var _debtMsgsChan = "parents";
 var _debtChan = null; // /api/notify/status javobi
 var _debtChanLoading = false;
+var _debtBot = null; // /api/debtor-bot/status javobi
 
 /* ─── Xabar matni AVTOMATIK yoziladi ──────────────────────────────────────
    Ilgari oynada shablon (`{ism}`, `{guruh}`, `{qarz}`) turardi va admin uni
@@ -39,6 +46,7 @@ var _debtChanLoading = false;
 var DEBT_CHAN_LBL = {
   parents: "📨 Ota-onalar guruhiga",
   sms: "📱 SMS",
+  bot: "🤖 Qarzdorlar boti",
 };
 
 /* ─── Yordamchilar ────────────────────────────────────────────────────────── */
@@ -103,8 +111,14 @@ function _debtPhone(s) {
   return { raw: raw, ok: false };
 }
 
+/** Talaba (yoki ota-onasi) qarzdorlar botiga ulanganmi. */
+function _debtBotLinked(s) {
+  return !!(_debtBot && _debtBot.linked && s && _debtBot.linked[s.id]);
+}
+
 /** Tanlangan kanal shu talaba uchun ishlaydimi. */
 function _debtCanSend(s, chan) {
+  if (chan === "bot") return _debtBotLinked(s);
   return chan === "sms" ? _debtPhone(s).ok : _debtHasGroupChat(s);
 }
 
@@ -146,6 +160,18 @@ function _debtParentsText(students, groupName) {
   );
 }
 
+function _debtBotText(s) {
+  var g = _debtGroup(s);
+  return (
+    "💸 To'lov eslatmasi\n\n" +
+    "Hurmatli ota-ona!\n" +
+    "O'quvchi: " + (s.name || "") + "\n" +
+    "Guruh: " + ((g && g.name) || "—") + "\n" +
+    "To'lanishi kerak: " + _debtMoney(debtorAmount(s)) + " so'm\n\n" +
+    "Iltimos, to'lovni yaqin kunlarda amalga oshiring. Rahmat!"
+  );
+}
+
 function _debtSmsText(s) {
   var g = _debtGroup(s);
   // SMS da o'zbekcha apostrof/harflar provayder tomonda muammo qilmasin —
@@ -161,6 +187,15 @@ function _debtSmsText(s) {
  * @returns {{kind:string,label:string,text:string,groupId?:number,studentId?:number,studentIds?:number[]}[]}
  */
 function _debtBuildMessages(chan, students) {
+  if (chan === "bot")
+    return students.map(function (s) {
+      return {
+        kind: "bot",
+        studentId: s.id,
+        label: "🤖 " + (s.name || ""),
+        text: _debtBotText(s),
+      };
+    });
   if (chan === "sms")
     return students.map(function (s) {
       return {
@@ -228,19 +263,165 @@ function _debtSplitMessages(full, count) {
 function loadDebtorLinks(cb) {
   if (_debtChanLoading) return;
   _debtChanLoading = true;
-  fetch("/api/notify/status")
+  var j = function (r) {
+    return r.json();
+  };
+  Promise.all([
+    fetch("/api/notify/status").then(j).catch(function () {
+      return null;
+    }),
+    fetch("/api/debtor-bot/status").then(j).catch(function () {
+      return null;
+    }),
+  ]).then(function (r) {
+    _debtChanLoading = false;
+    if (r[0] && r[0].ok) _debtChan = r[0];
+    if (r[1] && r[1].ok) _debtBot = r[1];
+    else if (!_debtBot) _debtBot = { ok: false, configured: false, linked: {}, status: "⚠️ Holatni olib bo'lmadi" };
+    if (cb) cb();
+    else renderDebtors();
+  });
+}
+
+/* ─── 🤖 Qarzdorlar boti kartasi (token qo'yish joyi) ───────────────────── */
+
+function _debtRenderBotCard() {
+  var box = document.getElementById("debtor-bot-card");
+  if (!box) return;
+  // Admin token yozayotgan bo'lsa — kartani qayta chizib matnni o'chirmaymiz
+  var cur = document.getElementById("debt-bot-token");
+  if (cur && cur.value && document.activeElement === cur) return;
+  var b = _debtBot;
+  if (!b) {
+    box.innerHTML =
+      '<div class="debt-bot-card"><div class="debt-bot-head">🤖 Qarzdorlar boti</div>' +
+      '<div class="debt-help">⏳ Holat tekshirilmoqda...</div></div>';
+    return;
+  }
+  var stCls = b.working ? "debt-bot-st-ok" : b.configured ? "debt-bot-st-bad" : "debt-bot-st-off";
+  var open = !b.working || box.getAttribute("data-open") === "1";
+  var debtors = _debtStudents();
+
+  var html =
+    '<div class="debt-bot-card">' +
+    '<div class="debt-bot-row">' +
+    '<div class="debt-bot-head">🤖 Qarzdorlar boti ' +
+    '<span class="debt-bot-st ' + stCls + '">' + _debtEsc(b.status || "") + "</span></div>" +
+    (b.working
+      ? '<button class="btn btn-sm" onclick="debtBotToggle()">' + (open ? "▲ Yopish" : "⚙️ Tokenni almashtirish") + "</button>"
+      : "") +
+    "</div>";
+
+  if (b.working) {
+    html +=
+      '<div class="debt-bot-info">' +
+      '<span>🔗 <a href="' + _debtEsc(b.link) + '" target="_blank" rel="noopener">' + _debtEsc(b.link) + "</a></span>" +
+      '<button class="btn btn-sm" onclick="debtBotCopyLink()">📋 Havolani nusxalash</button>' +
+      "<span>👥 Ulangan chatlar: <b>" + (b.totalLinks || 0) + "</b> · qarzdorlardan: <b>" +
+      debtors.filter(_debtBotLinked).length + " / " + debtors.length + "</b></span>" +
+      "</div>" +
+      '<div class="debt-help">Shu havolani ota-onalarga yuboring: ular botni ochib <b>/start</b> → ' +
+      "<b>📱 Raqamni yuborish</b> ni bosadi. Raqam CRM dagi talaba yoki ota-ona raqamiga mos kelsa, " +
+      "to'lov eslatmalari ularning shaxsiy Telegramiga keladi.</div>";
+  }
+
+  if (open) {
+    html +=
+      '<div class="debt-bot-form">' +
+      '<input type="password" id="debt-bot-token" autocomplete="off" spellcheck="false" placeholder="' +
+      (b.configured ? "Yangi token (almashtirish uchun)" : "123456789:AAH...  — @BotFather bergan token") + '">' +
+      '<button class="btn btn-primary" id="debt-bot-save" onclick="debtBotSaveToken()">💾 Saqlash</button>' +
+      (b.source === "db"
+        ? '<button class="btn" onclick="debtBotRemoveToken()">🗑 O\'chirish</button>'
+        : "") +
+      "</div>" +
+      '<div class="debt-help">1) Telegramda <b>@BotFather</b> → <code>/newbot</code> → botga nom bering. ' +
+      "2) U bergan tokenni shu yerga qo'yib <b>Saqlang</b> — bot darhol ishga tushadi. " +
+      "⚠️ Davomat botining tokenini qo'ymang — bu alohida bot bo'lishi kerak.</div>" +
+      '<div id="debt-bot-msg"></div>';
+  }
+  html += "</div>";
+  box.innerHTML = html;
+}
+
+function debtBotToggle() {
+  var box = document.getElementById("debtor-bot-card");
+  if (!box) return;
+  box.setAttribute("data-open", box.getAttribute("data-open") === "1" ? "0" : "1");
+  _debtRenderBotCard();
+}
+
+function debtBotCopyLink() {
+  var link = _debtBot && _debtBot.link;
+  if (!link) return;
+  var done = function () {
+    if (typeof toast === "function") toast("📋 Havola nusxalandi");
+  };
+  try {
+    navigator.clipboard.writeText(link).then(done, function () {
+      prompt("Havola:", link);
+    });
+  } catch (e) {
+    prompt("Havola:", link);
+  }
+}
+
+function _debtBotPost(token) {
+  var msg = document.getElementById("debt-bot-msg");
+  var btn = document.getElementById("debt-bot-save");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Tekshirilmoqda...";
+  }
+  return fetch("/api/debtor-bot/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: token }),
+  })
     .then(function (r) {
       return r.json();
     })
     .then(function (d) {
-      _debtChanLoading = false;
-      if (d && d.ok) _debtChan = d;
-      if (cb) cb();
-      else renderDebtors();
+      if (!d || !d.ok) throw new Error((d && d.error) || "saqlanmadi");
+      if (typeof toast === "function")
+        toast(d.removed ? "🗑 Token o'chirildi" : "✅ Bot ulandi: @" + d.username);
+      var box = document.getElementById("debtor-bot-card");
+      if (box) box.setAttribute("data-open", "0");
+      _debtBot = null;
+      _debtRenderBotCard();
+      setTimeout(function () {
+        loadDebtorLinks();
+      }, 600);
     })
-    .catch(function () {
-      _debtChanLoading = false;
+    .catch(function (e) {
+      if (msg)
+        msg.innerHTML = '<div class="debt-note debt-note-warn">❌ ' + _debtEsc(e.message) + "</div>";
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "💾 Saqlash";
+      }
     });
+}
+
+function debtBotSaveToken() {
+  var inp = document.getElementById("debt-bot-token");
+  var t = ((inp && inp.value) || "").trim();
+  if (!t) {
+    if (typeof toast === "function") toast("⚠️ Tokenni kiriting");
+    return;
+  }
+  _debtBotPost(t);
+}
+
+async function debtBotRemoveToken() {
+  if (
+    typeof crmConfirm === "function" &&
+    !(await crmConfirm("Qarzdorlar boti tokeni o'chirilsinmi? Bot ishlashdan to'xtaydi.", {
+      okText: "Ha, o'chirilsin",
+    }))
+  )
+    return;
+  _debtBotPost("");
 }
 
 /* ─── Render ──────────────────────────────────────────────────────────────── */
@@ -261,6 +442,7 @@ function renderDebtors() {
   // bosilganda o'qilardi, shuning uchun sahifa birinchi ochilganda kanal
   // o'chiq bo'lsa ham hech qanday ogohlantirish ko'rinmasdi.
   if (_debtChan === null && !_debtChanLoading) loadDebtorLinks();
+  _debtRenderBotCard();
 
   var q = (
     (document.getElementById("s-debtor") || {}).value || ""
@@ -281,7 +463,9 @@ function renderDebtors() {
         ? _debtHasGroupChat(s)
         : cf === "sms"
           ? _debtPhone(s).ok
-          : /* "none" */ !_debtHasGroupChat(s) && !_debtPhone(s).ok);
+          : cf === "bot"
+            ? _debtBotLinked(s)
+            : /* "none" */ !_debtHasGroupChat(s) && !_debtPhone(s).ok && !_debtBotLinked(s));
     return mQ && mG && mC;
   });
 
@@ -324,7 +508,9 @@ function renderDebtors() {
   var totalDebt = 0;
   var tgCount = 0;
   var smsCount = 0;
+  var botCount = 0;
   all.forEach(function (s) {
+    if (_debtBotLinked(s)) botCount++;
     totalDebt += debtorAmount(s);
     if (_debtHasGroupChat(s)) tgCount++;
     if (_debtPhone(s).ok) smsCount++;
@@ -349,7 +535,12 @@ function renderDebtors() {
       smsCount +
       " / " +
       all.length +
-      '</div><div class="debt-stat-lbl">📱 SMS uchun raqami bor</div></div>';
+      '</div><div class="debt-stat-lbl">📱 SMS uchun raqami bor</div></div>' +
+      '<div class="debt-stat debt-stat-blue"><div class="debt-stat-num">' +
+      botCount +
+      " / " +
+      all.length +
+      '</div><div class="debt-stat-lbl">🤖 Botga ulangan</div></div>';
   }
 
   _debtRenderChanWarn(stat);
@@ -392,6 +583,12 @@ function renderDebtors() {
       var smsBadge = ph.ok
         ? '<span class="badge b-teal">📱 ' + _debtEsc(ph.raw) + "</span>"
         : '<span class="badge b-orange">⚠️ Raqam yo\'q</span>';
+      var botBadge =
+        _debtBot && _debtBot.working
+          ? _debtBotLinked(s)
+            ? '<span class="badge b-teal">🤖 Botga ulangan</span>'
+            : '<span class="badge b-orange" title="Ota-ona botni ochib raqamini yuborishi kerak">🤖 Ulanmagan</span>'
+          : "";
 
       return (
         '<div class="list-item debt-item' +
@@ -422,6 +619,7 @@ function renderDebtors() {
         " so'm</span>" +
         tgBadge +
         smsBadge +
+        botBadge +
         "</div>" +
         "</div>" +
         '<div class="li-right" onclick="event.stopPropagation()">' +
@@ -431,6 +629,9 @@ function renderDebtors() {
         '<button class="btn btn-sm" onclick="openDebtorMessage(\'sms\',' +
         s.id +
         ')">📱 SMS</button>' +
+        '<button class="btn btn-sm" onclick="openDebtorMessage(\'bot\',' +
+        s.id +
+        ')">🤖 Bot</button>' +
         '<button class="btn btn-sm btn-primary" onclick="debtorMarkPaid(' +
         s.id +
         ')">✅ To\'landi</button>' +
@@ -550,7 +751,18 @@ async function debtorMarkPaid(id) {
  * @param {number}  [singleId]   Bitta talaba (bo'lmasa — tanlanganlar)
  */
 function openDebtorMessage(chan, singleId) {
-  chan = chan === "sms" ? "sms" : "parents";
+  chan = chan === "sms" || chan === "bot" ? chan : "parents";
+  if (chan === "bot" && !(_debtBot && _debtBot.working)) {
+    if (typeof toast === "function")
+      toast("⚠️ Avval «🤖 Qarzdorlar boti» kartasiga bot tokenini qo'ying");
+    var card = document.getElementById("debtor-bot-card");
+    if (card) {
+      card.setAttribute("data-open", "1");
+      _debtRenderBotCard();
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return;
+  }
 
   var ids =
     singleId != null
@@ -606,10 +818,15 @@ function openDebtorMessage(chan, singleId) {
         " ta talabaga bu kanal orqali yuborib bo'lmaydi — " +
         (chan === "sms"
           ? "telefon raqami kiritilmagan yoki noto'g'ri (Talabalar → ✏️)."
+          : chan === "bot"
+            ? "ota-onasi (yoki o'zi) botga ulanmagan. Bot havolasini yuboring — ular /start bosib raqamini yuborsin."
           : "guruhiga Telegram chat ID biriktirilmagan (Guruhlar → ✏️ → Telegram).") +
         "</div>"
       : "") +
-    (chan === "sms"
+    (chan === "bot"
+      ? '<div class="debt-note">🤖 Xabar qarzdorlar boti orqali ota-onaning (yoki talabaning) ' +
+        "SHAXSIY Telegramiga ketadi — boshqalar ko'rmaydi.</div>"
+      : chan === "sms"
       ? '<div class="debt-note">📱 SMS ota-onaning raqamiga ketadi (kiritilmagan bo\'lsa — talabanikiga). ' +
         "Matn qisqa bo'lsin: 70 belgidan oshsa, bitta o'rniga bir nechta SMS " +
         "yechiladi. Eskiz ixtiyoriy matnni yubormaydi — shu matnni kabinetdagi " +
@@ -719,7 +936,7 @@ function sendDebtorMessages(chan) {
     if (!text) continue;
     labels.push(m.label);
     messages.push(
-      m.kind === "sms"
+      m.kind === "sms" || m.kind === "bot"
         ? { studentId: m.studentId, text: text }
         : { groupId: m.groupId, text: text },
     );
@@ -735,7 +952,7 @@ function sendDebtorMessages(chan) {
     btn.textContent = "⏳ Yuborilmoqda...";
   }
 
-  fetch(chan === "sms" ? "/api/notify/sms" : "/api/notify/parents", {
+  fetch(chan === "sms" ? "/api/notify/sms" : chan === "bot" ? "/api/notify/bot" : "/api/notify/parents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages: messages }),
@@ -857,3 +1074,7 @@ window.debtorAmount = debtorAmount;
 window._debtCount = _debtCount;
 window._debtOpenModal = _debtOpenModal;
 window._debtCloseModal = _debtCloseModal;
+window.debtBotSaveToken = debtBotSaveToken;
+window.debtBotRemoveToken = debtBotRemoveToken;
+window.debtBotToggle = debtBotToggle;
+window.debtBotCopyLink = debtBotCopyLink;

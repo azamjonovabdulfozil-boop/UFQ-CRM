@@ -1,6 +1,8 @@
 <template>
   <!-- QARZDORLAR — faqat qarzdor talabalar (core/debtors.js chizadi) -->
   <div id="panel-debtors" class="panel">
+    <!-- 🤖 Qarzdorlar boti — token shu yerga qo'yiladi (debtors.js chizadi) -->
+    <div id="debtor-bot-card"></div>
     <div class="debt-stats" id="debtor-stats"></div>
 
     <div class="toolbar">
@@ -19,6 +21,7 @@
         <option value="">Kanal — barchasi</option>
         <option value="tg">📨 Guruhi Telegramga ulangan</option>
         <option value="sms">📱 SMS uchun raqami bor</option>
+        <option value="bot">🤖 Botga ulangan</option>
         <option value="none">⚠️ Hech qaysi kanal ishlamaydi</option>
       </select>
       <label class="debt-selectall">
@@ -41,6 +44,9 @@
       </button>
       <button class="btn btn-primary" onclick="openDebtorMessage('sms')">
         📱 SMS jo'natish
+      </button>
+      <button class="btn btn-primary" onclick="openDebtorMessage('bot')">
+        🤖 Bot orqali
       </button>
       <button class="btn" onclick="toggleAllDebtors(false)">✕ Bekor qilish</button>
     </div>

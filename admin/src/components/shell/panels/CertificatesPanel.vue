@@ -51,10 +51,13 @@
             line-height: 1.6;
           "
         >
-          Sertifikat blankasini rasm (PNG/JPG) qilib yuklang — dastur rasmni
-          o'zi o'qib, ism, kurs, o'qish davri, sana va QR kodni blankadagi
-          o'z joyiga qo'yadi. Kerak bo'lsagina qo'lda tuzatasiz.
+          Sertifikat blankasini rasm (PNG/JPG) qilib yuklang yoki tayyor
+          dizaynni tanlang — ism, kurs, o'qish davri, sana va QR kod o'z
+          joyiga qo'yiladi. Barcha sertifikatlar A4 o'lchamida chop etiladi.
         </div>
+        <button class="btn" onclick="certOpenBuiltins()">
+          ✨ Tayyor dizaynlar
+        </button>
         <button class="btn btn-primary" onclick="certOpenTplUpload()">
           🖼 Shablon yuklash
         </button>

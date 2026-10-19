@@ -267,7 +267,36 @@ var CERT_FONTS = {
   serif: "Georgia,'Times New Roman',serif",
   sans: "'Segoe UI',system-ui,-apple-system,sans-serif",
   mono: "'JetBrains Mono','Courier New',monospace",
+  display: "'Playfair Display',Georgia,'Times New Roman',serif",
+  script: "'Great Vibes','Brush Script MT','Segoe Script',cursive",
+  modern: "'Montserrat','Segoe UI',system-ui,sans-serif",
 };
+
+var CERT_FONT_OPTS = [
+  ["display", "Playfair Display (nafis)"],
+  ["script", "Great Vibes (yozma)"],
+  ["modern", "Montserrat (zamonaviy)"],
+  ["serif", "Serif (Georgia)"],
+  ["sans", "Sans (Segoe UI)"],
+  ["mono", "Mono (JetBrains)"],
+];
+
+/** Google shriftlarini sahifaga ulaydi (bir marta). */
+var CERT_FONTS_URL =
+  "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;600;700&" +
+  "family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap";
+
+function _certLoadFonts(doc) {
+  try {
+    doc = doc || document;
+    if (!doc || !doc.head || doc.getElementById("cert-fonts")) return;
+    var l = doc.createElement("link");
+    l.id = "cert-fonts";
+    l.rel = "stylesheet";
+    l.href = CERT_FONTS_URL;
+    doc.head.appendChild(l);
+  } catch (e) {}
+}
 
 /**
  * Yangi shablon uchun boshlang'ich joylashuv. Rasm har xil bo'lgani uchun bu
@@ -277,11 +306,11 @@ var CERT_FONTS = {
  */
 function certDefaultFields() {
   return {
-    name:   { on: true, x: 50, y: 46, size: 46, color: "#111827", bold: true,  italic: true,  align: "center", font: "serif" },
-    course: { on: true, x: 50, y: 58, size: 24, color: "#1f2937", bold: true,  italic: false, align: "center", font: "sans" },
-    period: { on: true, x: 30, y: 72, size: 16, color: "#374151", bold: false, italic: false, align: "center", font: "sans" },
-    date:   { on: true, x: 70, y: 72, size: 16, color: "#374151", bold: false, italic: false, align: "center", font: "sans" },
-    no:     { on: true, x: 18, y: 88, size: 15, color: "#374151", bold: true,  italic: false, align: "center", font: "mono" },
+    name:   { on: true, x: 50, y: 46, size: 50, color: "#111827", bold: true,  italic: false, align: "center", font: "display", maxW: 74 },
+    course: { on: true, x: 50, y: 58, size: 24, color: "#1f2937", bold: true,  italic: false, align: "center", font: "modern",  maxW: 78 },
+    period: { on: true, x: 30, y: 72, size: 16, color: "#374151", bold: false, italic: false, align: "center", font: "modern",  maxW: 40 },
+    date:   { on: true, x: 70, y: 72, size: 16, color: "#374151", bold: false, italic: false, align: "center", font: "modern",  maxW: 34 },
+    no:     { on: true, x: 18, y: 88, size: 15, color: "#374151", bold: true,  italic: false, align: "center", font: "mono",    maxW: 32 },
     qr:     { on: true, x: 50, y: 85, size: 11, color: "#0f172a", bold: false, italic: false, align: "center", font: "sans" },
   };
 }
@@ -302,11 +331,31 @@ function certTplFor(c) {
   return (c && c.templateId ? certTplById(c.templateId) : null) || certTemplatesAll()[0] || _certFallbackTpl();
 }
 
-/** Chizish o'lchami: kenglik doim 1000px, balandlik rasm nisbatidan. */
-function certSize(tpl) {
+/**
+ * Chizish o'lchami — DOIM A4 nisbati (297×210 mm = 1 : 1.4142).
+ * Kenglik 1000px; rasm albom bo'lsa 1000×707, kitob bo'lsa 1000×1414.
+ * Shablon rasmi shu ramkaga to'liq yoyiladi, shuning uchun chop etilganda
+ * varaqni chetigacha to'ldiradi.
+ */
+var CERT_A4 = Math.SQRT2; // 297 / 210
+
+function certIsPortrait(tpl) {
   var w = (tpl && tpl.w) || 1000;
   var h = (tpl && tpl.h) || 707;
-  return { w: 1000, h: Math.round((1000 * h) / w) };
+  return h > w;
+}
+
+function certSize(tpl) {
+  return certIsPortrait(tpl) ? { w: 1000, h: 1414 } : { w: 1000, h: 707 };
+}
+
+/** Rasm nisbati A4 dan qanchalik farq qiladi (0 = aynan A4). */
+function certA4Mismatch(tpl) {
+  var w = (tpl && tpl.w) || 0;
+  var h = (tpl && tpl.h) || 0;
+  if (!w || !h || tpl.builtin) return 0;
+  var r = Math.max(w, h) / Math.min(w, h);
+  return Math.abs(r / CERT_A4 - 1);
 }
 
 /** Maydon matnlari — sertifikat ma'lumotidan. */
@@ -320,20 +369,192 @@ function certFieldTexts(c) {
   };
 }
 
+/* ─── Tayyor dizaynlar (rasm yuklamasdan) ─────────────────────────────────── */
+/**
+ * 4 ta tayyor A4 dizayn. Fon — inline SVG (rasm emas), shuning uchun shriftlar
+ * sahifadagi Google shriftlari bilan chiziladi va chop etishda tiniq chiqadi.
+ * Maydonlar (ism, kurs, sana, QR) har dizaynda o'z joyiga oldindan qo'yilgan.
+ */
+var CERT_THEMES = {
+  classic: {
+    title: "Klassik oltin",
+    bg1: "#fffdf6", bg2: "#f6ecd2", frame: "#b8860b", frame2: "#d9b55a",
+    accent: "#9a6b0c", ink: "#1f2937", sub: "#6b5a3a", dark: false,
+  },
+  royal: {
+    title: "Qirollik ko'k",
+    bg1: "#13254a", bg2: "#0a1730", frame: "#d4af37", frame2: "#8c7224",
+    accent: "#e6c55a", ink: "#ffffff", sub: "#c9d3e6", dark: true,
+  },
+  emerald: {
+    title: "Zamonaviy yashil",
+    bg1: "#ffffff", bg2: "#f1f8f5", frame: "#0f766e", frame2: "#34d399",
+    accent: "#0f766e", ink: "#0f172a", sub: "#475569", dark: false,
+  },
+  ruby: {
+    title: "Nafis bordo",
+    bg1: "#fffaf8", bg2: "#f8e9e6", frame: "#8b1e3f", frame2: "#c9a227",
+    accent: "#8b1e3f", ink: "#1f1720", sub: "#6b4b55", dark: false,
+  },
+};
+
+function certBuiltinFields(themeKey) {
+  var t = CERT_THEMES[themeKey] || CERT_THEMES.classic;
+  var f = certDefaultFields();
+  f.name =   { on: true, x: 50, y: 49.6, size: 68, color: t.dark ? t.accent : t.ink, bold: false, italic: false, align: "center", font: "script",  maxW: 70 };
+  f.course = { on: true, x: 50, y: 61.2, size: 25, color: t.dark ? "#ffffff" : t.accent, bold: true, italic: false, align: "center", font: "modern", maxW: 74 };
+  f.period = { on: true, x: 33, y: 76.6, size: 15, color: t.ink, bold: true, italic: false, align: "center", font: "modern", maxW: 26 };
+  f.date =   { on: true, x: 62, y: 76.6, size: 15, color: t.ink, bold: true, italic: false, align: "center", font: "modern", maxW: 25 };
+  f.no =     { on: true, x: 50, y: 91.6, size: 13, color: t.sub, bold: true, italic: false, align: "center", font: "mono", maxW: 30 };
+  f.qr =     { on: true, x: 87, y: 79.5, size: 11.5, color: "#0f172a", bold: false, italic: false, align: "center", font: "sans" };
+  return f;
+}
+
+/** Tayyor dizaynning foni — 1000×707 inline SVG. */
+function _certBuiltinSvg(tpl, c) {
+  var key = (tpl && tpl.builtin) || "classic";
+  var t = CERT_THEMES[key] || CERT_THEMES.classic;
+  var brand = _certEsc((c && c.brand) || _certBrand());
+  var gid = "cg" + key;
+  var fDisp = "font-family=\"" + CERT_FONTS.display.replace(/"/g, "'") + "\"";
+  var fMod = "font-family=\"" + CERT_FONTS.modern.replace(/"/g, "'") + "\"";
+  var deco = "";
+
+  if (key === "classic" || key === "ruby") {
+    // Ikki qavat ramka + burchak naqshlari
+    var corner = function (tr) {
+      return (
+        '<g transform="' + tr + '" fill="none" stroke="' + t.frame + '" stroke-width="2">' +
+        '<path d="M0 70 C0 30 30 0 70 0"/><path d="M14 70 C14 38 38 14 70 14"/>' +
+        '<circle cx="34" cy="34" r="7" fill="' + t.frame2 + '" stroke="none"/>' +
+        '<path d="M70 0 L110 0 M0 70 L0 110" stroke-width="3"/></g>'
+      );
+    };
+    deco =
+      '<rect x="22" y="22" width="956" height="663" fill="none" stroke="' + t.frame + '" stroke-width="5"/>' +
+      '<rect x="36" y="36" width="928" height="635" fill="none" stroke="' + t.frame2 + '" stroke-width="1.5"/>' +
+      corner("translate(48 48)") + corner("translate(952 48) scale(-1 1)") +
+      corner("translate(48 659) scale(1 -1)") + corner("translate(952 659) scale(-1 -1)");
+    if (key === "ruby")
+      deco +=
+        '<path d="M0 0 H1000 V60 C760 110 240 10 0 70 Z" fill="' + t.frame + '" opacity=".08"/>' +
+        '<path d="M0 707 H1000 V640 C760 600 240 700 0 630 Z" fill="' + t.frame + '" opacity=".08"/>';
+  } else if (key === "royal") {
+    deco =
+      '<rect x="18" y="18" width="964" height="671" fill="none" stroke="' + t.frame + '" stroke-width="3"/>' +
+      '<rect x="30" y="30" width="940" height="647" fill="none" stroke="' + t.frame2 + '" stroke-width="1"/>' +
+      '<g fill="' + t.frame + '" opacity=".9">' +
+      '<path d="M500 30 l12 12 -12 12 -12 -12z"/><path d="M500 653 l12 12 -12 12 -12 -12z"/>' +
+      '<path d="M30 353 l12 12 -12 12 -12 -12z" transform="translate(0 -12)"/>' +
+      '<path d="M970 353 l12 12 -12 12 -12 -12z" transform="translate(0 -12)"/></g>' +
+      '<circle cx="500" cy="353" r="300" fill="url(#' + gid + 'r)" />';
+  } else if (key === "emerald") {
+    deco =
+      '<polygon points="0,0 300,0 0,210" fill="' + t.frame + '"/>' +
+      '<polygon points="0,0 210,0 0,140" fill="' + t.frame2 + '" opacity=".85"/>' +
+      '<polygon points="1000,707 820,707 1000,580" fill="' + t.frame + '"/>' +
+      '<polygon points="1000,707 900,707 1000,640" fill="' + t.frame2 + '" opacity=".85"/>' +
+      '<rect x="26" y="26" width="948" height="655" fill="none" stroke="' + t.frame + '" stroke-width="1.5" opacity=".5"/>';
+  }
+
+  // Medal (chap pastda)
+  var medal =
+    '<g transform="translate(128 548) scale(.85)">' +
+    '<path d="M-22 26 L-34 92 L-12 80 L0 100 L6 34 Z" fill="' + t.frame + '"/>' +
+    '<path d="M22 26 L34 92 L12 80 L0 100 L-6 34 Z" fill="' + t.frame2 + '"/>' +
+    '<circle r="46" fill="' + t.frame + '"/>' +
+    '<circle r="38" fill="none" stroke="' + (t.dark ? t.bg2 : "#fff") + '" stroke-width="2" stroke-dasharray="3 4"/>' +
+    '<path d="M0 -22 L6.5 -7 L22 -6 L10 4 L14 20 L0 11 L-14 20 L-10 4 L-22 -6 L-6.5 -7 Z" fill="' + (t.dark ? t.bg2 : "#fff") + '"/>' +
+    "</g>";
+
+  return (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 707" preserveAspectRatio="none" ' +
+    'style="position:absolute;inset:0;width:100%;height:100%;display:block">' +
+    "<defs>" +
+    '<linearGradient id="' + gid + '" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="' + t.bg1 + '"/><stop offset="1" stop-color="' + t.bg2 + '"/></linearGradient>' +
+    '<radialGradient id="' + gid + 'r"><stop offset="0" stop-color="#ffffff" stop-opacity=".07"/>' +
+    '<stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>' +
+    "</defs>" +
+    '<rect width="1000" height="707" fill="url(#' + gid + ')"/>' +
+    deco +
+    '<text x="500" y="102" text-anchor="middle" ' + fMod + ' font-size="17" font-weight="700" letter-spacing="6" fill="' + t.sub + '">' +
+    brand.toUpperCase() + "</text>" +
+    '<text x="500" y="178" text-anchor="middle" ' + fDisp + ' font-size="66" font-weight="700" letter-spacing="10" fill="' + t.accent + '">SERTIFIKAT</text>' +
+    '<g stroke="' + t.frame + '" stroke-width="1.5"><line x1="330" y1="208" x2="470" y2="208"/><line x1="530" y1="208" x2="670" y2="208"/></g>' +
+    '<path d="M500 200 l8 8 -8 8 -8 -8z" fill="' + t.frame + '"/>' +
+    '<text x="500" y="268" text-anchor="middle" ' + fDisp + ' font-size="19" font-style="italic" fill="' + t.sub + '">Ushbu sertifikat egasi</text>' +
+    '<line x1="250" y1="390" x2="750" y2="390" stroke="' + t.frame + '" stroke-width="1.5" opacity=".7"/>' +
+    '<text x="500" y="474" text-anchor="middle" ' + fDisp + ' font-size="17" font-style="italic" fill="' + t.sub + '">' +
+    "kursini muvaffaqiyatli tamamlagani uchun taqdim etiladi</text>" +
+    '<g stroke="' + t.frame + '" stroke-width="1.2" opacity=".8"><line x1="200" y1="560" x2="460" y2="560"/>' +
+    '<line x1="495" y1="560" x2="745" y2="560"/></g>' +
+    '<g ' + fMod + ' font-size="11.5" font-weight="700" letter-spacing="2.5" fill="' + t.sub + '" text-anchor="middle">' +
+    '<text x="330" y="580">O\'QISH DAVRI</text><text x="620" y="580">BERILGAN SANA</text>' +
+    '<text x="870" y="636">TEKSHIRISH</text></g>' +
+    medal +
+    "</svg>"
+  );
+}
+
 /* ─── Chizish ─────────────────────────────────────────────────────────────── */
 
-/** Bitta maydonning CSS joylashuvi (foizli — har qanday o'lchamda mos). */
+/** Maydon uchun ajratilgan kenglik (%) — varaqdan chiqib ketmaydi. */
+function _certFieldW(f) {
+  var m = f.maxW || 60;
+  var room =
+    f.align === "left" ? 100 - f.x : f.align === "right" ? f.x : 2 * Math.min(f.x, 100 - f.x);
+  return Math.max(8, Math.min(m, room - 1));
+}
+
+/**
+ * Bitta maydonning CSS joylashuvi (foizli — har qanday o'lchamda mos).
+ * Maydonga aniq kenglik beriladi; matn undan uzun bo'lsa certFitTexts()
+ * shriftni kichraytiradi — uzun ism-familya hech qachon chegaradan chiqmaydi.
+ */
 function _certFieldStyle(f) {
   var tx = f.align === "left" ? "0" : f.align === "right" ? "-100%" : "-50%";
   return (
     "position:absolute;left:" + f.x + "%;top:" + f.y + "%;" +
+    "width:" + _certFieldW(f) + "%;text-align:" + (f.align || "center") + ";" +
     "transform:translate(" + tx + ",-50%);white-space:nowrap;" +
     "font-family:" + (CERT_FONTS[f.font] || CERT_FONTS.sans) + ";" +
     "font-size:" + f.size + "px;color:" + f.color + ";" +
     "font-weight:" + (f.bold ? 700 : 400) + ";" +
     "font-style:" + (f.italic ? "italic" : "normal") + ";" +
-    "line-height:1.2"
+    "line-height:1.25"
   );
+}
+
+/**
+ * Kenglikka sig'magan matnlarning shriftini kichraytiradi.
+ * Chizilgandan KEYIN (DOM da) chaqiriladi; shrift yuklangach yana bir marta.
+ */
+function certFitTexts(root) {
+  if (!root || !root.querySelectorAll) return;
+  var els = root.querySelectorAll("[data-cfit]");
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    var fs = parseFloat(el.getAttribute("data-fs")) || 16;
+    el.style.fontSize = fs + "px";
+    if (!el.clientWidth) continue;
+    var guard = 0;
+    while (el.scrollWidth > el.clientWidth + 1 && fs > 8 && guard++ < 120) {
+      fs -= 1;
+      el.style.fontSize = fs + "px";
+    }
+  }
+}
+
+function _certFitWhenReady(root, doc) {
+  certFitTexts(root);
+  try {
+    var fonts = (doc || document).fonts;
+    if (fonts && fonts.ready)
+      fonts.ready.then(function () {
+        certFitTexts(root);
+      });
+  } catch (e) {}
 }
 
 /**
@@ -347,9 +568,12 @@ function certRenderHtml(c, qr, tpl, img) {
   tpl = tpl || certTplFor(c);
   var sz = certSize(tpl);
   var txt = certFieldTexts(c);
+  _certLoadFonts();
 
   var bg = img
-    ? '<img src="' + img + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;display:block">'
+    ? '<img src="' + img + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill">'
+    : tpl.builtin
+    ? _certBuiltinSvg(tpl, c)
     : '<div style="position:absolute;inset:0;background:#fff;border:1px dashed #cbd5e1"></div>' +
       '<div style="position:absolute;left:50%;top:14%;transform:translateX(-50%);font:600 15px system-ui,sans-serif;color:#94a3b8;white-space:nowrap">' +
       "Shablon rasmi yuklanmagan</div>";
@@ -377,7 +601,11 @@ function certRenderHtml(c, qr, tpl, img) {
         "position:absolute;left:" + f.x + "%;top:" + f.y + "%;" +
         "transform:translate(-50%,-50%);width:" + side + "px;height:" + side + "px";
       if (qr)
-        parts.push('<img src="' + qr + '" alt="QR" style="' + box + ';background:#fff;padding:4px;border-radius:6px;box-sizing:border-box">');
+        parts.push(
+          '<img src="' + qr + '" alt="QR" style="' + box +
+          ';background:#fff;padding:' + Math.max(4, Math.round(side * 0.06)) +
+          'px;border-radius:8px;box-sizing:border-box;box-shadow:0 2px 10px rgba(15,23,42,.18)">',
+        );
       else
         parts.push(
           '<div style="' + box + ';font:9px system-ui,sans-serif;color:#64748b;' +
@@ -390,35 +618,76 @@ function certRenderHtml(c, qr, tpl, img) {
     var v = txt[meta.key];
     // Bo'sh maydon ("—") shablonga umuman chizilmaydi
     if (!v || v === "—") return;
-    parts.push('<div style="' + _certFieldStyle(f) + '">' + _certEsc(v) + "</div>");
+    parts.push('<div data-cfit="1" data-fs="' + f.size + '" style="' + _certFieldStyle(f) + '">' + _certEsc(v) + "</div>");
   });
 
   return (
-    '<div style="position:relative;width:' + sz.w + "px;height:" + sz.h +
-    'px;background:#fff;overflow:hidden">' + bg + covers.join("") + parts.join("") + "</div>"
+    '<div class="cert-a4" style="position:relative;width:' + sz.w + "px;height:" + sz.h +
+    'px;background:#fff;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact">' +
+    bg + covers.join("") + parts.join("") + "</div>"
   );
 }
 
 /** Chop etish / alohida sahifa uchun to'liq HTML hujjat. */
 function certDocument(c, qr, tpl, img) {
   tpl = tpl || certTplFor(c);
-  var sz = certSize(tpl);
-  var landscape = sz.w >= sz.h;
+  var landscape = !certIsPortrait(tpl);
+  var pw = landscape ? "297mm" : "210mm";
+  var ph = landscape ? "210mm" : "297mm";
   return (
     "<!DOCTYPE html><html lang='uz'><head><meta charset='utf-8'>" +
     "<title>" + _certEsc(c.no || "Sertifikat") + " — " + _certEsc(c.name || "") + "</title>" +
+    "<link rel='stylesheet' href='" + CERT_FONTS_URL + "'>" +
     "<style>" +
-    "*{box-sizing:border-box}html,body{margin:0;padding:0;background:#e2e8f0}" +
-    ".sheet{width:1000px;margin:24px auto;box-shadow:0 10px 40px rgba(0,0,0,.18)}" +
-    "@media print{@page{size:A4 " + (landscape ? "landscape" : "portrait") + ";margin:0}" +
-    "html,body{background:#fff}.sheet{margin:0;box-shadow:none;" +
-    "transform:scale(.9985);transform-origin:top left}}" +
+    "*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+    "html,body{margin:0;padding:0;background:#e2e8f0}" +
+    // Varaq aniq A4 o'lchamida; ichidagi 1000px chizma unga moslab kattalashtiriladi
+    ".sheet{width:" + pw + ";height:" + ph + ";margin:24px auto;overflow:hidden;background:#fff;" +
+    "box-shadow:0 10px 40px rgba(0,0,0,.18)}" +
+    ".sheet>.cert-a4{transform-origin:top left}" +
+    "@page{size:A4 " + (landscape ? "landscape" : "portrait") + ";margin:0}" +
+    "@media print{html,body{background:#fff;width:" + pw + ";height:" + ph + "}" +
+    ".sheet{margin:0;box-shadow:none;page-break-after:avoid;break-after:avoid}}" +
     "</style></head><body><div class='sheet'>" +
     certRenderHtml(c, qr, tpl, img) +
-    "</div>" +
-    "<script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script>" +
-    "</body></html>"
+    "</div></body></html>"
   );
+}
+
+/** Ochilgan oynadagi varaqni A4 ga moslaydi, matnlarni sig'diradi va chop etadi. */
+function _certPrepareSheet(w, autoPrint, tries) {
+  try {
+    var d = w.document;
+    var sheet = d.querySelector(".sheet");
+    var inner = sheet && sheet.firstElementChild;
+    if (!inner || !sheet.clientWidth) {
+      // Hujjat hali to'liq o'qilmagan — biroz kutib qayta urinamiz
+      if ((tries || 0) < 40)
+        setTimeout(function () {
+          _certPrepareSheet(w, autoPrint, (tries || 0) + 1);
+        }, 50);
+      return;
+    }
+    var fit = function () {
+      var s = sheet.clientWidth / 1000;
+      if (s && isFinite(s)) inner.style.transform = "scale(" + s + ")";
+      certFitTexts(inner);
+    };
+    fit();
+    var go = function () {
+      fit();
+      if (autoPrint) setTimeout(function () {
+        try { w.focus(); w.print(); } catch (e) {}
+      }, 200);
+    };
+    var imgs = [].slice.call(d.images || []);
+    var waitImgs = Promise.all(imgs.map(function (im) {
+      return im.complete ? 0 : new Promise(function (r) { im.onload = im.onerror = r; });
+    }));
+    var waitFonts = d.fonts && d.fonts.ready ? d.fonts.ready : Promise.resolve();
+    // Shrift 3 soniyada kelmasa ham chop etamiz (internet sekin bo'lsa)
+    Promise.race([Promise.all([waitImgs, waitFonts]), new Promise(function (r) { setTimeout(r, 3000); })]).then(go);
+  } catch (e) {}
 }
 
 /**
@@ -443,6 +712,7 @@ function certPrint(id) {
     w.document.open();
     w.document.write(certDocument(c, r[0], tpl, r[1]));
     w.document.close();
+    _certPrepareSheet(w, true);
   });
 }
 
@@ -511,6 +781,7 @@ function certFitPreview(wrapId) {
   inner.style.transformOrigin = "top left";
   inner.style.transform = "scale(" + s + ")";
   wrap.style.height = (inner.offsetHeight || 707) * s + "px";
+  _certFitWhenReady(inner);
 }
 
 /** Sertifikatni konteynerga chizadi (rasm va QR tayyor bo'lgach yangilaydi). */
@@ -561,6 +832,7 @@ function renderCertTemplates() {
   var box = document.getElementById("cert-tpl-grid");
   if (!box) return;
   var list = certTemplatesAll();
+  _certLoadFonts();
 
   if (!list.length) {
     box.innerHTML =
@@ -585,7 +857,13 @@ function renderCertTemplates() {
         '<div style="padding:12px 14px">' +
         '<div style="font-size:14px;font-weight:800;color:var(--text)">' + _certEsc(t.name) + "</div>" +
         '<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' +
-        (t.w || "?") + "×" + (t.h || "?") + " px · " + used + " ta sertifikatda ishlatilgan</div>" +
+        (t.builtin ? "✨ Tayyor dizayn · A4" : (t.w || "?") + "×" + (t.h || "?") + " px · A4") +
+        " · " + used + " ta sertifikatda ishlatilgan</div>" +
+        (certA4Mismatch(t) > 0.03
+          ? '<div style="font-size:11.5px;color:var(--orange-text);margin-top:6px">⚠️ Rasm nisbati A4 emas — ' +
+            'chop etishda cho\'zilib chiqadi. <a href="#" onclick="certFixTplA4(' + t.id + ');return false" ' +
+            'style="color:var(--accent);font-weight:700">📐 A4 ga moslash</a></div>'
+          : "") +
         '<div style="display:flex;gap:8px;margin-top:10px">' +
         '<button class="btn btn-sm btn-primary" style="flex:1" onclick="certOpenTplEditor(' + t.id + ')">🎯 Maydonlarni joylash</button>' +
         '<button class="btn btn-sm" onclick="certDeleteTemplate(' + t.id + ')">🗑</button>' +
@@ -1548,53 +1826,211 @@ function _certPickImage(file) {
   }
   var reader = new FileReader();
   reader.onload = function (e) {
-    var url = e.target.result;
-    var im = new Image();
-    im.onload = function () {
-      _certUpload = {
-        dataUrl: url,
-        w: im.naturalWidth,
-        h: im.naturalHeight,
-        name: file.name,
-        // Tez zaxira joylashuv — tahlil tugaguncha shu turadi
-        fields: certAutoLayout(im),
-      };
-      var prev = document.getElementById("cert-upload-prev");
-      var status = function (txt) {
-        var el = document.getElementById("cert-upload-status");
-        if (el) el.innerHTML = txt;
-      };
-      if (prev) {
-        prev.innerHTML =
-          '<img src="' + url + '" style="width:100%;display:block;border:1px solid var(--border)">' +
-          '<div id="cert-upload-status" style="font-size:11.5px;color:var(--text3);padding:6px 2px">✅ ' +
-          _certEsc(file.name) + " · " + im.naturalWidth + "×" + im.naturalHeight + " px</div>";
-      }
-
-      // Blanka O'QILADI: yozuvlar (OCR) va chiziqlar topilib, maydonlar
-      // o'z joyiga qo'yiladi. Admin qo'lda hech narsa surmaydi.
-      status("🔎 Blanka o'qilmoqda — maydon joylari aniqlanmoqda...");
-      _certUpload.ready = certAutoLayoutSmart(im, url, function (p) {
-        status("🔎 Blanka o'qilmoqda... " + p + "%");
-      })
-        .then(function (fields) {
-          if (_certUpload) _certUpload.fields = fields;
-          status("✅ Joylashuv aniqlandi — «Yuklash» tugmasini bosing");
-          return fields;
-        })
-        .catch(function () {
-          status("⚠️ Tahlil bo'lmadi — taxminiy joylashuv qo'yildi");
-        });
-      var nm = document.getElementById("f-tpl-name");
-      if (nm && !nm.value.trim())
-        nm.value = String(file.name).replace(/\.[^.]+$/, "");
+    var raw = new Image();
+    raw.onload = function () {
+      // Rasm A4 nisbatiga keltiriladi (chop etilganda varaqni to'liq to'ldirsin)
+      var url = _certToA4(raw).dataUrl;
+      var im = new Image();
+      im.onload = function () { _certPicked(file, url, im); };
+      im.src = url;
     };
-    im.onerror = function () {
+    raw.onerror = function () {
       if (typeof toast === "function") toast("⚠️ Rasm o'qilmadi");
     };
-    im.src = url;
+    raw.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+/**
+ * Rasmni A4 nisbatiga keltiradi. Farq kichik (≤12%) bo'lsa — yoyiladi
+ * (ko'z ilg'amaydi); katta bo'lsa — rasm to'liq saqlanib, bo'sh chetlar
+ * blankaning chetki rangi bilan to'ldiriladi. Natija ≈200 dpi JPEG.
+ * @returns {{dataUrl:string,w:number,h:number,box:{x:number,y:number,w:number,h:number}}}
+ */
+function _certToA4(img) {
+  var nw = img.naturalWidth || img.width;
+  var nh = img.naturalHeight || img.height;
+  var portrait = nh > nw;
+  var long = Math.min(2480, Math.max(1754, Math.max(nw, nh)));
+  var W = portrait ? Math.round(long / CERT_A4) : long;
+  var H = portrait ? long : Math.round(long / CERT_A4);
+  var cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  var ctx = cv.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  var r = Math.max(nw, nh) / Math.min(nw, nh);
+  var box = { x: 0, y: 0, w: W, h: H };
+  if (Math.abs(r / CERT_A4 - 1) > 0.12) {
+    var s = Math.min(W / nw, H / nh);
+    box = { w: Math.round(nw * s), h: Math.round(nh * s) };
+    box.x = Math.round((W - box.w) / 2);
+    box.y = Math.round((H - box.h) / 2);
+    // Chetki rang — burchakdagi piksel
+    try {
+      var t = document.createElement("canvas");
+      t.width = t.height = 1;
+      var tc = t.getContext("2d");
+      tc.drawImage(img, 0, 0, 1, 1, 0, 0, 1, 1);
+      var px = tc.getImageData(0, 0, 1, 1).data;
+      ctx.fillStyle = "rgb(" + px[0] + "," + px[1] + "," + px[2] + ")";
+    } catch (e) {
+      ctx.fillStyle = "#ffffff";
+    }
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.drawImage(img, box.x, box.y, box.w, box.h);
+  return { dataUrl: cv.toDataURL("image/jpeg", 0.92), w: W, h: H, box: box };
+}
+
+/** Mavjud shablonni A4 ga keltiradi va maydonlarni rasm bilan birga suradi. */
+function certFixTplA4(id) {
+  var t = certTplById(id);
+  if (!t) return;
+  certTplImage(t).then(function (src) {
+    if (!src) {
+      if (typeof toast === "function") toast("⚠️ Shablon rasmi topilmadi");
+      return;
+    }
+    var im = new Image();
+    im.onload = function () {
+      var out = _certToA4(im);
+      var W = out.w, H = out.h, b = out.box;
+      var kx = b.w / W, ky = b.h / H;
+      var fields = JSON.parse(JSON.stringify(t.fields || certDefaultFields()));
+      Object.keys(fields).forEach(function (k) {
+        var f = fields[k];
+        if (!f) return;
+        f.x = Math.round(((b.x + (f.x / 100) * b.w) / W) * 1000) / 10;
+        f.y = Math.round(((b.y + (f.y / 100) * b.h) / H) * 1000) / 10;
+        f.size = Math.round(f.size * kx * 10) / 10;
+        if (f.maxW) f.maxW = Math.round(f.maxW * kx * 10) / 10;
+        if (f.cover && f.cover.w) {
+          f.cover.w = Math.round(f.cover.w * kx * 10) / 10;
+          f.cover.h = Math.round(f.cover.h * ky * 10) / 10;
+        }
+      });
+      if (typeof toast === "function") toast("⏳ A4 ga moslanmoqda...");
+      certUploadTplImage(t.blobId, out.dataUrl, t.name).then(function (d) {
+        if (!d || !d.ok) {
+          if (typeof toast === "function") toast("🚫 Saqlanmadi: " + ((d && d.error) || "xato"));
+          return;
+        }
+        t.w = W;
+        t.h = H;
+        t.fields = fields;
+        if (typeof saveData === "function") saveData();
+        renderCertTemplates();
+        if (typeof toast === "function") toast("📐 Shablon A4 ga moslandi");
+      });
+    };
+    im.src = src;
+  });
+}
+
+/* ─── Tayyor dizayn qo'shish ──────────────────────────────────────────── */
+
+function certOpenBuiltins() {
+  _certLoadFonts();
+  var keys = Object.keys(CERT_THEMES);
+  var body =
+    '<div style="font-size:12.5px;color:var(--text3);margin-bottom:12px;line-height:1.6">' +
+    "Rasm yuklamasdan tayyor A4 dizayndan foydalaning. Ism-familya, kurs, sana va QR kod " +
+    "o'z joyiga qo'yilgan — xohlasangiz keyin «🎯 Maydonlarni joylash» orqali o'zgartirasiz.</div>" +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">' +
+    keys.map(function (k) {
+      return (
+        '<div style="border:1.5px solid var(--border2);border-radius:var(--r-lg);overflow:hidden;background:var(--bg)">' +
+        '<div id="cert-bi-' + k + '" style="width:100%;overflow:hidden"></div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px">' +
+        '<b style="font-size:13px">' + _certEsc(CERT_THEMES[k].title) + "</b>" +
+        '<button class="btn btn-sm btn-primary" onclick="certAddBuiltin(\'' + k + '\')">+ Qo\'shish</button></div></div>'
+      );
+    }).join("") +
+    "</div>";
+  _certOpenModal("✨ Tayyor dizaynlar (A4)", body, null, true);
+  setTimeout(function () {
+    keys.forEach(function (k) {
+      var tpl = { id: -1, builtin: k, w: 1000, h: 707, fields: certBuiltinFields(k) };
+      var el = document.getElementById("cert-bi-" + k);
+      if (!el) return;
+      var c = _certSampleCert(tpl);
+      el.innerHTML = certRenderHtml(c, "", tpl, "");
+      certFitPreview("cert-bi-" + k);
+      certQrDataUrl(certPublicUrl(c)).then(function (qr) {
+        var el2 = document.getElementById("cert-bi-" + k);
+        if (!el2) return;
+        el2.innerHTML = certRenderHtml(c, qr, tpl, "");
+        certFitPreview("cert-bi-" + k);
+      });
+    });
+  }, 40);
+}
+
+function certAddBuiltin(key) {
+  var th = CERT_THEMES[key];
+  if (!th) return;
+  var id = typeof newId === "function" ? newId() : Date.now();
+  certTemplatesAll().push({
+    id: id,
+    name: th.title,
+    builtin: key,
+    blobId: "",
+    w: 1000,
+    h: 707,
+    fields: certBuiltinFields(key),
+    createdAt: new Date().toISOString(),
+  });
+  if (typeof saveData === "function") saveData();
+  certCloseModal();
+  renderCertTemplates();
+  _certFillTplFilter && _certFillTplFilter();
+  if (typeof toast === "function") toast("✨ «" + th.title + "» dizayni qo'shildi");
+}
+
+/** Tanlangan (A4 ga keltirilgan) rasmni ko'rsatadi va blankani o'qiydi. */
+function _certPicked(file, url, im) {
+  _certUpload = {
+    dataUrl: url,
+    w: im.naturalWidth,
+    h: im.naturalHeight,
+    name: file.name,
+    // Tez zaxira joylashuv — tahlil tugaguncha shu turadi
+    fields: certAutoLayout(im),
+  };
+  var prev = document.getElementById("cert-upload-prev");
+  var status = function (txt) {
+    var el = document.getElementById("cert-upload-status");
+    if (el) el.innerHTML = txt;
+  };
+  if (prev) {
+    prev.innerHTML =
+      '<img src="' + url + '" style="width:100%;display:block;border:1px solid var(--border)">' +
+      '<div id="cert-upload-status" style="font-size:11.5px;color:var(--text3);padding:6px 2px">✅ ' +
+      _certEsc(file.name) + " · A4 ga moslandi (" + im.naturalWidth + "×" + im.naturalHeight + " px)</div>";
+  }
+
+  // Blanka O'QILADI: yozuvlar (OCR) va chiziqlar topilib, maydonlar
+  // o'z joyiga qo'yiladi. Admin qo'lda hech narsa surmaydi.
+  status("🔎 Blanka o'qilmoqda — maydon joylari aniqlanmoqda...");
+  _certUpload.ready = certAutoLayoutSmart(im, url, function (p) {
+    status("🔎 Blanka o'qilmoqda... " + p + "%");
+  })
+    .then(function (fields) {
+      if (_certUpload) _certUpload.fields = fields;
+      status("✅ Joylashuv aniqlandi — «Yuklash» tugmasini bosing");
+      return fields;
+    })
+    .catch(function () {
+      status("⚠️ Tahlil bo'lmadi — taxminiy joylashuv qo'yildi");
+    });
+  var nm = document.getElementById("f-tpl-name");
+  if (nm && !nm.value.trim())
+    nm.value = String(file.name).replace(/\.[^.]+$/, "");
 }
 
 function certSaveTplUpload() {
@@ -1754,7 +2190,7 @@ function _certEdStage() {
       );
     }
     return (
-      '<div data-k="' + m.key + '" style="' + _certFieldStyle(f) + ";" + ring +
+      '<div data-k="' + m.key + '" data-cfit="1" data-fs="' + f.size + '" style="' + _certFieldStyle(f) + ";" + ring +
       ";opacity:" + (f.on ? 1 : 0.35) + '">' + _certEsc(m.sample) + "</div>"
     );
   }).join("");
@@ -1764,6 +2200,8 @@ function _certEdStage() {
     'px;background:#fff;overflow:hidden">' +
     (img
       ? '<img src="' + img + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;display:block;-webkit-user-drag:none;user-select:none">'
+      : _certEdTpl.builtin
+      ? '<div style="position:absolute;inset:0;pointer-events:none">' + _certBuiltinSvg(_certEdTpl, null) + "</div>"
       : '<div style="position:absolute;inset:0;background:#fff"></div>') +
     covers +
     boxes +
@@ -1847,7 +2285,7 @@ function _certEdCtrl() {
     );
   }).join("");
 
-  var fontOpts = [["serif", "Serif (Georgia)"], ["sans", "Sans (Segoe UI)"], ["mono", "Mono (JetBrains)"]]
+  var fontOpts = CERT_FONT_OPTS
     .map(function (o) {
       return '<option value="' + o[0] + '"' + (f.font === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
     })
@@ -1913,6 +2351,12 @@ function certEdSet(prop, val) {
 /** Maydonlarni rasm bo'yicha qaytadan avtomatik joylashtiradi. */
 function certEdAutoLayout() {
   if (!_certEdTpl) return;
+  if (_certEdTpl.builtin) {
+    _certEdTpl.fields = certBuiltinFields(_certEdTpl.builtin);
+    _certEdRender();
+    if (typeof toast === "function") toast("🪄 Maydonlar asl joyiga qaytarildi");
+    return;
+  }
   var src = _certImgCache[_certEdTpl.blobId];
   if (!src) {
     if (typeof toast === "function") toast("⚠️ Shablon rasmi hali yuklanmadi");

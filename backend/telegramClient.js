@@ -34,15 +34,20 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * @param {object} opts
  * @param {string} opts.envKey Token qaysi muhit o'zgaruvchisidan olinadi
  * @param {string} opts.label  Xato matnlarida ko'rinadigan nom
+ * @param {() => string} [opts.getToken] Token boshqa joydan (masalan admin
+ *        paneldan bazaga saqlangan) olinsa. Bo'sh qaytarsa — envKey ishlatiladi.
  */
-export function createTelegramClient({ envKey, label }) {
+export function createTelegramClient({ envKey, label, getToken }) {
   let queueTail = Promise.resolve();
   let botInfo = null;
+  let botInfoToken = "";
   let polling = false;
+  let pollGen = 0; // to'xtatib qayta yoqilganda eski halqa o'zi chiqib ketsin
   let pollOffset = 0;
 
   function token() {
-    const t = (process.env[envKey] || "").trim();
+    const fromFn = typeof getToken === "function" ? String(getToken() || "").trim() : "";
+    const t = fromFn || (process.env[envKey] || "").trim();
     return t && !t.includes("your_") ? t : "";
   }
 
@@ -119,10 +124,13 @@ export function createTelegramClient({ envKey, label }) {
 
   /** Bot haqida ma'lumot (username deep-link uchun kerak). Keshlanadi. */
   async function getBotInfo() {
-    if (botInfo) return botInfo;
+    // Token almashtirilsa eski bot ma'lumoti qaytmasin
+    if (botInfo && botInfoToken === token()) return botInfo;
+    botInfo = null;
     if (!ready()) return null;
     try {
       botInfo = await api("getMe", {}, 8000);
+      botInfoToken = token();
     } catch (e) {
       botInfo = null;
     }
@@ -147,8 +155,9 @@ export function createTelegramClient({ envKey, label }) {
   function startPolling(onUpdate, allowedUpdates) {
     if (polling || !ready()) return false;
     polling = true;
+    const gen = ++pollGen;
     (async () => {
-      while (polling) {
+      while (polling && gen === pollGen) {
         try {
           const ups =
             (await api(
@@ -160,6 +169,7 @@ export function createTelegramClient({ envKey, label }) {
               },
               35000,
             )) || [];
+          if (gen !== pollGen) break; // shu orada token almashdi
           for (const u of ups) {
             pollOffset = u.update_id + 1;
             try {
@@ -181,6 +191,14 @@ export function createTelegramClient({ envKey, label }) {
 
   const isPolling = () => polling;
 
+  /** Halqani to'xtatadi (token almashtirilganda yoki o'chirilganda). */
+  function stopPolling() {
+    polling = false;
+    pollGen++;
+    pollOffset = 0;
+    botInfo = null;
+  }
+
   return {
     envKey,
     label,
@@ -193,6 +211,7 @@ export function createTelegramClient({ envKey, label }) {
     getBotInfo,
     status,
     startPolling,
+    stopPolling,
     isPolling,
   };
 }
