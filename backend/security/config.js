@@ -120,7 +120,8 @@ export const CONFIG = {
 
   // ── CORS ───────────────────────────────────────────────────────────────
   // Bo'sh bo'lsa: prod'da faqat o'z domeni (same-origin), dev'da localhost.
-  allowedOrigins: list(process.env.ALLOWED_ORIGINS),
+  // Admin panel domeni har doim ruxsat etiladi (Render ENV dagi ro'yxatga qo'shimcha).
+  allowedOrigins: [...list(process.env.ALLOWED_ORIGINS), "https://admin-marsliklar.vercel.app"],
   allowCredentials: true,
 
   // ── Cookie ─────────────────────────────────────────────────────────────
