@@ -46,6 +46,8 @@ export const SCRIPT_GROUPS = [
   ["certificates.js"],
   // Kengaytirilgan dashboard analitikasi — render funksiyalarini o'raydi
   ["dash-analytics.js"],
+  // Admin AI yordamchi — CRM ma'lumotidan hisobot quradi (D, debtorAmount)
+  ["admin-ai.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 

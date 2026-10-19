@@ -207,6 +207,7 @@ function renderTabView(tab) {
   };
   if (tab === "dashboard") call("renderDashboard");
   if (tab === "debtors") call("renderDebtors");
+  if (tab === "admin-ai") call("renderAdminAI");
   if (tab === "finance") call("renderFinance");
   if (tab === "settings") call("renderSettingsPanel");
   if (tab === "mentor-dash") call("renderMentorDashboard");

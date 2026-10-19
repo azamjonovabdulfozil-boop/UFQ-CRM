@@ -1321,6 +1321,14 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   const { messages, system } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50)
     return res.status(400).json({ ok: false, error: "messages massivi kerak (1–50 ta)" });
+  // Admin AI yordamchi CRM hisobotini system prompt ichida yuboradi — unga
+  // katta kontekst, uzunroq javob va ko'proq kutish vaqti beriladi. Boshqa
+  // rollar uchun system prompt hajmi cheklanadi.
+  const isAdminMode = req.body?.mode === "admin" && req.user?.role === ROLES.ADMIN;
+  const systemLimit = isAdminMode ? 250000 : 12000;
+  if (system != null && (typeof system !== "string" || system.length > systemLimit))
+    return res.status(413).json({ ok: false, error: "Ko'rsatma (system) juda uzun" });
+  const tmo = (ms) => (isAdminMode ? Math.max(ms, 60000) : ms);
   // Prompt orqali servisni suiiste'mol qilishga qarshi hajm cheklovi
   const totalChars = messages.reduce((n, m) => n + String(m?.content || "").length, 0);
   if (totalChars > 40000)
@@ -1354,7 +1362,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
             messages: msgs,
           }),
         },
-        20000,
+        tmo(20000),
       );
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -1393,7 +1401,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         },
-        15000,
+        tmo(15000),
       );
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -1431,18 +1439,30 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
-            // Tezroq model — Haiku (Sonnet 4'dan ancha tez)
-            model: "claude-3-5-haiku-20241022",
-            max_tokens: 512,
+            // Tez va arzon model — Claude Haiku 5.5 (ANTHROPIC_MODEL bilan almashtirish mumkin)
+            model: process.env.ANTHROPIC_MODEL || "claude-haiku-5-5",
+            max_tokens: isAdminMode ? 8000 : 2048,
+            // Chat uchun past effort — tezroq javob
+            output_config: { effort: "low" },
             system: system || "",
-            messages,
+            messages: messages.map((m) => ({
+              role: m.role === "assistant" ? "assistant" : "user",
+              content: String(m.content || ""),
+            })),
           }),
         },
-        15000,
+        tmo(15000),
       );
       const data = await r.json().catch(() => ({}));
+      if (r.ok && data.stop_reason === "refusal") {
+        return res.json({ ok: true, text: "⚠️ Bu savolga javob berib bo'lmaydi. Savolni boshqacha yozib ko'ring." });
+      }
       if (r.ok) {
-        const text = data.content?.[0]?.text || "";
+        // Javobda thinking bloklari ham bo'lishi mumkin — faqat matn bloklari olinadi
+        const text = (data.content || [])
+          .filter((b) => b.type === "text")
+          .map((b) => b.text)
+          .join("");
         if (text) return res.json({ ok: true, text });
         lastErr = "Anthropic bo'sh javob qaytardi";
       } else {
@@ -1480,7 +1500,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
           private: true,
         }),
       },
-      14000,
+      tmo(14000),
     );
     const raw = await r.text();
     if (!r.ok) {
