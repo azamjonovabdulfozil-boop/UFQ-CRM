@@ -1313,6 +1313,156 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 45000) {
   }
 }
 
+// ─── 🔊 Matnni ovozga aylantirish (admin AI → "Eshitish") ───────────────────
+// Lovable shlyuzidagi nutq modeli o'zbekchani tabiiy o'qiydi. Brauzer bu
+// ovozni ijro etadi; xizmat ishlamasa brauzer o'zining ovozi bilan o'qiydi.
+app.post("/api/ai-tts", requireAdmin, expensiveLimiter, async (req, res) => {
+  const text = String(req.body?.text || "").trim().slice(0, 2500);
+  if (!text) return res.status(400).json({ ok: false, error: "Matn bo'sh" });
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key || key.includes("your_"))
+    return res.status(503).json({ ok: false, code: "no-tts", error: "Ovoz xizmati sozlanmagan" });
+
+  const body = {
+    model: process.env.LOVABLE_TTS_MODEL || "openai/gpt-4o-mini-tts",
+    input: text,
+    voice: process.env.LOVABLE_TTS_VOICE || "nova",
+    response_format: "mp3",
+    instructions:
+      "Matnni o'z tilida (o'zbek yoki rus) tabiiy, aniq talaffuz bilan, xotirjam va do'stona ohangda o'qi.",
+  };
+  const call = () =>
+    fetchWithTimeout(
+      "https://ai.gateway.lovable.dev/v1/audio/speech",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
+        body: JSON.stringify(body),
+      },
+      90000,
+    );
+  try {
+    let r = await call();
+    // Ba'zi nutq modellari "instructions" ni qabul qilmaydi — usiz qayta urinamiz
+    if (r.status === 400) {
+      delete body.instructions;
+      r = await call();
+    }
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      return res.status(502).json({ ok: false, error: "Ovoz xizmati xatosi: HTTP " + r.status, detail: safeLog(t, 200) });
+    }
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.setHeader("Content-Type", r.headers.get("content-type") || "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buf);
+  } catch (e) {
+    res.status(502).json({
+      ok: false,
+      error: e?.name === "AbortError" ? "Ovoz xizmati javob bermadi" : "Ovoz xizmatiga ulanib bo'lmadi",
+    });
+  }
+});
+
+// ─── AI xabarlarini yagona ko'rinishga keltirish ────────────────────────────
+// Admin AI yordamchi xabarga fayl qo'sha oladi: rasm, ovoz, PDF/video. Xabar
+// `content` i satr yoki qismlar ro'yxati bo'ladi (OpenAI chat formati):
+//   { type: "text", text }
+//   { type: "image_url", image_url: { url: "data:image/...;base64,..." } }
+//   { type: "input_audio", input_audio: { data: "<base64>", format: "wav" } }
+//   { type: "file", file: { filename, file_data: "data:<mime>;base64,..." } }
+// Har bir provayder o'z formatiga shu yerdan o'giriladi.
+const AI_MAX_FILE_BYTES = 18 * 1024 * 1024;
+const AI_DATA_URL = /^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i;
+
+function normalizeAiMessages(messages, allowFiles) {
+  let fileBytes = 0;
+  const out = [];
+  for (const m of messages) {
+    const role = m?.role === "assistant" ? "assistant" : "user";
+    if (!Array.isArray(m?.content)) {
+      out.push({ role, text: String(m?.content || ""), files: [] });
+      continue;
+    }
+    const texts = [];
+    const files = [];
+    for (const part of m.content.slice(0, 20)) {
+      if (part?.type === "text") texts.push(String(part.text || ""));
+      else if (!allowFiles) continue;
+      else if (part?.type === "image_url") {
+        const mm = AI_DATA_URL.exec(String(part.image_url?.url || ""));
+        if (!mm || !/^image\//i.test(mm[1])) return { error: "Rasm formati noto'g'ri" };
+        files.push({ kind: "image", mime: mm[1].toLowerCase(), data: mm[2], name: "rasm" });
+        fileBytes += mm[2].length;
+      } else if (part?.type === "input_audio") {
+        const data = String(part.input_audio?.data || "");
+        const format = String(part.input_audio?.format || "wav").toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (!/^[A-Za-z0-9+/=]+$/.test(data)) return { error: "Ovoz formati noto'g'ri" };
+        files.push({ kind: "audio", mime: "audio/" + (format === "mp3" ? "mpeg" : format), format, data, name: "ovoz" });
+        fileBytes += data.length;
+      } else if (part?.type === "file") {
+        const mm = AI_DATA_URL.exec(String(part.file?.file_data || ""));
+        if (!mm) return { error: "Fayl formati noto'g'ri" };
+        const name = String(part.file?.filename || "fayl").slice(0, 120);
+        files.push({ kind: "file", mime: mm[1].toLowerCase(), data: mm[2], name });
+        fileBytes += mm[2].length;
+      }
+    }
+    out.push({ role, text: texts.join("\n\n"), files });
+  }
+  if (fileBytes > AI_MAX_FILE_BYTES) return { error: "Fayllar juda katta (jami 18 MB gacha)" };
+  return { msgs: out, hasFiles: out.some((m) => m.files.length) };
+}
+
+/** Faylni tushunmaydigan provayder uchun — fayllar matnli eslatmaga aylanadi. */
+const aiTextOnly = (m) =>
+  m.text +
+  (m.files.length
+    ? "\n\n[Biriktirilgan fayllar: " + m.files.map((f) => f.name + " (" + f.mime + ")").join(", ") +
+      " — bu zaxira AI fayllarni ko'ra olmaydi]"
+    : "");
+
+/** OpenAI chat formati (Lovable shlyuzi). */
+const aiOpenAiContent = (m) =>
+  !m.files.length
+    ? m.text
+    : [
+        { type: "text", text: m.text || "Ushbu faylni tahlil qil." },
+        ...m.files.map((f) =>
+          f.kind === "image"
+            ? { type: "image_url", image_url: { url: `data:${f.mime};base64,${f.data}` } }
+            : f.kind === "audio"
+              ? { type: "input_audio", input_audio: { data: f.data, format: f.format } }
+              : { type: "file", file: { filename: f.name, file_data: `data:${f.mime};base64,${f.data}` } },
+        ),
+      ];
+
+/** Google Gemini formati. */
+const aiGeminiParts = (m) => [
+  { text: m.text || "Ushbu faylni tahlil qil." },
+  ...m.files.map((f) => ({ inline_data: { mime_type: f.mime, data: f.data } })),
+];
+
+/** Anthropic formati: rasm va PDF quvvatlanadi, qolgani matnli eslatma. */
+function aiAnthropicContent(m) {
+  if (!m.files.length) return m.text;
+  const blocks = [];
+  const skipped = [];
+  for (const f of m.files) {
+    if (f.kind === "image" && /^image\/(png|jpe?g|gif|webp)$/.test(f.mime))
+      blocks.push({ type: "image", source: { type: "base64", media_type: f.mime.replace("jpg", "jpeg"), data: f.data } });
+    else if (f.mime === "application/pdf")
+      blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data } });
+    else skipped.push(f.name + " (" + f.mime + ")");
+  }
+  blocks.push({
+    type: "text",
+    text: (m.text || "Ushbu faylni tahlil qil.") +
+      (skipped.length ? "\n\n[Bu fayllarni ko'rib bo'lmadi: " + skipped.join(", ") + "]" : ""),
+  });
+  return blocks;
+}
+
 app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   // Klient uzilib qolsa serverda ham to'xtaymiz
   let clientAborted = false;
@@ -1328,10 +1478,15 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   const systemLimit = isAdminMode ? 250000 : 12000;
   if (system != null && (typeof system !== "string" || system.length > systemLimit))
     return res.status(413).json({ ok: false, error: "Ko'rsatma (system) juda uzun" });
-  const tmo = (ms) => (isAdminMode ? Math.max(ms, 60000) : ms);
+  const tmo = (ms) => (isAdminMode ? Math.max(ms, req.body?.hasFiles ? 120000 : 60000) : ms);
+  // Fayllar faqat admin rejimida qabul qilinadi; boshqalarda matni olinadi
+  const norm = normalizeAiMessages(messages, isAdminMode);
+  if (norm.error) return res.status(400).json({ ok: false, error: norm.error });
+  const nmsgs = norm.msgs;
   // Prompt orqali servisni suiiste'mol qilishga qarshi hajm cheklovi
-  const totalChars = messages.reduce((n, m) => n + String(m?.content || "").length, 0);
-  if (totalChars > 40000)
+  // (admin hujjat matnini ham yuboradi — unga ko'proq ruxsat)
+  const totalChars = nmsgs.reduce((n, m) => n + m.text.length, 0);
+  if (totalChars > (isAdminMode ? 400000 : 40000))
     return res.status(413).json({ ok: false, error: "Savol juda uzun" });
 
   const key = process.env.ANTHROPIC_API_KEY;
@@ -1344,11 +1499,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
     try {
       const msgs = [];
       if (system) msgs.push({ role: "system", content: system });
-      for (const m of messages)
-        msgs.push({
-          role: m.role === "assistant" ? "assistant" : "user",
-          content: String(m.content || ""),
-        });
+      for (const m of nmsgs) msgs.push({ role: m.role, content: aiOpenAiContent(m) });
       const r = await fetchWithTimeout(
         "https://ai.gateway.lovable.dev/v1/chat/completions",
         {
@@ -1362,7 +1513,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
             messages: msgs,
           }),
         },
-        tmo(20000),
+        tmo(norm.hasFiles ? 90000 : 20000),
       );
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -1387,9 +1538,9 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   if (geminiKey && !geminiKey.includes("your_")) {
     try {
       // Convert messages to Gemini format
-      const contents = messages.map((m) => ({
+      const contents = nmsgs.map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: String(m.content || "") }],
+        parts: aiGeminiParts(m),
       }));
       const body = { contents };
       if (system) body.systemInstruction = { parts: [{ text: system }] };
@@ -1445,10 +1596,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
             // Chat uchun past effort — tezroq javob
             output_config: { effort: "low" },
             system: system || "",
-            messages: messages.map((m) => ({
-              role: m.role === "assistant" ? "assistant" : "user",
-              content: String(m.content || ""),
-            })),
+            messages: nmsgs.map((m) => ({ role: m.role, content: aiAnthropicContent(m) })),
           }),
         },
         tmo(15000),
@@ -1483,11 +1631,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   try {
     const msgs = [];
     if (system) msgs.push({ role: "system", content: system });
-    for (const m of messages)
-      msgs.push({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: String(m.content || ""),
-      });
+    for (const m of nmsgs) msgs.push({ role: m.role, content: aiTextOnly(m) });
 
     const r = await fetchWithTimeout(
       "https://text.pollinations.ai/openai",

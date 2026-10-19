@@ -53,8 +53,18 @@ const STUDENT_WRITABLE = [
 /**
  * @returns {{ok:true} | {ok:false, error:string}}
  */
+/**
+ * `admin_private_` bilan boshlanadigan kalitlar — faqat adminniki (masalan
+ * admin AI yordamchisining suhbatlari: ularda talabalar tahlili bor). Ularni
+ * mentor ham, talaba ham o'qiy olmaydi va yoza olmaydi.
+ */
+export const isAdminPrivateKey = (key) => /^admin_private_/.test(String(key || ""));
+
 export function canWriteKvKey(role, key) {
   if (role === ROLES.ADMIN) return { ok: true };
+
+  if (isAdminPrivateKey(key))
+    return { ok: false, error: `"${key}" kaliti faqat administratorniki` };
 
   if (ADMIN_ONLY_KEYS.has(key))
     return { ok: false, error: `"${key}" kalitini faqat administrator o'zgartira oladi` };
@@ -72,7 +82,8 @@ export function canWriteKvKey(role, key) {
 }
 
 export const canReadKvKey = (role, key) =>
-  role === ROLES.ADMIN || role === ROLES.MENTOR || !ADMIN_ONLY_KEYS.has(key);
+  role === ROLES.ADMIN ||
+  (!isAdminPrivateKey(key) && (role === ROLES.MENTOR || !ADMIN_ONLY_KEYS.has(key)));
 
 /** O'qishda ham hisob ma'lumotlari chiqib ketmasin. */
 export function filterKvForRole(role, dataMap) {
