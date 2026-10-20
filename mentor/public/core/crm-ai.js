@@ -2071,7 +2071,7 @@
       window.speechSynthesis && speechSynthesis.cancel();
     } catch (e) {}
     _tts = { idx: -1, chat: null, audio: null, stop: false };
-    renderMessages();
+    ttsRender();
   }
 
   /** Brauzer ovozlari ro'yxati — Chrome/Edge uni kechikib yuklaydi. */
@@ -2240,22 +2240,34 @@
       checkTtsStatus(true);
     }
     my.loading = false;
-    renderMessages();
+    ttsRender();
     browserSpeak(text, my, function (ok, why) {
       if (!ok) speakError(err, why);
       if (_tts === my) stopSpeak();
     });
   }
 
-  async function speak(i) {
+  /** «Eshitish» holati o'zgarganda — ochiq bo'lgan oynalardagi tugmalar yangilanadi. */
+  function ttsRender() {
+    renderMessages();
+    if (_ms.tab === "chats" && document.getElementById("ams-body")) msRender(true);
+  }
+
+  function speak(i) {
     var st = loadStore();
     var chat = currentChat(st, false);
     var m = chat && chat.messages[i];
     if (!m) return;
-    if (_tts.idx === i && _tts.chat === chat.id) return stopSpeak();
+    return speakContent(chat.id, i, m.content);
+  }
+
+  /** Istalgan AI javobini sifatli server ovozida o'qiydi (barcha panellar uchun bitta). */
+  async function speakContent(chatId, i, content) {
+    if (_tts.idx === i && _tts.chat === chatId) return stopSpeak();
     stopSpeak();
-    var plain = plainForSpeech(m.content);
+    var plain = plainForSpeech(content);
     if (!plain) return;
+    var chat = { id: chatId };
 
     // ⚠️ Brauzerlar ovozni faqat foydalanuvchi bosgan PAYTDA yoqishga ruxsat
     // beradi (ayniqsa iPhone). Shuning uchun pleer shu zahoti jimjitlik
@@ -2270,7 +2282,7 @@
       }
     } catch (e) {}
     var my = (_tts = { idx: i, chat: chat.id, audio: player, stop: false, loading: true });
-    renderMessages();
+    ttsRender();
 
     if (!_serverTts) return speakWithBrowser(plain, my, null);
 
@@ -2312,7 +2324,7 @@
       if (my.stop) return;
       if (my.loading) {
         my.loading = false;
-        renderMessages();
+        ttsRender();
       }
       var played = await new Promise(function (resolve) {
         var url = URL.createObjectURL(blob);
@@ -2548,6 +2560,7 @@
   }
 
   function msSelect(id) {
+    msStopSpeak();
     _ms.sel = id;
     _ms.store = null;
     _ms.chatId = null;
@@ -2591,9 +2604,11 @@
     else go();
   }
 
-  function msRender() {
+  function msRender(keepScroll) {
     var wrap = document.getElementById("mentor-students-ai-wrap");
     if (!wrap) return;
+    var prevBody = keepScroll ? document.getElementById("ams-body") : null;
+    var prevTop = prevBody ? prevBody.scrollTop : null;
     msStyles();
     injectStyles();
     var unread = (_ms.alerts || []).filter(function (a) {
@@ -2696,10 +2711,17 @@
         inner = !chat
           ? '<div class="ams-empty">💬 Talaba hali AI bilan suhbatlashmagan</div>'
           : (chat.messages || [])
-              .map(function (m) {
-                return m.role === "user"
-                  ? '<div class="aai-b me"><div class="aai-bc">' + filesHtml(m.files) + (m.content ? '<div class="aai-txt">' + esc(m.content) + "</div>" : "") + "</div></div>"
-                  : bubbleBot(md(m.content), "", m.warn ? "aai-warn" : "");
+              .map(function (m, i) {
+                if (m.role === "user")
+                  return '<div class="aai-b me"><div class="aai-bc">' + filesHtml(m.files) + (m.content ? '<div class="aai-txt">' + esc(m.content) + "</div>" : "") + "</div></div>";
+                var speaking = _tts.idx === i && _tts.chat === msChatKey();
+                var loading = speaking && _tts.loading;
+                return bubbleBot(
+                  md(m.content),
+                  '<button class="aai-act' + (speaking ? " on" : "") + '" onclick="aiMsSpeak(' + i + ')">' +
+                    (loading ? '<span class="aai-spin"></span>Tayyorlanmoqda…' : speaking ? ICON.stop + "To'xtatish" : ICON.speak + "Eshitish") + "</button>",
+                  m.warn ? "aai-warn" : "",
+                );
               })
               .join("");
       }
@@ -2710,7 +2732,15 @@
       (list || '<div class="ams-empty">Guruhlaringizda talaba yo\'q</div>') +
       '</div><div class="ams-view">' + view + "</div></div></div>";
     var b = document.getElementById("ams-body");
-    if (b) b.scrollTop = b.scrollHeight;
+    if (b) b.scrollTop = prevTop != null ? prevTop : b.scrollHeight;
+  }
+
+  /** Mentor ko'rayotgan talaba suhbatining kaliti («Eshitish» holati uchun). */
+  function msChatKey() {
+    return "ms:" + _ms.sel + ":" + _ms.chatId;
+  }
+  function msStopSpeak() {
+    if (String(_tts.chat || "").indexOf("ms:") === 0) stopSpeak();
   }
 
   function renderMentorStudentsAI() {
@@ -2721,15 +2751,25 @@
 
   window.renderMentorStudentsAI = renderMentorStudentsAI;
   window.aiMsTab = function (t) {
+    msStopSpeak();
     _ms.tab = t;
     msRender();
   };
   window.aiMsSel = msSelect;
   window.aiMsChat = function (id) {
+    msStopSpeak();
     _ms.chatId = id;
     msRender();
   };
   window.aiMsUnblock = msUnblock;
+  window.aiMsSpeak = function (i) {
+    var chats = (_ms.store && _ms.store.chats) || [];
+    var chat = chats.find(function (c) {
+      return c.id === _ms.chatId;
+    });
+    var m = chat && (chat.messages || [])[i];
+    if (m) speakContent(msChatKey(), i, m.content);
+  };
   window.aiMsReload = function () {
     msLoad();
     if (_ms.sel != null) msSelect(_ms.sel);
