@@ -1157,16 +1157,18 @@
       "#panel-admin-ai,#panel-mentor-ai,#panel-student-ai,#panel-mentor-students-ai{padding:0}",
       ".aai-blockbar{padding:12px 14px;border-radius:12px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:13px;font-weight:700;line-height:1.5}",
       ".aai-warn .aai-txt{background:var(--orange-light,#fff7ed);border-color:#fdba74}",
-      ".aai{position:relative;display:flex;flex-direction:column;height:calc(100dvh - 64px - 48px);min-height:500px;background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}",
+      ".aai{position:relative;display:flex;flex-direction:column;height:calc(100dvh - 64px - 48px);min-height:420px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)}",
       /* sarlavha — mentor AI kabi */
-      ".aai-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg2)}",
+      ".aai-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg2);position:relative;z-index:2}",
+      ".aai-head .aai-ava{position:relative;box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 35%,transparent)}",
+      ".aai-head .aai-ava::after{content:'';position:absolute;right:0;bottom:0;width:11px;height:11px;border-radius:50%;background:#22c55e;border:2px solid var(--bg2)}",
       ".aai-who{display:flex;align-items:center;gap:11px;min-width:0}",
-      ".aai-ava{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--teal))}",
+      ".aai-ava{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--teal,#14b8a6))}",
       ".aai-name{font-size:15px;font-weight:800;color:var(--text);line-height:1.2}",
       ".aai-on{font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:5px;margin-top:2px}",
       ".aai-on i{width:7px;height:7px;border-radius:50%;background:#22c55e}",
       ".aai-hbtns{display:flex;gap:8px;flex-shrink:0}",
-      ".aai-hbtn{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:9px;border:1.5px solid var(--border2);background:var(--bg3);color:var(--text2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:.15s}",
+      ".aai-hbtn{display:flex;align-items:center;gap:6px;height:36px;padding:0 13px;border-radius:12px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:.15s}",
       ".aai-hbtn:hover,.aai-hbtn.on{border-color:var(--accent);color:var(--accent)}",
       /* tarix ro'yxati (select kabi ochiladi) */
       ".aai-hist{position:absolute;top:62px;right:14px;width:340px;max-width:calc(100% - 28px);max-height:min(460px,calc(100% - 140px));display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,.22);z-index:20;overflow:hidden;animation:aaiIn .15s ease}",
@@ -1182,15 +1184,26 @@
       ".aai-hi:hover .aai-hi-del{opacity:1}.aai-hi-del:hover{background:var(--red-light,#fee2e2);color:#dc2626}",
       ".aai-hist-empty{padding:26px 14px;text-align:center;font-size:12.5px;color:var(--text3)}",
       /* xabarlar */
-      ".aai-body{flex:1;min-height:0;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px;background:var(--bg)}",
+      ".aai-body{flex:1;min-height:0;overflow-y:auto;padding:20px max(20px,calc((100% - 920px)/2));display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;" +
+        "background:radial-gradient(circle at 12% 0%,color-mix(in srgb,var(--accent) 8%,transparent),transparent 42%),radial-gradient(circle at 100% 100%,color-mix(in srgb,var(--teal,#14b8a6) 7%,transparent),transparent 46%),var(--bg)}",
+      ".aai-body>:first-child{margin-top:auto}",
+      /* bo'sh suhbat — o'rtada salomlashish */
+      ".aai-hero{margin:auto 0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:10px 0}",
+      ".aai-hero-ava{width:68px;height:68px;border-radius:22px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--teal,#14b8a6));box-shadow:0 14px 34px color-mix(in srgb,var(--accent) 40%,transparent);animation:aaiFloat 4s ease-in-out infinite}",
+      ".aai-hero-ava svg{width:34px;height:34px}",
+      "@keyframes aaiFloat{50%{transform:translateY(-5px)}}",
+      ".aai-hero-t{font-size:22px;font-weight:800;color:var(--text);margin-top:6px;letter-spacing:-.01em}",
+      ".aai-hero-s{font-size:13.5px;color:var(--text3);max-width:520px}",
+      ".aai-hero .aai-txt{text-align:left;max-width:560px;margin-top:8px;border-radius:16px;padding:14px 18px;box-shadow:0 4px 18px rgba(15,23,42,.06)}",
+      ".aai-hero .aai-chips{padding-left:0;justify-content:center;max-width:720px;margin-top:6px}",
       ".aai-b{display:flex;align-items:flex-start;gap:10px;max-width:82%}",
       ".aai-new{animation:aaiIn .2s ease}",
       "@keyframes aaiIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}",
       ".aai-b.me{align-self:flex-end;flex-direction:row-reverse;max-width:75%}",
       ".aai-b .aai-ava{width:32px;height:32px}.aai-b .aai-ava svg{width:16px;height:16px}",
       ".aai-bc{min-width:0}",
-      ".aai-txt{padding:10px 14px;border-radius:4px 16px 16px 16px;font-size:13.5px;line-height:1.6;color:var(--text);background:var(--bg2);border:1px solid var(--border);word-break:break-word}",
-      ".aai-b.me .aai-txt{background:var(--accent);color:#fff;border-color:transparent;border-radius:16px 16px 4px 16px;white-space:pre-wrap}",
+      ".aai-txt{padding:11px 15px;border-radius:6px 18px 18px 18px;font-size:13.5px;line-height:1.62;color:var(--text);background:var(--bg2);border:1px solid var(--border);word-break:break-word;box-shadow:0 2px 8px rgba(15,23,42,.05)}",
+      ".aai-b.me .aai-txt{background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#6366f1));color:#fff;border-color:transparent;border-radius:18px 18px 6px 18px;white-space:pre-wrap;box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 28%,transparent)}",
       ".aai-txt p{margin:0 0 7px}.aai-txt p:last-child{margin-bottom:0}",
       ".aai-txt ul,.aai-txt ol{margin:4px 0 8px;padding-left:20px}.aai-txt li{margin:2px 0}",
       ".aai-h{font-weight:800;font-size:14px;margin:10px 0 5px}.aai-txt>.aai-h:first-child{margin-top:0}",
@@ -1219,10 +1232,15 @@
       "@keyframes aaiDot{0%,80%,100%{opacity:.25;transform:none}40%{opacity:1;transform:translateY(-3px)}}",
       /* tayyor savollar */
       ".aai-chips{display:flex;flex-wrap:wrap;gap:8px;padding-left:42px}",
-      ".aai-chip{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text2);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}",
-      ".aai-chip:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}",
+      ".aai-chip{display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:999px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;box-shadow:0 2px 6px rgba(15,23,42,.04)}",
+      ".aai-chip:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 18px color-mix(in srgb,var(--accent) 18%,transparent)}",
       /* pastki qator */
-      ".aai-foot{border-top:1px solid var(--border);background:var(--bg2);padding:10px 14px}",
+      ".aai-foot{border-top:1px solid var(--border);background:var(--bg2);padding:12px max(16px,calc((100% - 920px)/2)) 14px;position:relative;z-index:2}",
+      ".aai-compose{flex:1;min-width:0;display:flex;align-items:flex-end;gap:2px;padding:3px 6px 3px 4px;border-radius:24px;border:1.5px solid var(--border2);background:var(--bg);transition:border-color .15s,box-shadow .15s}",
+      ".aai-compose:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 14%,transparent)}",
+      ".aai-compose .aai-ib{width:40px;height:40px;border:0;border-radius:50%;background:transparent}",
+      ".aai-compose .aai-ib:hover{background:var(--bg3)}",
+      ".aai-row.recording>.aai-compose{display:none!important}",
       ".aai-pend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}",
       ".aai-pc{position:relative;display:flex;align-items:center;gap:7px;padding:6px 28px 6px 8px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);font-size:12px;max-width:230px}",
       ".aai-pc img{width:30px;height:30px;border-radius:6px;object-fit:cover}",
@@ -1237,16 +1255,16 @@
       ".aai-ib:hover{border-color:var(--accent);color:var(--accent)}",
       ".aai-ib.rec{background:#ef4444;border-color:#ef4444;color:#fff;animation:aaiPulse 1.4s infinite}",
       "@keyframes aaiPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.45)}70%{box-shadow:0 0 0 10px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}",
-      ".aai-input{flex:1;min-width:0;border:1.5px solid var(--border2);border-radius:12px;padding:10px 14px;font:inherit;font-size:13.5px;line-height:1.5;background:var(--bg);color:var(--text);resize:none;outline:none;min-height:42px;max-height:160px;overflow:hidden;transition:border-color .15s}",
-      ".aai-input:focus{border-color:var(--accent)}",
-      ".aai-send{width:42px;height:42px;border-radius:12px;border:0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:.15s}",
-      ".aai-send:hover{opacity:.9;transform:scale(1.04)}.aai-send:disabled{opacity:.4;cursor:not-allowed;transform:none}",
+      ".aai-input{flex:1;min-width:0;border:0;border-radius:0;padding:10px 6px;font:inherit;font-size:14px;line-height:1.5;background:transparent;color:var(--text);resize:none;outline:none;min-height:40px;max-height:160px;overflow:hidden}",
+      ".aai-input::placeholder{color:var(--text3)}",
+      ".aai-send{width:48px;height:48px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 70%,#6366f1));color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:.15s;box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 35%,transparent)}",
+      ".aai-send:hover{transform:scale(1.05)}.aai-send:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}",
       /* 🎤 Telegram uslubidagi ovozli xabar */
       ".aai-row{position:relative}",
       ".aai-mic{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .15s,background .15s}",
-      ".aai-mic.rec{background:#ef4444;transform:scale(1.22);animation:aaiPulse 1.4s infinite}",
+      ".aai-mic.rec{background:#ef4444;transform:scale(1.2);animation:aaiPulse 1.4s infinite}",
       ".aai-row.recording>.aai-ib,.aai-row.recording>.aai-input,.aai-row.recording>.aai-send:not(.aai-mic){display:none!important}",
-      ".aai-rec{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:42px;padding:0 6px 0 14px;border-radius:12px;background:var(--bg3);border:1.5px solid var(--border2);color:var(--text);font-size:13.5px;overflow:hidden;user-select:none;-webkit-user-select:none}",
+      ".aai-rec{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:48px;padding:0 6px 0 16px;border-radius:24px;background:var(--bg3);border:1.5px solid var(--border2);color:var(--text);font-size:13.5px;overflow:hidden;user-select:none;-webkit-user-select:none}",
       ".aai-rec-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;flex-shrink:0;animation:aaiBlink 1s infinite}",
       "@keyframes aaiBlink{50%{opacity:.15}}",
       ".aai-rec-t{font-variant-numeric:tabular-nums;font-weight:700;min-width:50px;flex-shrink:0}",
@@ -1256,7 +1274,7 @@
       "@keyframes aaiNudge{50%{transform:translateX(-6px)}}",
       ".aai-rec-x{width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:-8px}",
       ".aai-rec-x:hover{background:rgba(239,68,68,.1)}",
-      ".aai-lock{position:absolute;right:3px;bottom:60px;width:36px;padding:9px 0 7px;border-radius:18px;background:var(--bg2);border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.14);display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text3);animation:aaiUp .2s;z-index:5;pointer-events:none}",
+      ".aai-lock{position:absolute;right:6px;bottom:66px;width:36px;padding:9px 0 7px;border-radius:18px;background:var(--bg2);border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.14);display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text3);animation:aaiUp .2s;z-index:5;pointer-events:none}",
       ".aai-lock svg:last-child{animation:aaiBob 1.2s ease-in-out infinite}",
       "@keyframes aaiUp{from{opacity:0;transform:translateY(10px)}}",
       "@keyframes aaiBob{50%{transform:translateY(-3px)}}",
@@ -1278,14 +1296,42 @@
         ".aai-head{padding:10px 12px}.aai-on-x{display:none}.aai-hbtn span{display:none}.aai-hbtn{padding:0 10px}" +
         ".aai-body{padding:12px}.aai-b{max-width:94%}.aai-b.me{max-width:88%}.aai-b .aai-ava{display:none}" +
         ".aai-chips{padding-left:0}.aai-foot{padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px))}" +
-        ".aai-ib,.aai-send{width:40px;height:40px}.aai-hist{top:56px;right:8px}.aai-hi-del{opacity:1}}",
+        ".aai{border-radius:16px}" +
+        ".aai-send{width:44px;height:44px}.aai-compose .aai-ib{width:38px;height:38px}.aai-hist{top:56px;right:8px}.aai-hi-del{opacity:1}" +
+        ".aai-input{font-size:16px}.aai-hero-t{font-size:19px}.aai-hero .aai-txt{padding:12px 14px}.aai-lock{bottom:62px}}",
     ].join("");
     document.head.appendChild(st);
   }
 
   /* ─── Chizish ─────────────────────────────────────────────────────────── */
 
+  /** Oyna ekranning pastigacha cho'ziladi — yozish joyi doim eng pastda. */
+  function fitHeight() {
+    var els = [document.getElementById("aai-root")].concat(Array.prototype.slice.call(document.querySelectorAll(".ams")));
+    var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    var phone = window.innerWidth <= 900;
+    els.forEach(function (el) {
+      if (!el || !el.offsetParent) return; // yashirin panel
+      var top = el.getBoundingClientRect().top;
+      var h = Math.round(vh - top - (phone ? 8 : 16));
+      if (h < 380) return;
+      el.style.height = h + "px";
+      // Sahifa pastida ortiqcha joy (padding) bo'lsa — sahifa aylanmasin
+      var extra = document.documentElement.scrollHeight - vh;
+      if (extra > 0 && extra < 60 && h - extra >= 380) el.style.height = h - extra + "px";
+    });
+  }
+  function fitSoon() {
+    requestAnimationFrame(function () {
+      fitHeight();
+      setTimeout(fitHeight, 250); // panel ochilish animatsiyasidan keyin
+    });
+  }
+  window.addEventListener("resize", fitSoon);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", fitSoon);
+
   function renderAdminAI() {
+    fitSoon();
     var R = role();
     var wrap = document.getElementById(WRAP_ID[R]);
     if (!wrap || typeof D === "undefined") return;
@@ -1325,10 +1371,12 @@
       '<div class="aai-pend" id="aai-pend" style="display:none"></div>' +
       '<div class="aai-row" id="aai-row">' +
       '<input type="file" id="aai-file" multiple style="display:none" onchange="adminAiPick(this)">' +
+      '<div class="aai-compose">' +
       '<button class="aai-ib" onclick="document.getElementById(\'aai-file\').click()" title="Fayl biriktirish: rasm, ovoz, PDF, Word, Excel, exe va boshqalar">' + ICON.clip + "</button>" +
-      '<textarea id="aai-input" class="aai-input" rows="1" placeholder="' + (window.innerWidth < 600 ? "Savol yozing…" : "Savol yozing yoki fayl biriktiring…") + '" ' +
+      '<textarea id="aai-input" class="aai-input" rows="1" placeholder="' + (window.innerWidth < 600 ? "Xabar yozing…" : "Xabar yozing yoki fayl biriktiring…") + '" ' +
       "onkeydown=\"if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adminAiSend()}\" " +
       "oninput=\"this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px';this.style.overflowY=this.scrollHeight>160?'auto':'hidden';adminAiSendMode()\"></textarea>" +
+      "</div>" +
       '<button class="aai-send" id="aai-send" onclick="adminAiSend()" title="Yuborish">' + ICON.send + "</button>" +
       '<button class="aai-send aai-mic" id="aai-mic" title="Bosib turing — ovozli xabar yozish" style="display:none">' + ICON.mic + "</button>" +
       "</div></div></div>";
@@ -1518,19 +1566,25 @@
     var R = role();
     SUGGEST = SUGGESTS[R];
     // Har bir element — alohida qism: keyin faqat o'zgarganlari almashtiriladi
-    var parts = [bubbleBot(md(ROLE_TEXT[R].hello))];
+    var empty = !msgs.length && !_busy && !_lastError;
+    var parts = empty ? [] : [bubbleBot(md(ROLE_TEXT[R].hello))];
     var html = "";
     var flush = function () {
       if (html) parts.push(html);
       html = "";
     };
-    if (!msgs.length && !_busy)
+    if (empty)
       html +=
+        '<div class="aai-hero">' +
+        '<div class="aai-hero-ava">' + ICON.bot + "</div>" +
+        '<div class="aai-hero-t">AI Yordamchi</div>' +
+        '<div class="aai-hero-s">' + esc(ROLE_TEXT[R].sub.charAt(0).toUpperCase() + ROLE_TEXT[R].sub.slice(1)) + " · javob beradi, tushuntiradi, ovoz chiqarib o'qiydi</div>" +
+        '<div class="aai-txt">' + md(ROLE_TEXT[R].hello) + "</div>" +
         '<div class="aai-chips">' +
         SUGGEST.map(function (s, i) {
           return '<button class="aai-chip" onclick="adminAiSuggest(' + i + ')"><span>' + s.ic + "</span>" + esc(s.t) + "</button>";
         }).join("") +
-        "</div>";
+        "</div></div>";
 
     flush();
     msgs.forEach(function (m, i) {
@@ -1575,7 +1629,7 @@
    * paydo bo'lgan xabarda — eski xabarlar qayta "yonib-o'chmaydi".
    */
   var _shown = { body: null, chat: null, parts: [] };
-  var TRANSIENT = /aai-wait|aai-chips|aai-err/;
+  var TRANSIENT = /aai-wait|aai-chips|aai-err|aai-hero/;
 
   function toEl(html) {
     var t = document.createElement("div");
@@ -3065,6 +3119,7 @@
     var prevTop = prevBody ? prevBody.scrollTop : null;
     msStyles();
     injectStyles();
+    fitSoon();
     var unread = (_ms.alerts || []).filter(function (a) {
       return !a.read;
     }).length;
@@ -3200,6 +3255,7 @@
   function renderMentorStudentsAI() {
     if (!document.getElementById("mentor-students-ai-wrap")) return;
     msRender();
+    fitSoon();
     if (!_ms.loading) msLoad();
   }
 
