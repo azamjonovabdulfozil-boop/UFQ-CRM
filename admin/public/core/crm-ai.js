@@ -549,21 +549,35 @@
   var _pushTimer = null;
   var _pulledFor = null;
 
+  function pushNow(keepalive) {
+    clearTimeout(_pushTimer);
+    _pushTimer = null;
+    var st;
+    try {
+      st = JSON.parse(lsGet(storeKey()) || "null");
+    } catch (e) {}
+    if (!st) return;
+    var body = JSON.stringify({ store: st });
+    fetch(apiBase() + "/api/ai/chats", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: body,
+      // Sahifa yopilayotganda ham so'rov yetib borsin (64 KB gacha)
+      keepalive: !!keepalive && body.length < 60000,
+    }).catch(function () {});
+  }
+
   function schedulePush() {
     clearTimeout(_pushTimer);
     _pushTimer = setTimeout(function () {
-      var st;
-      try {
-        st = JSON.parse(lsGet(storeKey()) || "null");
-      } catch (e) {}
-      if (!st) return;
-      fetch(apiBase() + "/api/ai/chats", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ store: st }),
-      }).catch(function () {});
+      pushNow(false);
     }, 1200);
   }
+
+  // Saqlanmay qolgan o'zgarish bo'lsa — sahifa yopilishidan oldin yuboramiz
+  window.addEventListener("pagehide", function () {
+    if (_pushTimer && role() !== "admin") pushNow(true);
+  });
 
   /** Serverdagi tarixni olib, brauzerdagisi bilan birlashtiradi (yangisi qoladi). */
   function pullStore() {
@@ -582,6 +596,7 @@
           byId[c.id] = c;
         });
         var changed = false;
+        var localNewer = false;
         var serverHas = {};
         (d.store.chats || []).forEach(function (c) {
           serverHas[c.id] = 1;
@@ -589,9 +604,11 @@
           if (!mine || (c.updatedAt || 0) > (mine.updatedAt || 0)) {
             byId[c.id] = c;
             changed = true;
-          }
+          } else if ((mine.updatedAt || 0) > (c.updatedAt || 0)) localNewer = true;
         });
-        var localOnly = local.chats.some(function (c) {
+        // Brauzerdagi nusxa yangiroq bo'lsa (masalan sahifa saqlanib ulgurmay
+        // yopilgan) — serverga qayta yuboriladi
+        var localOnly = localNewer || local.chats.some(function (c) {
           return !serverHas[c.id];
         });
         if (!changed && !localOnly) return;
@@ -1807,6 +1824,9 @@
       .replace(/[*_`#>]+/g, "")
       .replace(/^\s*[-•]\s+/gm, "")
       .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+      .replace(/(\d)\s*%/g, "$1 foiz")
+      .replace(/№\s*/g, "raqam ")
+      .replace(/\s[–—]\s/g, ", ")
       .replace(/\n{2,}/g, ".\n")
       .replace(/\s+,/g, ",")
       .trim();
@@ -1865,8 +1885,14 @@
    * "Natural/Online" ovoz (Microsoft Edge'da "Madina"/"Sardor" bor), so'ng
    * har qanday o'zbekcha ovoz. Ruscha matn — ruscha ovoz bilan.
    */
+  /**
+   * Brauzerning o'z ovozi — server ovozi ishlamasa. Faqat MOS tildagi ovoz
+   * bilan o'qiydi: o'zbekcha matnni ingliz/turk ovozida o'qish tushunarsiz
+   * chiqadi, shuning uchun o'zbekcha ovoz bo'lmasa — o'qimaydi (done(false,
+   * "no-voice")). Microsoft Edge'da tabiiy o'zbekcha ovoz (Madina, Sardor) bor.
+   */
   async function browserSpeak(text, done) {
-    if (!window.speechSynthesis) return done(false);
+    if (!window.speechSynthesis) return done(false, "no-voice");
     var voices = await loadVoices();
     var natural = /natural|online|neural/i;
     var pick = function (re) {
@@ -1879,24 +1905,13 @@
         }) || list[0]
       );
     };
-    var cyr = (text.match(/[Ѐ-ӿ]/g) || []).length;
+    var cyr = (text.match(/[\u0400-\u04FF]/g) || []).length;
     var lat = (text.match(/[A-Za-z]/g) || []).length;
-    var v =
-      cyr > lat
-        ? pick(/^ru/i)
-        : pick(/^uz/i) || pick(/uzbek|madina|sardor/i) || pick(/^tr/i);
-    var u = new SpeechSynthesisUtterance(text.replace(/[‘’ʻʼ`´]/g, "'"));
-    if (v) {
-      u.voice = v;
-      u.lang = v.lang;
-    } else u.lang = cyr > lat ? "ru-RU" : "uz-UZ";
-    if (!v || !/^uz/i.test(v.lang)) {
-      if (cyr <= lat && typeof toast === "function")
-        toast(
-          "ℹ️ Server ovozi hozir ishlamadi, bu brauzerda esa o'zbekcha ovoz yo'q. Microsoft Edge brauzerida tabiiy o'zbekcha ovoz bor." +
-            (role() === "admin" ? " Doimiy tabiiy ovoz uchun serverga AZURE_SPEECH_KEY qo'ying." : ""),
-        );
-    }
+    var v = cyr > lat ? pick(/^ru/i) : pick(/^uz/i) || pick(/uzbek|madina|sardor/i);
+    if (!v) return done(false, "no-voice");
+    var u = new SpeechSynthesisUtterance(text.replace(/[\u2018\u2019\u02BB\u02BC`\u00B4]/g, "'"));
+    u.voice = v;
+    u.lang = v.lang;
     u.rate = 0.95;
     u.onend = function () {
       done(true);
@@ -1905,6 +1920,20 @@
       done(false);
     };
     speechSynthesis.speak(u);
+  }
+
+  /** Ovoz chiqmasa — sababini aniq aytamiz (ilgari tugma jimgina o'chib qolardi). */
+  function speakError(err, why) {
+    var msg = (err && err.message) || "ovoz xizmati ishlamadi";
+    var text = "⚠️ Ovoz chiqmadi: " + msg + ".";
+    if (why === "no-voice")
+      text += role() === "admin"
+        ? " Render → Environment bo'limida GEMINI_API_KEY (yoki AZURE_SPEECH_KEY) to'g'ri qo'yilganini tekshiring."
+        : " Birozdan keyin qayta urinib ko'ring yoki Microsoft Edge brauzerida oching.";
+    if (typeof toast === "function") toast(text);
+    try {
+      console.warn("[AI ovoz]", msg, err && err.detail ? "— " + err.detail : "");
+    } catch (e2) {}
   }
 
   // 0.05 soniyalik jimjitlik — pleerni bosish paytida "ochish" uchun
@@ -1931,7 +1960,13 @@
     var my = (_tts = { idx: i, chat: chat.id, audio: player, stop: false, loading: true });
     renderMessages();
 
-    var chunks = speechChunks(plainForSpeech(m.content), 600);
+    // Birinchi bo'lak qisqa — ovoz tezroq boshlansin; qolganlari kattaroq
+    var plain = plainForSpeech(m.content);
+    var first = speechChunks(plain, 220)[0] || "";
+    var chunks = first ? [first].concat(speechChunks(plain.slice(first.length).trim(), 600)) : [];
+    chunks = chunks.filter(function (c) {
+      return c && c.trim();
+    });
     if (!chunks.length) return stopSpeak();
     var next = ttsFetch(chunks[0]);
     for (var k = 0; k < chunks.length; k++) {
@@ -1944,8 +1979,8 @@
         if (my.stop) return;
         my.loading = false;
         renderMessages();
-        browserSpeak(chunks.slice(k).join(" "), function (ok) {
-          if (!ok && typeof toast === "function") toast("⚠️ Ovozni ijro etib bo'lmadi" + (e && e.message ? " (" + e.message + ")" : ""));
+        browserSpeak(chunks.slice(k).join(" "), function (ok, why) {
+          if (!ok) speakError(e, why);
           if (_tts === my) stopSpeak();
         });
         return;
@@ -1995,7 +2030,10 @@
             return {};
           })
           .then(function (d) {
-            throw new Error((d && d.error) || "ovoz xizmati " + r.status);
+            var er = new Error((d && d.error) || "ovoz xizmati " + r.status);
+            er.detail = d && d.detail;
+            if (er.detail && role() === "admin") er.message += " (" + er.detail + ")";
+            throw er;
           });
       return r.blob();
     });

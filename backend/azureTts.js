@@ -14,7 +14,7 @@
  */
 
 export const azureTtsConfigured = () =>
-  !!(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION);
+  !!(String(process.env.AZURE_SPEECH_KEY || "").trim() && String(process.env.AZURE_SPEECH_REGION || "").trim());
 
 /** Matn tili: kirill harflari ko'p bo'lsa — rus, aks holda — o'zbek. */
 export function detectLang(text) {

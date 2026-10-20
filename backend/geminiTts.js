@@ -10,7 +10,11 @@
  *      GEMINI_TTS_VOICE (sukut — "Kore").
  */
 
-const key = () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+// Render'ga qo'yilganda qo'shtirnoq yoki bo'sh joy qolib ketishi mumkin — tozalaymiz
+const key = () =>
+  String(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "")
+    .trim()
+    .replace(/^['"]|['"]$/g, "");
 export const geminiTtsConfigured = () => !!key() && !key().includes("your_");
 
 function pcmToWav(pcm, rate = 24000) {

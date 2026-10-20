@@ -1338,7 +1338,8 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 45000) {
 //   2) Google Gemini nutq modeli (GEMINI_API_KEY);
 //   3) Lovable nutq modeli (LOVABLE_API_KEY);
 //   4) hech biri ishlamasa — brauzer o'z ovozi bilan o'qiydi.
-const lovableReady = () => !!(process.env.LOVABLE_API_KEY && !process.env.LOVABLE_API_KEY.includes("your_"));
+const lovableKey = () => String(process.env.LOVABLE_API_KEY || "").trim().replace(/^['"]|['"]$/g, "");
+const lovableReady = () => !!lovableKey() && !lovableKey().includes("your_");
 const ttsLang = (t) => {
   const cyr = (String(t).match(/[Ѐ-ӿ]/g) || []).length;
   const lat = (String(t).match(/[A-Za-z]/g) || []).length;
@@ -1394,7 +1395,7 @@ app.post("/api/ai-tts", requireAuth, expensiveLimiter, async (req, res) => {
         "https://ai.gateway.lovable.dev/v1/audio/speech",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Lovable-API-Key": process.env.LOVABLE_API_KEY },
+          headers: { "Content-Type": "application/json", "Lovable-API-Key": lovableKey() },
           body: JSON.stringify(body),
         },
         60000,
@@ -1417,8 +1418,11 @@ app.post("/api/ai-tts", requireAuth, expensiveLimiter, async (req, res) => {
   res.status(errors.length ? 502 : 503).json({
     ok: false,
     code: errors.length ? "tts-failed" : "no-tts",
-    error: errors.length ? "Ovoz xizmati ishlamadi" : "Ovoz xizmati sozlanmagan",
-    detail: safeLog(errors.join(" | "), 300),
+    error: errors.length
+      ? "Ovoz xizmati ishlamadi"
+      : "Ovoz xizmati sozlanmagan — serverga GEMINI_API_KEY, AZURE_SPEECH_KEY yoki LOVABLE_API_KEY qo'yilmagan",
+    // Sabab faqat adminga ko'rsatiladi (kalit/xizmat nomlari)
+    detail: req.user?.role === ROLES.ADMIN ? safeLog(errors.join(" | "), 400) : undefined,
   });
 });
 
