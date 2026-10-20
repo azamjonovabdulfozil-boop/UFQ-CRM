@@ -51,6 +51,20 @@ const STUDENT_WRITABLE = [
 ];
 
 /**
+ * Talabaning FAQAT o'ziga tegishli kalitlari (oxirida o'z ID'si):
+ *   presence_student_<id>      — "onlayn" belgisi (har 20 s da yoziladi)
+ *   mchat_<mentor>_<id>        — mentor bilan yozishmasi
+ * Boshqa talabaning ID'si bilan yozib bo'lmaydi.
+ */
+function isOwnStudentKey(key, user) {
+  const id = user && user.studentId != null ? String(user.studentId) : "";
+  if (!id) return false;
+  if (key === "presence_student_" + id) return true;
+  const m = /^mchat_(?!list_)[A-Za-z0-9+/_-]+_(\d+)$/.exec(key);
+  return !!m && m[1] === id;
+}
+
+/**
  * @returns {{ok:true} | {ok:false, error:string}}
  */
 /**
@@ -60,7 +74,7 @@ const STUDENT_WRITABLE = [
  */
 export const isAdminPrivateKey = (key) => /^admin_private_/.test(String(key || ""));
 
-export function canWriteKvKey(role, key) {
+export function canWriteKvKey(role, key, user) {
   if (role === ROLES.ADMIN) return { ok: true };
 
   if (isAdminPrivateKey(key))
@@ -75,6 +89,7 @@ export function canWriteKvKey(role, key) {
     if (STAFF_KEYS.has(key))
       return { ok: false, error: `"${key}" kalitini talaba o'zgartira olmaydi` };
     if (STUDENT_WRITABLE.some((re) => re.test(key))) return { ok: true };
+    if (isOwnStudentKey(key, user)) return { ok: true };
     return { ok: false, error: `"${key}" kalitiga yozish uchun ruxsat yo'q` };
   }
 

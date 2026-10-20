@@ -887,7 +887,7 @@ app.post("/api/kv", requireAuth, blockUntilPasswordChanged, writeLimiter, async 
       return res.status(400).json({ ok: false, error: "key kerak (harf/raqam/._:- , 200 belgigacha)" });
 
     // Kalit darajasidagi ruxsat — kim qaysi kalitni yoza oladi
-    const perm = canWriteKvKey(req.user.role, key);
+    const perm = canWriteKvKey(req.user.role, key, req.user);
     if (!perm.ok) {
       await audit("kv.write.denied", { req, actor: req.user, meta: { key }, severity: "warn" });
       return res.status(403).json({ ok: false, code: "forbidden", error: perm.error });
@@ -956,7 +956,7 @@ app.post("/api/kv/bulk", requireAuth, blockUntilPasswordChanged, writeLimiter, a
     for (const p of pairs) {
       const k = safeKvKey(p?.key);
       if (!k) return res.status(400).json({ ok: false, error: "Kalit yaroqsiz: " + safeLog(p?.key, 60) });
-      const perm = canWriteKvKey(req.user.role, k);
+      const perm = canWriteKvKey(req.user.role, k, req.user);
       if (!perm.ok) {
         await audit("kv.bulk.denied", { req, actor: req.user, meta: { key: k }, severity: "warn" });
         return res.status(403).json({ ok: false, code: "forbidden", error: perm.error });
