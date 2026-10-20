@@ -29,6 +29,8 @@ import {
   qarzdorStatus,
   sendToStudent,
 } from "./qarzdorBot.js";
+// "Eshitish" tugmasi uchun o'zbekcha tabiiy ovoz (Azure Speech).
+import { azureTts, azureTtsConfigured, normalizeUz } from "./azureTts.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -55,6 +57,7 @@ const {
   publicLookupLimiter,
   safeFetch,
   syncPortalAccounts,
+  removePortalAccounts,
   canWriteKvKey,
   filterKvForRole,
   applyCrmWritePolicy,
@@ -305,7 +308,7 @@ app.get("/api/users", requireStaff, async (req, res) => {
 
 app.post("/api/users/save", requireAdmin, writeLimiter, async (req, res) => {
   try {
-    const { mentors, students } = req.body || {};
+    const { mentors, students, removedMentorLogins, removedStudentLogins } = req.body || {};
     if (!Array.isArray(mentors) && !Array.isArray(students))
       return res
         .status(400)
@@ -337,6 +340,18 @@ app.post("/api/users/save", requireAdmin, writeLimiter, async (req, res) => {
       synced.push(...(await syncPortalAccounts(mentors, ROLES.MENTOR, req.user, req)));
     if (Array.isArray(students))
       synced.push(...(await syncPortalAccounts(students, ROLES.STUDENT, req.user, req)));
+    // O'chirilgan / almashtirilgan eski loginlar endi kira olmasin
+    const keep = new Set(
+      [...(mentors || []), ...(students || [])].map((u) => String(u?.login || "").trim().toLowerCase()),
+    );
+    const dropM = (Array.isArray(removedMentorLogins) ? removedMentorLogins : []).filter(
+      (l) => !keep.has(String(l || "").trim().toLowerCase()),
+    );
+    const dropS = (Array.isArray(removedStudentLogins) ? removedStudentLogins : []).filter(
+      (l) => !keep.has(String(l || "").trim().toLowerCase()),
+    );
+    if (dropM.length) await removePortalAccounts(dropM, ROLES.MENTOR, req.user, req);
+    if (dropS.length) await removePortalAccounts(dropS, ROLES.STUDENT, req.user, req);
 
     broadcast(["__users__"], originOf(req));
     res.json({ ok: true, accounts: synced });
@@ -1314,22 +1329,47 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 45000) {
 }
 
 // ─── 🔊 Matnni ovozga aylantirish (admin AI → "Eshitish") ───────────────────
-// Lovable shlyuzidagi nutq modeli o'zbekchani tabiiy o'qiydi. Brauzer bu
-// ovozni ijro etadi; xizmat ishlamasa brauzer o'zining ovozi bilan o'qiydi.
+// Navbat: 1) Azure Speech — o'zbekchani odamdek o'qiydigan Madina/Sardor
+// ovozlari (AZURE_SPEECH_KEY + AZURE_SPEECH_REGION kerak); 2) Lovable nutq
+// modeli; 3) ikkalasi ham bo'lmasa brauzer o'z ovozi bilan o'qiydi.
+app.get("/api/ai-tts/status", requireAdmin, (req, res) => {
+  const lovable = !!(process.env.LOVABLE_API_KEY && !process.env.LOVABLE_API_KEY.includes("your_"));
+  res.json({ ok: true, azure: azureTtsConfigured(), lovable });
+});
+
 app.post("/api/ai-tts", requireAdmin, expensiveLimiter, async (req, res) => {
   const text = String(req.body?.text || "").trim().slice(0, 2500);
   if (!text) return res.status(400).json({ ok: false, error: "Matn bo'sh" });
+
+  const sendAudio = (buf, type) => {
+    res.setHeader("Content-Type", type || "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buf);
+  };
+
+  if (azureTtsConfigured()) {
+    try {
+      return sendAudio(await azureTts(text), "audio/mpeg");
+    } catch (e) {
+      console.warn("⚠️  Azure TTS ishlamadi:", e.message);
+    }
+  }
+
   const key = process.env.LOVABLE_API_KEY;
   if (!key || key.includes("your_"))
     return res.status(503).json({ ok: false, code: "no-tts", error: "Ovoz xizmati sozlanmagan" });
 
   const body = {
     model: process.env.LOVABLE_TTS_MODEL || "openai/gpt-4o-mini-tts",
-    input: text,
+    input: normalizeUz(text),
     voice: process.env.LOVABLE_TTS_VOICE || "nova",
     response_format: "mp3",
     instructions:
-      "Matnni o'z tilida (o'zbek yoki rus) tabiiy, aniq talaffuz bilan, xotirjam va do'stona ohangda o'qi.",
+      "Sen toshkentlik o'zbek diktorisan. Matnni ona tilida gapiradigan odamdek, " +
+      "o'zbek adabiy talaffuzida o'qi: o', g', q, x, sh, ch tovushlarini to'g'ri ayt, " +
+      "raqamlarni o'zbekcha o'qi (masalan 1 250 000 — bir million ikki yuz ellik ming). " +
+      "Ingliz yoki rus aksenti bo'lmasin. Ohang tabiiy, iliq, suhbatdosh, shoshilmasdan. " +
+      "Agar matn ruscha bo'lsa — ruscha tabiiy o'qi.",
   };
   const call = () =>
     fetchWithTimeout(
@@ -1352,10 +1392,7 @@ app.post("/api/ai-tts", requireAdmin, expensiveLimiter, async (req, res) => {
       const t = await r.text().catch(() => "");
       return res.status(502).json({ ok: false, error: "Ovoz xizmati xatosi: HTTP " + r.status, detail: safeLog(t, 200) });
     }
-    const buf = Buffer.from(await r.arrayBuffer());
-    res.setHeader("Content-Type", r.headers.get("content-type") || "audio/mpeg");
-    res.setHeader("Cache-Control", "no-store");
-    res.send(buf);
+    sendAudio(Buffer.from(await r.arrayBuffer()), r.headers.get("content-type"));
   } catch (e) {
     res.status(502).json({
       ok: false,

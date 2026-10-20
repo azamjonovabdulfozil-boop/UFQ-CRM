@@ -24,6 +24,11 @@ services:
         value: "4546"
       - key: ANTHROPIC_API_KEY
         sync: false
+      # AI "Eshitish" — o'zbekchani odamdek o'qiydigan ovoz (Azure Speech, uz-UZ-MadinaNeural)
+      - key: AZURE_SPEECH_KEY
+        sync: false
+      - key: AZURE_SPEECH_REGION
+        sync: false
 
       # ─── XAVFSIZLIK (majburiy) ─────────────────────────────────────────
       # Sessiya tokenlarini imzolash kaliti. Render uni O'ZI generatsiya

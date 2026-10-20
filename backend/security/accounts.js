@@ -147,6 +147,9 @@ export async function upsertAccount(p) {
     set.legacyPassword = /^[a-f0-9]{64}$/i.test(p.legacyPassword)
       ? String(p.legacyPassword).toLowerCase()
       : sha256(p.legacyPassword);
+    // Admin yangi parol berdi — eski scrypt xeshi o'chiriladi, aks holda
+    // ESKI parol ham ishlayverardi.
+    set.passwordHash = null;
     // Faqat o'zi parolini almashtira oladigan rol uchun majburiy almashtirish.
     set.mustChangePassword = CONFIG.selfPasswordChangeRoles.includes(role);
   }

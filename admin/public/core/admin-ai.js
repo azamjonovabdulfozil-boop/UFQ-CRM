@@ -1638,22 +1638,60 @@
     renderMessages();
   }
 
-  /** Brauzerning o'z ovozi — xizmat ishlamasa. O'zbekcha ovoz bo'lsa o'sha. */
-  function browserSpeak(text, done) {
+  /** Brauzer ovozlari ro'yxati — Chrome/Edge uni kechikib yuklaydi. */
+  function loadVoices() {
+    return new Promise(function (resolve) {
+      var v = speechSynthesis.getVoices();
+      if (v && v.length) return resolve(v);
+      var t = setTimeout(function () {
+        resolve(speechSynthesis.getVoices() || []);
+      }, 1500);
+      speechSynthesis.addEventListener(
+        "voiceschanged",
+        function () {
+          clearTimeout(t);
+          resolve(speechSynthesis.getVoices() || []);
+        },
+        { once: true },
+      );
+    });
+  }
+
+  /**
+   * Brauzerning o'z ovozi — server ovozi ishlamasa. Avval o'zbekcha
+   * "Natural/Online" ovoz (Microsoft Edge'da "Madina"/"Sardor" bor), so'ng
+   * har qanday o'zbekcha ovoz. Ruscha matn — ruscha ovoz bilan.
+   */
+  async function browserSpeak(text, done) {
     if (!window.speechSynthesis) return done(false);
-    var voices = speechSynthesis.getVoices();
+    var voices = await loadVoices();
+    var natural = /natural|online|neural/i;
     var pick = function (re) {
-      return voices.find(function (v) {
+      var list = voices.filter(function (v) {
         return re.test(v.lang) || re.test(v.name);
       });
+      return (
+        list.find(function (v) {
+          return natural.test(v.name);
+        }) || list[0]
+      );
     };
-    var u = new SpeechSynthesisUtterance(text);
-    var v = pick(/^uz/i) || pick(/uzbek/i) || pick(/^tr/i) || pick(/^ru/i);
+    var cyr = (text.match(/[Ѐ-ӿ]/g) || []).length;
+    var lat = (text.match(/[A-Za-z]/g) || []).length;
+    var v =
+      cyr > lat
+        ? pick(/^ru/i)
+        : pick(/^uz/i) || pick(/uzbek|madina|sardor/i) || pick(/^tr/i);
+    var u = new SpeechSynthesisUtterance(text.replace(/[‘’ʻʼ`´]/g, "'"));
     if (v) {
       u.voice = v;
       u.lang = v.lang;
-    } else u.lang = "uz-UZ";
-    u.rate = 1;
+    } else u.lang = cyr > lat ? "ru-RU" : "uz-UZ";
+    if (!v || !/^uz/i.test(v.lang)) {
+      if (cyr <= lat && typeof toast === "function")
+        toast("ℹ️ Bu brauzerda o'zbekcha ovoz yo'q. Tabiiy o'zbekcha ovoz uchun serverga AZURE_SPEECH_KEY qo'ying yoki Microsoft Edge'da oching.");
+    }
+    u.rate = 0.95;
     u.onend = function () {
       done(true);
     };
@@ -1683,7 +1721,6 @@
       } catch (e) {
         // Xizmat ishlamadi — qolgan qismini brauzer ovozi o'qiydi
         if (my.stop) return;
-        if (typeof toast === "function") toast("ℹ️ Brauzer ovozi bilan o'qilmoqda");
         browserSpeak(chunks.slice(k).join(" "), function () {
           if (_tts === my) stopSpeak();
         });

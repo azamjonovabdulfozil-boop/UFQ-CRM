@@ -28,7 +28,7 @@ export { audit } from "./audit.js";
 export { rateLimit, expensiveLimiter, writeLimiter, publicLookupLimiter, clientIp, deviceKey } from "./rateLimit.js";
 export { deviceId, checkDeviceBlock, listBlockedDevices, unblockDevice } from "./devices.js";
 export { safeFetch, assertSafeUrl } from "./ssrf.js";
-export { syncPortalAccounts } from "./routes.js";
+export { syncPortalAccounts, removePortalAccounts } from "./routes.js";
 export * from "./sanitize.js";
 
 /** Har so'rovga kuzatuv identifikatori — loglarni bog'lash uchun. */

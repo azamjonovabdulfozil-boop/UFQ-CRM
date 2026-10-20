@@ -31,6 +31,7 @@ import {
   setStatus,
   deleteAccount,
   findById,
+  findByUsername,
   bumpTokenVersion,
   ROLES,
 } from "./accounts.js";
@@ -381,15 +382,17 @@ export async function syncPortalAccounts(list, role, actor, req) {
       studentId: u.studentId ?? null,
       studentName: u.studentName || null,
       // Parol berilgan bo'lsa o'rnatiladi; bo'lmasa mavjud parol saqlanadi.
-      // ⚠️ `legacyPassword` yo'li ishlatiladi (`password` emas): admin mentor/
-      // talabaga ODDIY parol beradi (sozlamalar kartochkasida kamida 4 belgi),
-      // `password` yo'li esa admin uchun mo'ljallangan QATTIQ siyosatni (10+
-      // belgi, lug'at) qo'llab, bunday parolni jimgina rad etardi — natijada
-      // hisob `accounts` ga umuman yozilmay, mentor/talaba kira olmasdi.
-      // legacyPassword ham ochiq matnni (sozlama kartochkasi), ham sha256 ni
-      // (talaba modalida oldindan xeshlanadi) to'g'ri qabul qiladi va birinchi
-      // kirishda avtomatik scrypt'ga ko'chiriladi.
-      legacyPassword: typeof u.pass === "string" && u.pass ? u.pass : undefined,
+      // Ochiq parol darhol scrypt bilan xeshlanadi (`password` yo'li — siyosat
+      // faqat uzunlik, sozlamalar kartochkasi ham kamida 5 belgi so'raydi).
+      // Talaba modali parolni oldindan sha256 qilib yuboradi — 64 belgili hex
+      // bo'lsa `legacyPassword` yo'li ishlatiladi. Ilgari ochiq parol ham
+      // legacy yo'lidan ketardi va ALLOW_LEGACY_PASSWORDS=0 bo'lsa yangi
+      // mentor/talaba umuman kira olmasdi.
+      ...(typeof u.pass === "string" && u.pass
+        ? /^[a-f0-9]{64}$/i.test(u.pass)
+          ? { legacyPassword: u.pass }
+          : { password: u.pass }
+        : {}),
     });
     results.push({ login: username, ok: out.ok, error: out.error });
   }
@@ -400,4 +403,25 @@ export async function syncPortalAccounts(list, role, actor, req) {
       meta: { role, total: results.length, ok: results.filter((x) => x.ok).length },
     });
   return results;
+}
+
+/**
+ * Admin mentor/talabaning loginini o'chirsa yoki almashtirsa — eski hisob
+ * `accounts` dan ham o'chiriladi. Aks holda eski login bilan kirish
+ * ishlayverardi. Faqat shu roldagi hisob o'chadi (admin hisobiga tegilmaydi).
+ */
+export async function removePortalAccounts(logins, role, actor, req) {
+  const removed = [];
+  for (const l of Array.isArray(logins) ? logins.slice(0, 200) : []) {
+    const acc = await findByUsername(l);
+    if (!acc || acc.role !== role) continue;
+    const out = await deleteAccount(String(acc._id));
+    if (out.ok) {
+      await revokeAllForAccount(String(acc._id)).catch(() => {});
+      removed.push(acc.username);
+    }
+  }
+  if (removed.length)
+    await audit("admin.accounts.remove", { req, actor, meta: { role, removed }, severity: "warn" });
+  return removed;
 }

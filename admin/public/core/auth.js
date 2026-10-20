@@ -96,15 +96,32 @@ async function getUsers() {
   } catch (e) { return []; }
 }
 
-function saveMentorUsers(arr) {
-  localStorage.setItem(MENTOR_USERS_KEY, JSON.stringify(arr));
-  fetch('/api/users/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mentors: arr }) }).catch(() => {});
+// Server javobini qaytaradi: { ok, accounts:[{login, ok, error}] }. Ilgari
+// javob umuman tekshirilmasdi — server loginni rad etsa ham "saqlandi"
+// chiqardi, mentor esa kira olmasdi.
+// ⚠️ Parol localStorage'ga yozilmaydi — u faqat serverga ketadi.
+async function _postUsers(body) {
+  try {
+    const r = await fetch('/api/users/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) return { ok: false, error: d.error || ('Server xatosi (HTTP ' + r.status + ')') };
+    const bad = (d.accounts || []).find((a) => !a.ok);
+    return bad ? { ok: false, error: (bad.login || '') + ': ' + (bad.error || 'saqlanmadi'), accounts: d.accounts } : d;
+  } catch (e) {
+    return { ok: false, error: "Serverga ulanib bo'lmadi" };
+  }
+}
+const _noPass = (arr) => arr.map(({ pass, password, ...u }) => u);
+
+function saveMentorUsers(arr, removedLogins) {
+  localStorage.setItem(MENTOR_USERS_KEY, JSON.stringify(_noPass(arr)));
+  return _postUsers({ mentors: arr, removedMentorLogins: removedLogins || [] });
 }
 function getMentorUsers() { try { return JSON.parse(localStorage.getItem(MENTOR_USERS_KEY) || '[]'); } catch (e) { return []; } }
 
-function saveStudentUsers(arr) {
-  localStorage.setItem(STUDENT_USERS_KEY, JSON.stringify(arr));
-  fetch('/api/users/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ students: arr }) }).catch(() => {});
+function saveStudentUsers(arr, removedLogins) {
+  localStorage.setItem(STUDENT_USERS_KEY, JSON.stringify(_noPass(arr)));
+  return _postUsers({ students: arr, removedStudentLogins: removedLogins || [] });
 }
 function getStudentUsers() { try { return JSON.parse(localStorage.getItem(STUDENT_USERS_KEY) || '[]'); } catch (e) { return []; } }
 

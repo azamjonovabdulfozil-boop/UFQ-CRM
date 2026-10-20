@@ -509,7 +509,11 @@ async function saveModal() {
           studentName: fullName,
           hashed: true,
         });
-        saveStudentUsers(filtered);
+        const oldLogin =
+          existingCred && existingCred.login !== loginVal ? [existingCred.login] : [];
+        saveStudentUsers(filtered, oldLogin).then((r) => {
+          if (!r.ok) toast("⚠️ Login saqlanmadi: " + r.error);
+        });
         renderStudentCredsList();
       }
     } catch (e) {}
@@ -1277,49 +1281,73 @@ async function unblockDeviceById(id) {
 }
 
 // ===================== MENTOR CREDENTIALS (ADMIN) =====================
-function saveMentorCredentials() {
+// Server qabul qiladigan login: 3–64 belgi, faqat lotin harfi, raqam va . _ - @ +
+// (security/sanitize.js → safeUsername bilan bir xil qoida).
+const PORTAL_LOGIN_RE = /^[a-z0-9._\-@+]{3,64}$/;
+const PORTAL_LOGIN_HINT =
+  "⚠️ Login kamida 3 belgi bo'lsin va faqat lotin harflari, raqam hamda . _ - @ + belgilaridan iborat bo'lsin (bo'sh joy va apostrof mumkin emas)";
+
+/** Yangi ro'yxatni saqlashdan oldin serverdagi so'nggi holatni olamiz. */
+async function _freshPortalUsers() {
+  if (typeof getUsers === "function") {
+    try {
+      await getUsers();
+    } catch (e) {}
+  }
+}
+
+async function saveMentorCredentials() {
   const sel = document.getElementById("sett-mentor-select");
-  const login = (
-    document.getElementById("sett-mentor-login").value || ""
-  ).trim();
-  const pass = (document.getElementById("sett-mentor-pass").value || "").trim();
-  const mentorName = sel.options[sel.selectedIndex]?.text || "";
+  const loginEl = document.getElementById("sett-mentor-login");
+  const passEl = document.getElementById("sett-mentor-pass");
+  const login = (loginEl.value || "").trim().toLowerCase();
+  const pass = (passEl.value || "").trim();
+  const mentorName = sel.value ? sel.options[sel.selectedIndex]?.text || "" : "";
   if (!sel.value) {
     toast("⚠️ Mentor tanlang!");
     return;
   }
-  if (!login || login.length < 2) {
-    toast("⚠️ Login kamida 2 ta belgi!");
+  if (!PORTAL_LOGIN_RE.test(login)) {
+    toast(PORTAL_LOGIN_HINT);
     return;
   }
-  if (!pass || pass.length < 5) {
+  await _freshPortalUsers();
+  const existing = getMentorUsers();
+  const mine = existing.find((u) => String(u.mentorId) === String(sel.value));
+  // Mentorda allaqachon hisob bo'lsa parolni bo'sh qoldirish mumkin — eski
+  // parol saqlanadi. Yangi hisob uchun parol shart.
+  if (pass ? pass.length < 5 : !mine) {
     toast("⚠️ Parol kamida 5 ta belgi!");
     return;
   }
-  // Login boshqa foydalanuvchida bormi?
-  const existing = getMentorUsers();
-  const conflict = existing.find(
-    (u) => u.login === login && u.mentorId !== sel.value,
-  );
+  const conflict =
+    existing.find((u) => String(u.login).toLowerCase() === login && String(u.mentorId) !== String(sel.value)) ||
+    getStudentUsers().find((u) => String(u.login).toLowerCase() === login);
   if (conflict) {
     toast("⚠️ Bu login allaqachon band!");
     return;
   }
   // Eski yozuvni o'chirib yangi qo'sh
-  const filtered = existing.filter((u) => u.mentorId !== sel.value);
-  filtered.push({
+  const filtered = existing.filter((u) => String(u.mentorId) !== String(sel.value));
+  const entry = {
     login,
-    pass,
     name: mentorName,
     role: "Mentor",
     mentorId: sel.value,
     mentorName: mentorName,
-  });
-  saveMentorUsers(filtered);
-  toast("✅ " + mentorName + " uchun login/parol saqlandi!");
+  };
+  if (pass) entry.pass = pass;
+  filtered.push(entry);
+  const oldLogin = mine && String(mine.login).toLowerCase() !== login ? [mine.login] : [];
+  const r = await saveMentorUsers(filtered, oldLogin);
+  if (!r.ok) {
+    toast("⚠️ Saqlanmadi: " + r.error);
+    return;
+  }
+  toast("✅ " + mentorName + " uchun login/parol saqlandi! Login: " + login);
   renderMentorCredsList();
-  document.getElementById("sett-mentor-login").value = "";
-  document.getElementById("sett-mentor-pass").value = "";
+  loginEl.value = "";
+  passEl.value = "";
 }
 
 function renderMentorCredsList() {
@@ -1345,10 +1373,13 @@ function renderMentorCredsList() {
       const u = getMentorUsers().find(
         (u) => String(u.mentorId) === String(cur),
       );
-      if (u) {
-        document.getElementById("sett-mentor-login").value = u.login;
-        document.getElementById("sett-mentor-pass").value = u.pass;
-      }
+      // Parol serverdan kelmaydi (xavfsizlik) — maydon bo'sh qoladi; bo'sh
+      // qoldirilsa eski parol saqlanadi. Ilgari bu yerga "undefined" yozilib,
+      // saqlanganda mentorning paroli "undefined" ga aylanib qolardi.
+      document.getElementById("sett-mentor-login").value = u ? u.login : "";
+      const pe = document.getElementById("sett-mentor-pass");
+      pe.value = "";
+      pe.placeholder = u ? "Bo'sh qoldirsangiz eski parol qoladi" : "••••••••";
     }
   }
   const users = getMentorUsers();
@@ -1373,66 +1404,70 @@ function renderMentorCredsList() {
 
 async function deleteMentorCredential(mentorId) {
   if (!(await crmConfirm("Bu mentorning login/paroli o'chirilsinmi?", { danger: true }))) return;
-  const filtered = getMentorUsers().filter(
-    (u) => String(u.mentorId) !== String(mentorId),
-  );
-  saveMentorUsers(filtered);
+  await _freshPortalUsers();
+  const all = getMentorUsers();
+  const gone = all.filter((u) => String(u.mentorId) === String(mentorId)).map((u) => u.login);
+  const filtered = all.filter((u) => String(u.mentorId) !== String(mentorId));
+  const r = await saveMentorUsers(filtered, gone);
   renderMentorCredsList();
-  toast("🗑 Login/parol o'chirildi");
+  toast(r.ok ? "🗑 Login/parol o'chirildi" : "⚠️ O'chirilmadi: " + r.error);
 }
 
 // ===================== STUDENT CREDENTIALS =====================
-function saveStudentCredentials() {
+async function saveStudentCredentials() {
   const sel = document.getElementById("sett-student-select");
-  const login = (
-    document.getElementById("sett-student-login").value || ""
-  ).trim();
-  const pass = (
-    document.getElementById("sett-student-pass").value || ""
-  ).trim();
-  const studentName = sel.options[sel.selectedIndex]?.text || "";
+  const loginEl = document.getElementById("sett-student-login");
+  const passEl = document.getElementById("sett-student-pass");
+  const login = (loginEl.value || "").trim().toLowerCase();
+  const pass = (passEl.value || "").trim();
+  const studentName = sel.value ? sel.options[sel.selectedIndex]?.text || "" : "";
   if (!sel.value) {
     toast("⚠️ Talaba tanlang!");
     return;
   }
-  if (!login || login.length < 2) {
-    toast("⚠️ Login kamida 2 ta belgi!");
+  if (!PORTAL_LOGIN_RE.test(login)) {
+    toast(PORTAL_LOGIN_HINT);
     return;
   }
-  if (!pass || pass.length < 5) {
+  await _freshPortalUsers();
+  const existing = getStudentUsers();
+  const mine = existing.find((u) => String(u.studentId) === String(sel.value));
+  if (pass ? pass.length < 5 : !mine) {
     toast("⚠️ Parol kamida 5 ta belgi!");
     return;
   }
-  const existing = getStudentUsers();
   const conflict = existing.find(
-    (u) => u.login === login && String(u.studentId) !== String(sel.value),
+    (u) => String(u.login).toLowerCase() === login && String(u.studentId) !== String(sel.value),
   );
   if (conflict) {
     toast("⚠️ Bu login allaqachon band!");
     return;
   }
-  // Mentor loginlari bilan to'qnashmasin (sync check)
-  const mentorConflict = getMentorUsers().find((u) => u.login === login);
-  if (mentorConflict) {
+  // Mentor loginlari bilan to'qnashmasin
+  if (getMentorUsers().find((u) => String(u.login).toLowerCase() === login)) {
     toast("⚠️ Bu login mentor uchun band!");
     return;
   }
-  const filtered = existing.filter(
-    (u) => String(u.studentId) !== String(sel.value),
-  );
-  filtered.push({
+  const filtered = existing.filter((u) => String(u.studentId) !== String(sel.value));
+  const entry = {
     login,
-    pass,
     name: studentName,
     role: "Talaba",
     studentId: sel.value,
     studentName: studentName,
-  });
-  saveStudentUsers(filtered);
-  toast("✅ " + studentName + " uchun login/parol saqlandi!");
+  };
+  if (pass) entry.pass = pass;
+  filtered.push(entry);
+  const oldLogin = mine && String(mine.login).toLowerCase() !== login ? [mine.login] : [];
+  const r = await saveStudentUsers(filtered, oldLogin);
+  if (!r.ok) {
+    toast("⚠️ Saqlanmadi: " + r.error);
+    return;
+  }
+  toast("✅ " + studentName + " uchun login/parol saqlandi! Login: " + login);
   renderStudentCredsList();
-  document.getElementById("sett-student-login").value = "";
-  document.getElementById("sett-student-pass").value = "";
+  loginEl.value = "";
+  passEl.value = "";
 }
 
 function renderStudentCredsList() {
@@ -1453,10 +1488,10 @@ function renderStudentCredsList() {
       const u = getStudentUsers().find(
         (u) => String(u.studentId) === String(cur),
       );
-      if (u) {
-        document.getElementById("sett-student-login").value = u.login;
-        document.getElementById("sett-student-pass").value = u.pass;
-      }
+      document.getElementById("sett-student-login").value = u ? u.login : "";
+      const pe = document.getElementById("sett-student-pass");
+      pe.value = "";
+      pe.placeholder = u ? "Bo'sh qoldirsangiz eski parol qoladi" : "••••••••";
     }
   }
   const users = getStudentUsers();
@@ -1481,12 +1516,13 @@ function renderStudentCredsList() {
 
 async function deleteStudentCredential(studentId) {
   if (!(await crmConfirm("Bu talabaning login/paroli o'chirilsinmi?", { danger: true }))) return;
-  const filtered = getStudentUsers().filter(
-    (u) => String(u.studentId) !== String(studentId),
-  );
-  saveStudentUsers(filtered);
+  await _freshPortalUsers();
+  const all = getStudentUsers();
+  const gone = all.filter((u) => String(u.studentId) === String(studentId)).map((u) => u.login);
+  const filtered = all.filter((u) => String(u.studentId) !== String(studentId));
+  const r = await saveStudentUsers(filtered, gone);
   renderStudentCredsList();
-  toast("🗑 Talaba login/paroli o'chirildi");
+  toast(r.ok ? "🗑 Talaba login/paroli o'chirildi" : "⚠️ O'chirilmadi: " + r.error);
 }
 
 // ===================== MENTOR MY SCHEDULE =====================
