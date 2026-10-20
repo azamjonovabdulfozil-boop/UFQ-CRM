@@ -111,7 +111,7 @@ async function _postUsers(body) {
     return { ok: false, error: "Serverga ulanib bo'lmadi" };
   }
 }
-const _noPass = (arr) => arr.map(({ pass, password, ...u }) => u);
+const _noPass = (arr) => arr.map(({ pass, password, prevLogin, ...u }) => u);
 
 function saveMentorUsers(arr, removedLogins) {
   localStorage.setItem(MENTOR_USERS_KEY, JSON.stringify(_noPass(arr)));

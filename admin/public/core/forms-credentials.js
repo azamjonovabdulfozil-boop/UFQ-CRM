@@ -407,16 +407,30 @@ async function saveModal() {
       resumeFile: _uploadedFile,
       photo: _uploadedPhoto,
     };
-    if (isEdit)
-      Object.assign(
-        D.mentors.find((x) => x.id === _editId),
-        d,
-      );
-    else {
+    let renamedMentorId = null;
+    if (isEdit) {
+      const m0 = D.mentors.find((x) => x.id === _editId);
+      if (m0 && m0.name !== d.name) renamedMentorId = m0.id;
+      Object.assign(m0, d);
+    } else {
       d.id = newId();
       D.mentors.push(d);
     }
     syncGroupRelations(D);
+    // Mentor ismi o'zgardi — uning kirish hisobidagi ism ham yangilanadi.
+    // Mentor o'z guruhlarini ism orqali topadi: aks holda ism o'zgargach
+    // mentor portalida guruhlari (va AI dagi ma'lumotlari) yo'qolib qolardi.
+    if (renamedMentorId != null && typeof getMentorUsers === "function") {
+      const users = getMentorUsers();
+      const u = users.find((x) => String(x.mentorId) === String(renamedMentorId));
+      if (u) {
+        u.name = d.name;
+        u.mentorName = d.name;
+        saveMentorUsers(users).then((r) => {
+          if (!r.ok) toast("⚠️ Mentor hisobidagi ism yangilanmadi: " + r.error);
+        });
+      }
+    }
     updateGroupFilters();
     renderMentors();
     closeModal();
@@ -491,30 +505,39 @@ async function saveModal() {
       const existingCred = getStudentUsers().find(
         (u) => String(u.studentId) === String(studentId),
       );
-      let passHash = existingCred ? existingCred.pass : null;
+      // Parol serverdan kelmaydi — bo'sh qoldirilsa eski parol serverda qoladi
+      let passHash = null;
       if (passVal) {
         passHash = await sha256Hex(passVal);
         credToShow = { login: loginVal, pass: passVal };
       }
-      if (passHash) {
+      const loginChanged =
+        !!existingCred && String(existingCred.login).toLowerCase() !== loginVal;
+      const nameChanged = !!existingCred && existingCred.name !== fullName;
+      // Yangi parol, login yoki ism o'zgargan bo'lsa saqlaymiz. Ilgari faqat
+      // yangi parol berilgandagina saqlanardi — loginni o'zgartirish jimgina
+      // e'tiborsiz qolardi.
+      if (passHash || loginChanged || nameChanged) {
         const filtered = getStudentUsers().filter(
           (u) => String(u.studentId) !== String(studentId),
         );
-        filtered.push({
+        const entry = {
           login: loginVal,
-          pass: passHash,
           name: fullName,
           role: "Talaba",
           studentId: studentId,
           studentName: fullName,
-          hashed: true,
-        });
-        const oldLogin =
-          existingCred && existingCred.login !== loginVal ? [existingCred.login] : [];
+        };
+        if (passHash) {
+          entry.pass = passHash;
+          entry.hashed = true;
+        } else if (loginChanged) entry.prevLogin = existingCred.login;
+        filtered.push(entry);
+        const oldLogin = loginChanged ? [existingCred.login] : [];
         saveStudentUsers(filtered, oldLogin).then((r) => {
           if (!r.ok) toast("⚠️ Login saqlanmadi: " + r.error);
+          renderStudentCredsList();
         });
-        renderStudentCredsList();
       }
     } catch (e) {}
     renderStudents();
@@ -1337,8 +1360,10 @@ async function saveMentorCredentials() {
     mentorName: mentorName,
   };
   if (pass) entry.pass = pass;
-  filtered.push(entry);
   const oldLogin = mine && String(mine.login).toLowerCase() !== login ? [mine.login] : [];
+  // Login almashsa-yu yangi parol berilmasa — server eski parolni yangi loginga ko'chiradi
+  if (oldLogin.length && !pass) entry.prevLogin = mine.login;
+  filtered.push(entry);
   const r = await saveMentorUsers(filtered, oldLogin);
   if (!r.ok) {
     toast("⚠️ Saqlanmadi: " + r.error);
@@ -1479,8 +1504,10 @@ async function saveStudentCredentials() {
     studentName: studentName,
   };
   if (pass) entry.pass = pass;
-  filtered.push(entry);
   const oldLogin = mine && String(mine.login).toLowerCase() !== login ? [mine.login] : [];
+  // Login almashsa-yu yangi parol berilmasa — server eski parolni yangi loginga ko'chiradi
+  if (oldLogin.length && !pass) entry.prevLogin = mine.login;
+  filtered.push(entry);
   const r = await saveStudentUsers(filtered, oldLogin);
   if (!r.ok) {
     toast("⚠️ Saqlanmadi: " + r.error);

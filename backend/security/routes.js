@@ -32,6 +32,7 @@ import {
   deleteAccount,
   findById,
   findByUsername,
+  renameAccount,
   bumpTokenVersion,
   ROLES,
 } from "./accounts.js";
@@ -373,6 +374,16 @@ export async function syncPortalAccounts(list, role, actor, req) {
     if (!username) {
       results.push({ login: u?.login, ok: false, error: "Login yaroqsiz" });
       continue;
+    }
+    // Login almashtirilgan, yangi parol berilmagan — eski hisob (paroli bilan)
+    // yangi loginga ko'chiriladi
+    const hasPass = typeof u.pass === "string" && !!u.pass;
+    if (!hasPass && u.prevLogin) {
+      const prev = safeUsername(u.prevLogin);
+      if (prev && prev !== username && !(await findByUsername(username))) {
+        const rn = await renameAccount(prev, username, role);
+        if (rn.ok) await audit("admin.accounts.rename", { req, actor, meta: { role, from: prev, to: username } });
+      }
     }
     const out = await upsertAccount({
       username,

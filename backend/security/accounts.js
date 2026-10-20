@@ -174,6 +174,26 @@ export async function upsertAccount(p) {
   return { ok: true, account: r.value || r };
 }
 
+/**
+ * Hisob loginini almashtirish — paroli (xeshi) o'zgarmay qoladi.
+ * Admin mentor/talabaning loginini yangi parol kiritmasdan o'zgartirganda
+ * kerak: ilgari yangi login PAROLSIZ yaratilib, eskisi o'chirilardi va
+ * foydalanuvchi umuman kira olmay qolardi.
+ */
+export async function renameAccount(oldUsername, newUsername, role) {
+  const from = safeUsername(oldUsername);
+  const to = safeUsername(newUsername);
+  if (!from || !to || from === to) return { ok: false, error: "Login yaroqsiz" };
+  const col = db().collection(COL);
+  const old = await col.findOne({ username: from });
+  if (!old || (role && old.role !== role)) return { ok: false, error: "Eski hisob topilmadi" };
+  if (await col.findOne({ username: to })) return { ok: false, code: "username-taken", error: "Bu login band" };
+  await col.updateOne({ _id: old._id }, { $set: { username: to, updatedAt: new Date() } });
+  invalidateAccount(String(old._id), from);
+  invalidateAccount(String(old._id), to);
+  return { ok: true };
+}
+
 export async function listAccounts(filter = {}) {
   const q = {};
   if (filter.role && Object.values(ROLES).includes(filter.role)) q.role = filter.role;

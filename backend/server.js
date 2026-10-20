@@ -322,7 +322,7 @@ app.post("/api/users/save", requireAdmin, writeLimiter, async (req, res) => {
     // ⚠️ Parol `users` kolleksiyasiga ENDI YOZILMAYDI. U faqat `accounts` da,
     // scrypt xeshi ko'rinishida yashaydi (quyidagi syncPortalAccounts).
     const profileOnly = (u, role) => {
-      const { pass, password, passwordHash, ...rest } = u || {};
+      const { pass, password, passwordHash, prevLogin, ...rest } = u || {};
       return { ...rest, _role: role };
     };
 
