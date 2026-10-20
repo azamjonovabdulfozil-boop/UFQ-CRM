@@ -276,6 +276,9 @@ function loadDebtorLinks(cb) {
   ]).then(function (r) {
     _debtChanLoading = false;
     if (r[0] && r[0].ok) _debtChan = r[0];
+    // ⚠️ Holat olinmasa ham null qoldirmaymiz: aks holda renderDebtors() uni
+    // darhol qayta so'rardi → soniyasiga yuzlab so'rov va qayta chizish.
+    else if (!_debtChan) _debtChan = { ok: false, failed: true };
     if (r[1] && r[1].ok) _debtBot = r[1];
     else if (!_debtBot) _debtBot = { ok: false, configured: false, linked: {}, status: "⚠️ Holatni olib bo'lmadi" };
     if (cb) cb();

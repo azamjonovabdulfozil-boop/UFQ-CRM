@@ -233,7 +233,22 @@
     "medal-silver": ["medal", "#94a3b8"],
     "medal-bronze": ["medal", "#d97706"],
     "heart-green": ["heart", "#10b981"],
-  };
+  
+    // ── Qo'shimcha (ilgari emoji bo'lib qolgan belgilar uchun) ──
+    mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/>',
+    volume: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
+    "volume-x": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>',
+    unlock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.8-1.2"/>',
+    "circle-fill": '<circle cx="12" cy="12" r="8" fill="currentColor"/>',
+    school: '<path d="m4 10 8-5 8 5"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/><path d="M2 20h20"/>',
+    "eye-off": '<path d="M9.9 4.2A10 10 0 0 1 12 4c6 0 10 8 10 8a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s4 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M14.1 14.1a3 3 0 0 1-4.2-4.2"/><path d="m2 2 20 20"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+    puzzle: '<path d="M19.4 14.6a2.5 2.5 0 1 0 0-5H18V6a2 2 0 0 0-2-2h-3.4a2.5 2.5 0 1 0-5 0H4a2 2 0 0 0-2 2v3.6a2.5 2.5 0 1 1 0 5V18a2 2 0 0 0 2 2h3.6a2.5 2.5 0 1 1 5 0H16a2 2 0 0 0 2-2v-3.4z"/>',
+    pause: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
+    scale: '<path d="M12 3v18M7 21h10M5 7h14"/><path d="m5 7-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/>',
+    "credit-card": '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+};
 
   // ─────────────────────────────────────────────────────────────
   // 2. EMOJI → IKONKA
@@ -396,6 +411,28 @@
     "🪄": "wand",
     "♻": "refresh",
     "🖨": "printer",
+    // ── Qo'shimcha xaritalar ──
+    "👩‍🏫": "teacher",
+    "🎤": "mic",
+    "🔒": "lock",
+    "🔓": "unlock",
+    "⚫": "circle-fill",
+    "🔊": "volume",
+    "🔇": "volume-x",
+    "📕": "book",
+    "🏫": "school",
+    "🙈": "eye-off",
+    "🎵": "music",
+    "📽": "video",
+    "🗜": "archive",
+    "🧩": "puzzle",
+    "⏸": "pause",
+    "⚖": "scale",
+    "✔": "check",
+    "🧰": "briefcase",
+    "📭": "inbox",
+    "💳": "credit-card",
+    "🙂": "smile",
   };
 
   // Bayroqlar (regional indicator juftliklari) — matn yonida "UZ/РУ/EN"

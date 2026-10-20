@@ -55,7 +55,7 @@ export const SCRIPT_GROUPS = [
 ];
 
 // Tartib muhim: responsive qatlam edu-styles.css dan keyin kelishi shart.
-const STYLESHEETS = ["edu-styles.css", "responsive.css"];
+const STYLESHEETS = ["edu-styles.css", "responsive.css", "ui-polish.css"];
 
 // CSS ni <head> ga preload qilib oldindan boshlash
 // Build belgisi — fayl nomi o'zgarmagani uchun brauzer eski nusxani
