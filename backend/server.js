@@ -31,7 +31,7 @@ import {
 } from "./qarzdorBot.js";
 // "Eshitish" tugmasi uchun o'zbekcha tabiiy ovoz (Azure Speech).
 import { azureTts, azureTtsConfigured, normalizeUz } from "./azureTts.js";
-import { geminiTts, geminiTtsConfigured } from "./geminiTts.js";
+import { geminiTts, geminiTtsConfigured, pcmToWav } from "./geminiTts.js";
 // Mentor va talaba AI si: rolga mos ko'rsatma, tarix, so'kinish nazorati.
 import { initAiPortal, HAQORAT_MARK } from "./aiPortal.js";
 
@@ -1373,6 +1373,73 @@ const ttsLang = (t) => {
   return cyr > lat ? "ru" : "uz";
 };
 
+// Lovable shlyuzi orqali Google Gemini nutq modellari. Sinovda o'zbekchani
+// ona tilida so'zlashuvchidek, aksentsiz o'qidi (OpenAI ovozida esa chet el
+// aksenti seziladi). Navbat: eng tez → eng sifatli → zaxira.
+const LOVABLE_GEMINI_TTS = () =>
+  [process.env.LOVABLE_GEMINI_TTS_MODEL, "google/gemini-3.1-flash-tts-preview", "google/gemini-2.5-pro-tts", "google/gemini-2.5-flash-tts"].filter(
+    (m, i, a) => m && a.indexOf(m) === i,
+  );
+const TTS_STYLE = {
+  uz:
+    "Siz ona tili o'zbek bo'lgan tajribali toshkentlik diktorsiz. Quyidagi matnni o'zbek adabiy " +
+    "talaffuzida, odamdek tabiiy, iliq va aniq o'qing: o', g', q, x, h, sh, ch tovushlarini to'g'ri " +
+    "ayting, raqamlarni o'zbekcha o'qing, gap oxirida tabiiy pauza qiling, shoshilmang. Chet el " +
+    "aksenti bo'lmasin. Faqat matnning o'zini o'qing:\n",
+  ru: "Прочитай следующий текст естественно, тепло и чётко, как диктор — носитель русского языка. Читай только сам текст:\n",
+};
+async function lovableGeminiTts(text, lang) {
+  let last = null;
+  for (const model of LOVABLE_GEMINI_TTS()) {
+    try {
+      const r = await fetchWithTimeout(
+        "https://ai.gateway.lovable.dev/v1/audio/speech",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Lovable-API-Key": lovableKey() },
+          body: JSON.stringify({
+            model,
+            contents: [{ role: "user", parts: [{ text: (TTS_STYLE[lang] || TTS_STYLE.uz) + text }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: process.env.LOVABLE_TTS_VOICE_UZ || "Kore" } },
+              },
+            },
+          }),
+        },
+        45000,
+      );
+      const type = r.headers.get("content-type") || "";
+      if (r.ok && /^audio\//i.test(type)) {
+        const buf = Buffer.from(await r.arrayBuffer());
+        if (buf.length > 1000) return { buf, type };
+        last = new Error(model + ": bo'sh audio");
+        continue;
+      }
+      if (r.ok && /json/i.test(type)) {
+        // Ba'zan javob Gemini'ning o'z formatida (base64 PCM) keladi
+        const j = await r.json().catch(() => ({}));
+        const part = (j.candidates?.[0]?.content?.parts || []).find((p) => p.inlineData || p.inline_data);
+        const inl = part && (part.inlineData || part.inline_data);
+        if (inl?.data) {
+          const raw = Buffer.from(inl.data, "base64");
+          const mime = String(inl.mimeType || inl.mime_type || "");
+          if (/wav|mpeg|mp3|ogg/i.test(mime)) return { buf: raw, type: mime };
+          const rate = Number((/rate=(\d+)/.exec(mime) || [])[1]) || 24000;
+          return { buf: pcmToWav(raw, rate), type: "audio/wav" };
+        }
+        last = new Error(model + ": audio topilmadi");
+        continue;
+      }
+      last = new Error(model + ": HTTP " + r.status);
+    } catch (e) {
+      last = new Error(model + ": " + (e?.name === "AbortError" ? "javob bermadi" : e.message));
+    }
+  }
+  throw last || new Error("Gemini ovozi ishlamadi");
+}
+
 app.get("/api/ai-tts/status", requireAuth, (req, res) => {
   res.json({ ok: true, azure: azureTtsConfigured(), gemini: geminiTtsConfigured(), lovable: lovableReady() });
 });
@@ -1418,6 +1485,16 @@ app.post("/api/ai-tts", requireAuth, ttsLimiter, async (req, res) => {
       return sendAudio(await azureTts(text), "audio/mpeg");
     } catch (e) {
       errors.push("Azure: " + e.message);
+    }
+  }
+
+  // Eng sifatli o'zbekcha ovoz (Azure sozlanmagan bo'lsa) — Lovable orqali Gemini
+  if (lovableReady()) {
+    try {
+      const out = await lovableGeminiTts(normalizeUz(text), ttsLang(text));
+      return sendAudio(out.buf, out.type);
+    } catch (e) {
+      errors.push("Lovable Gemini: " + e.message);
     }
   }
 
@@ -1571,7 +1648,7 @@ function aiAnthropicContent(m) {
       blocks.push({ type: "image", source: { type: "base64", media_type: f.mime.replace("jpg", "jpeg"), data: f.data } });
     else if (f.mime === "application/pdf")
       blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data } });
-    else skipped.push(f.name + " (" + f.mime + ")");
+    else if (!f.transcribed) skipped.push(f.name + " (" + f.mime + ")");
   }
   blocks.push({
     type: "text",
@@ -1594,6 +1671,35 @@ const aiPortal = initAiPortal({
   audit,
   fail,
 });
+
+// 🎤 Ovozli xabarni o'zbekcha matnga o'girish. Sinovda Gemini transkripsiya
+// modeli o'zbekchani so'zma-so'z aniq yozdi. Matn javobga ham qaytariladi —
+// tarixda saqlanadi va ovoz yo'qolgandan keyin ham AI suhbatni eslaydi.
+async function transcribeAudio(f) {
+  if (!lovableReady()) return "";
+  const buf = Buffer.from(f.data, "base64");
+  const ext = f.format === "mpeg" ? "mp3" : f.format || "wav";
+  for (const model of [process.env.LOVABLE_STT_MODEL, "google/gemini-3.5-transcribe", "openai/gpt-4o-transcribe"].filter(Boolean)) {
+    try {
+      const fd = new FormData();
+      fd.append("file", new Blob([buf], { type: f.mime || "audio/wav" }), "ovoz." + ext);
+      fd.append("model", model);
+      // OpenAI "uz" kodini tanimaydi — tilni ko'rsatma orqali aytamiz
+      if (model.startsWith("google/")) fd.append("language", "uz");
+      fd.append("prompt", "O'zbek tilidagi (ba'zan rus tili aralash) nutq. O'zbek lotin yozuvida yozing.");
+      const r = await fetchWithTimeout(
+        "https://ai.gateway.lovable.dev/v1/audio/transcriptions",
+        { method: "POST", headers: { "Lovable-API-Key": lovableKey() }, body: fd },
+        40000,
+      );
+      if (!r.ok) continue;
+      const d = await r.json().catch(() => ({}));
+      const t = String(d.text || "").trim();
+      if (t) return t.slice(0, 8000);
+    } catch {}
+  }
+  return "";
+}
 
 app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   // Klient uzilib qolsa serverda ham to'xtaymiz
@@ -1621,6 +1727,23 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   const norm = normalizeAiMessages(messages, bigMode);
   if (norm.error) return res.status(400).json({ ok: false, error: norm.error });
   const nmsgs = norm.msgs;
+
+  // Oxirgi xabardagi ovozli xabar(lar)ni matnga o'giramiz — shunda AI nima
+  // deyilganini aniq biladi (qaysi AI xizmati javob berishidan qat'i nazar).
+  let voiceText = "";
+  const lastVoice = [...nmsgs].reverse().find((m) => m.role === "user");
+  const auds = lastVoice ? lastVoice.files.filter((f) => f.kind === "audio").slice(0, 3) : [];
+  if (auds.length) {
+    const texts = (await Promise.all(auds.map((f) => transcribeAudio(f).catch(() => "")))).filter(Boolean);
+    if (texts.length) {
+      voiceText = texts.join("\n");
+      auds.forEach((f) => (f.transcribed = true));
+      lastVoice.text =
+        (lastVoice.text ? lastVoice.text + "\n\n" : "") +
+        "🎤 Foydalanuvchi ovozli xabar yubordi. Uning matni: «" + voiceText + "»\n" +
+        "Ovozli xabar mazmunini diqqat bilan tahlil qilib, unga o'zbek tilida to'liq javob ber.";
+    }
+  }
   // Prompt orqali servisni suiiste'mol qilishga qarshi hajm cheklovi
   // (hujjat matni ham yuboriladi — admin/mentor/talabaga ko'proq ruxsat)
   const totalChars = nmsgs.reduce((n, m) => n + m.text.length, 0);
@@ -1650,7 +1773,11 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
         console.warn("⚠️  Moderatsiya xatosi:", e.message);
       }
     }
-    return res.json({ ok: true, text: String(text).split(HAQORAT_MARK).join("").trim() || "..." });
+    return res.json({
+      ok: true,
+      text: String(text).split(HAQORAT_MARK).join("").trim() || "...",
+      voiceText: voiceText || undefined,
+    });
   };
 
   const key = process.env.ANTHROPIC_API_KEY;

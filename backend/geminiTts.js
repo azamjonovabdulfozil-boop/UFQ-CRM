@@ -17,7 +17,7 @@ const key = () =>
     .replace(/^['"]|['"]$/g, "");
 export const geminiTtsConfigured = () => !!key() && !key().includes("your_");
 
-function pcmToWav(pcm, rate = 24000) {
+export function pcmToWav(pcm, rate = 24000) {
   const head = Buffer.alloc(44);
   head.write("RIFF", 0);
   head.writeUInt32LE(36 + pcm.length, 4);

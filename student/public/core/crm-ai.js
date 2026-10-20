@@ -1200,6 +1200,7 @@
       ".aai-act:hover{background:var(--bg3);color:var(--text)}.aai-act.on{color:var(--accent);background:var(--accent-light)}",
       ".aai-err .aai-txt{background:var(--orange-light,#fff7ed);color:var(--orange-text,#9a3412);border-color:transparent}",
       /* biriktirilgan fayllar */
+      ".aai-voice{margin-top:5px;padding:7px 11px;border-radius:12px;background:var(--bg3);color:var(--text2);font-size:12.5px;font-style:italic;line-height:1.5;white-space:pre-wrap;word-break:break-word}",
       ".aai-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.aai-b.me .aai-files{justify-content:flex-end}",
       ".aai-fimg{width:110px;height:84px;border-radius:10px;object-fit:cover;border:1px solid var(--border);display:block}",
       ".aai-fchip{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);font-size:12px;color:var(--text2);max-width:240px}",
@@ -1465,7 +1466,8 @@
       if (m.role === "user")
         html +=
           '<div class="aai-b me"><div class="aai-bc">' + filesHtml(m.files) +
-          (m.content ? '<div class="aai-txt">' + esc(m.content) + "</div>" : "") + "</div></div>";
+          (m.content ? '<div class="aai-txt">' + esc(m.content) + "</div>" : "") +
+          (m.voiceText ? '<div class="aai-voice">🎤 «' + esc(m.voiceText) + "»</div>" : "") + "</div></div>";
       else {
         var speaking = _tts.idx === i && _tts.chat === (chat && chat.id);
         var loading = speaking && _tts.loading;
@@ -1609,6 +1611,9 @@
         continue;
       }
       var text = (m.content || "") + (m.fileText ? "\n\n" + m.fileText : "");
+      // Ovozning o'zi faqat shu sessiyada xotirada — tarix uchun uning matni
+      if (m.voiceText && !(_memParts[m.key] || []).length)
+        text += (text ? "\n\n" : "") + "🎤 Ovozli xabar matni: «" + m.voiceText + "»";
       var parts = _memParts[m.key] || [];
       var use = [];
       parts.forEach(function (p) {
@@ -1672,6 +1677,14 @@
         return x.id === chat.id;
       });
       if (c2) {
+        // Ovozli xabar matni — xabar ostida ko'rinadi va tarixda saqlanadi
+        if (data.voiceText) {
+          for (var q = c2.messages.length - 1; q >= 0; q--) {
+            if (c2.messages[q].role !== "user") continue;
+            c2.messages[q].voiceText = String(data.voiceText).slice(0, 8000);
+            break;
+          }
+        }
         c2.messages.push({ role: "assistant", content: data.text || "...", ts: Date.now(), warn: data.moderation ? true : undefined });
         c2.updatedAt = Date.now();
         saveStore(st2);
@@ -2139,8 +2152,10 @@
 
     // Birinchi bo'lak qisqa — ovoz tezroq boshlansin; qolganlari katta
     // (so'rovlar soni kam bo'lsin — ovoz xizmatlarida daqiqalik limit bor)
-    var first = speechChunks(plain, 280)[0] || "";
-    var chunks = [first].concat(speechChunks(plain.slice(first.length).trim(), 1500)).filter(function (c) {
+    // (sifatli ovoz bir gapni ~5–10 soniyada tayyorlaydi; keyingi bo'lak
+    // oldingisi o'ynayotganda tayyorlanadi — orada uzilish bo'lmaydi)
+    var first = speechChunks(plain, 160)[0] || "";
+    var chunks = [first].concat(speechChunks(plain.slice(first.length).trim(), 450)).filter(function (c) {
       return c && c.trim();
     });
     if (!chunks.length) return stopSpeak();
