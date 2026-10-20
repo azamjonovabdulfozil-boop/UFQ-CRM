@@ -1339,7 +1339,7 @@
     bar.innerHTML =
       '<div class="aai-ttswarn">🔇 <b>«Eshitish» ishlamayapti:</b> ' +
       esc(reason || "serverda o'zbekcha ovoz xizmati sozlanmagan") +
-      ". Tuzatish: Render → Environment → <b>LOVABLE_API_KEY</b> qo'shing (kompyuterdagi backend/.env faylidagi qiymat), so'ng «Save» bosing.</div>";
+      ". Tuzatish: Render → Environment → <b>AZURE_SPEECH_KEY</b> (Microsoft ovozi) yoki <b>LOVABLE_API_KEY</b> qo'shing, so'ng «Save» bosing.</div>";
   }
 
   /* ─── Talaba: ogohlantirishlar va blok ─────────────────────────────────── */
@@ -2113,7 +2113,7 @@
     else msg = (err && err.message) || "ovoz xizmati ishlamadi";
     var text = "⚠️ Ovoz chiqmadi: " + msg + ".";
     if (err && role() === "admin" && why !== "blocked")
-      text += " Tuzatish: Render → Environment → LOVABLE_API_KEY qo'shing.";
+      text += " Tuzatish: Render → Environment → AZURE_SPEECH_KEY yoki LOVABLE_API_KEY qo'shing.";
     if (typeof toast === "function") toast(text);
     try {
       console.warn("[AI ovoz]", msg, err && err.detail ? "— " + err.detail : "");

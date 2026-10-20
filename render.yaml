@@ -24,7 +24,8 @@ services:
         value: "4546"
       - key: ANTHROPIC_API_KEY
         sync: false
-      # AI "Eshitish" — o'zbekchani odamdek o'qiydigan ovoz (Azure Speech, uz-UZ-MadinaNeural)
+      # AI "Eshitish" — Microsoft neyron ovozi (uz-UZ-MadinaNeural): eng tez va sifatli.
+      # AZURE_SPEECH_REGION ixtiyoriy — yozilmasa server hududni o'zi aniqlaydi.
       - key: AZURE_SPEECH_KEY
         sync: false
       - key: AZURE_SPEECH_REGION
