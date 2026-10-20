@@ -42,6 +42,21 @@ export function clientIp(req) {
  * @param {(req)=>string} [opts.key] Hisob kaliti (default: IP)
  * @param {string} [opts.name]    Log/audit uchun nom
  */
+/**
+ * Sukut bo'yicha hisob kaliti: kirgan foydalanuvchi bo'lsa — uning hisobi,
+ * aks holda IP.
+ *
+ * ⚠️ Nega: portallar Vercel'da turadi va /api so'rovlarini Render'dagi
+ * backend'ga Vercel PROXY qiladi. Server uchun barcha foydalanuvchilar
+ * Vercel'ning bir nechta IP manzilidan keladi — IP bo'yicha limit hammaga
+ * UMUMIY bo'lib qolardi (masalan AI/ovoz uchun minutiga 20 ta so'rov butun
+ * markaz uchun) va "Eshitish" ishlamay qolardi.
+ */
+function defaultKey(req) {
+  const sub = req.user && (req.user.sub || req.user.id);
+  return sub ? "u:" + sub : clientIp(req);
+}
+
 export function rateLimit({ windowMs, max, blockMs = 0, key, name = "rl", skip }) {
   return function limiter(req, res, next) {
     if (typeof skip === "function" && skip(req)) return next();
@@ -49,7 +64,7 @@ export function rateLimit({ windowMs, max, blockMs = 0, key, name = "rl", skip }
     const now = Date.now();
     sweep(now);
 
-    const id = name + ":" + (typeof key === "function" ? key(req) : clientIp(req));
+    const id = name + ":" + (typeof key === "function" ? key(req) : defaultKey(req));
     let b = buckets.get(id);
     if (!b) {
       b = { count: 0, reset: now + windowMs, blockedUntil: 0 };
@@ -178,6 +193,14 @@ export const expensiveLimiter = rateLimit({
   windowMs: 60_000,
   max: 20,
   blockMs: 2 * 60_000,
+});
+
+/** "Eshitish" — har bir javob bir nechta bo'lak (so'rov) bo'lib o'qiladi. */
+export const ttsLimiter = rateLimit({
+  name: "tts",
+  windowMs: 60_000,
+  max: 90,
+  blockMs: 30_000,
 });
 
 /** Ochiq (loginsiz) sertifikat tekshiruvi — sanab chiqishga qarshi. */

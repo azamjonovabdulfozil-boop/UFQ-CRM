@@ -25,7 +25,7 @@ export * from "./policy.js";
 export { CONFIG } from "./config.js";
 export { ROLES, publicView, toLegacyRole, fromLegacyRole } from "./accounts.js";
 export { audit } from "./audit.js";
-export { rateLimit, expensiveLimiter, writeLimiter, publicLookupLimiter, clientIp, deviceKey } from "./rateLimit.js";
+export { rateLimit, expensiveLimiter, ttsLimiter, writeLimiter, publicLookupLimiter, clientIp, deviceKey } from "./rateLimit.js";
 export { deviceId, checkDeviceBlock, listBlockedDevices, unblockDevice } from "./devices.js";
 export { safeFetch, assertSafeUrl } from "./ssrf.js";
 export { syncPortalAccounts, removePortalAccounts } from "./routes.js";

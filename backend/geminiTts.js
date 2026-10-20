@@ -48,7 +48,7 @@ const STYLE = {
  * @param {"uz"|"ru"} lang
  * @returns {Promise<{buf:Buffer, type:string}>}
  */
-export async function geminiTts(text, lang = "uz", { timeoutMs = 60000 } = {}) {
+export async function geminiTts(text, lang = "uz", { timeoutMs = 35000 } = {}) {
   const models = [process.env.GEMINI_TTS_MODEL, "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"].filter(Boolean);
   const body = {
     contents: [{ parts: [{ text: (STYLE[lang] || STYLE.uz) + text }] }],
@@ -69,7 +69,8 @@ export async function geminiTts(text, lang = "uz", { timeoutMs = 60000 } = {}) {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
         lastErr = new Error("Gemini TTS HTTP " + r.status + ": " + (data?.error?.message || ""));
-        if (r.status === 404 || r.status === 400) continue; // boshqa modelni sinaymiz
+        // Model topilmasa, limiti tugasa (429) yoki vaqtincha ishlamasa — boshqa modelni sinaymiz
+        if (r.status === 404 || r.status === 400 || r.status === 429 || r.status >= 500) continue;
         throw lastErr;
       }
       const part = (data.candidates?.[0]?.content?.parts || []).find((p) => p.inlineData || p.inline_data);

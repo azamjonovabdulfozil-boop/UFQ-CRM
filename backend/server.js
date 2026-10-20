@@ -57,6 +57,7 @@ const {
   audit,
   writeLimiter,
   expensiveLimiter,
+  ttsLimiter,
   publicLookupLimiter,
   safeFetch,
   syncPortalAccounts,
@@ -1350,16 +1351,40 @@ app.get("/api/ai-tts/status", requireAuth, (req, res) => {
   res.json({ ok: true, azure: azureTtsConfigured(), gemini: geminiTtsConfigured(), lovable: lovableReady() });
 });
 
-app.post("/api/ai-tts", requireAuth, expensiveLimiter, async (req, res) => {
+// Bir xil matn qayta bosilsa — ovoz xizmatiga qayta murojaat qilmaymiz
+// (limit tejaladi, ovoz darhol chiqadi). Xotirada ~25 MB gacha.
+const ttsCache = new Map();
+let ttsCacheBytes = 0;
+function ttsCachePut(k, v) {
+  if (ttsCache.has(k)) return;
+  ttsCache.set(k, v);
+  ttsCacheBytes += v.buf.length;
+  while (ttsCacheBytes > 25 * 1024 * 1024 && ttsCache.size > 1) {
+    const [oldK, oldV] = ttsCache.entries().next().value;
+    ttsCache.delete(oldK);
+    ttsCacheBytes -= oldV.buf.length;
+  }
+}
+
+app.post("/api/ai-tts", requireAuth, ttsLimiter, async (req, res) => {
   const text = String(req.body?.text || "").trim().slice(0, 2500);
   if (!text) return res.status(400).json({ ok: false, error: "Matn bo'sh" });
   const errors = [];
+  const cacheKey = text;
 
   const sendAudio = (buf, type) => {
+    ttsCachePut(cacheKey, { buf, type: type || "audio/mpeg" });
     res.setHeader("Content-Type", type || "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");
     res.send(buf);
   };
+
+  const hit = ttsCache.get(cacheKey);
+  if (hit) {
+    res.setHeader("Content-Type", hit.type);
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(hit.buf);
+  }
 
   if (azureTtsConfigured()) {
     try {

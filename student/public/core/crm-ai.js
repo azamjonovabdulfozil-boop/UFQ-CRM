@@ -1178,7 +1178,8 @@
       ".aai-hist-empty{padding:26px 14px;text-align:center;font-size:12.5px;color:var(--text3)}",
       /* xabarlar */
       ".aai-body{flex:1;min-height:0;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px;background:var(--bg)}",
-      ".aai-b{display:flex;align-items:flex-start;gap:10px;max-width:82%;animation:aaiIn .2s ease}",
+      ".aai-b{display:flex;align-items:flex-start;gap:10px;max-width:82%}",
+      ".aai-new{animation:aaiIn .2s ease}",
       "@keyframes aaiIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}",
       ".aai-b.me{align-self:flex-end;flex-direction:row-reverse;max-width:75%}",
       ".aai-b .aai-ava{width:32px;height:32px}.aai-b .aai-ava svg{width:16px;height:16px}",
@@ -1255,11 +1256,24 @@
     // Javob kutilayotganda yoki ovoz yozilayotganda qayta chizmaymiz
     // (live-sync ham shu funksiyani chaqiradi)
     if ((_busy || _rec) && wrap.querySelector("#aai-body")) return;
+    // ⚠️ Panel allaqachon chizilgan bo'lsa — uni NOLDAN qayta qurmaymiz.
+    // Ilgari live-sync har yangilanishda (bir necha soniyada bir) butun
+    // panelni innerHTML bilan qayta yaratardi: xabarlar animatsiya bilan
+    // qayta paydo bo'lardi, kursor/klaviatura yo'qolardi — ekran "miltillardi".
+    // Endi faqat o'zgargan xabarlar yangilanadi.
+    var existing = wrap.querySelector("#aai-root");
+    if (existing && existing.getAttribute("data-role") === R) {
+      renderPending();
+      renderMessages();
+      renderModeration();
+      pullStore();
+      return;
+    }
     var keepInput = (document.getElementById("aai-input") || {}).value || "";
     injectStyles();
 
     wrap.innerHTML =
-      '<div class="aai" id="aai-root">' +
+      '<div class="aai" id="aai-root" data-role="' + R + '">' +
       '<div class="aai-drop">📎 Faylni shu yerga tashlang</div>' +
       '<div class="aai-head">' +
       '<div class="aai-who"><div class="aai-ava">' + ICON.bot + "</div>" +
@@ -1430,7 +1444,13 @@
     var msgs = (chat && chat.messages) || [];
     var R = role();
     SUGGEST = SUGGESTS[R];
-    var html = bubbleBot(md(ROLE_TEXT[R].hello));
+    // Har bir element — alohida qism: keyin faqat o'zgarganlari almashtiriladi
+    var parts = [bubbleBot(md(ROLE_TEXT[R].hello))];
+    var html = "";
+    var flush = function () {
+      if (html) parts.push(html);
+      html = "";
+    };
     if (!msgs.length && !_busy)
       html +=
         '<div class="aai-chips">' +
@@ -1439,7 +1459,9 @@
         }).join("") +
         "</div>";
 
+    flush();
     msgs.forEach(function (m, i) {
+      flush();
       if (m.role === "user")
         html +=
           '<div class="aai-b me"><div class="aai-bc">' + filesHtml(m.files) +
@@ -1456,6 +1478,7 @@
         );
       }
     });
+    flush();
 
     if (_busy)
       html += bubbleBot(
@@ -1468,8 +1491,57 @@
         "aai-err",
       );
 
-    body.innerHTML = html;
-    body.scrollTop = msgs.length || _busy ? body.scrollHeight : 0;
+    flush();
+    patchBody(body, parts, (chat && chat.id) || "", msgs.length > 0 || _busy);
+  }
+
+  /**
+   * Xabarlar oynasini yangilaydi: o'zgarmagan xabarlarga TEGMAYDI, faqat
+   * o'zgarganini almashtiradi va yangisini qo'shadi. Animatsiya faqat yangi
+   * paydo bo'lgan xabarda — eski xabarlar qayta "yonib-o'chmaydi".
+   */
+  var _shown = { body: null, chat: null, parts: [] };
+  var TRANSIENT = /aai-wait|aai-chips|aai-err/;
+
+  function toEl(html) {
+    var t = document.createElement("div");
+    t.innerHTML = html;
+    return t.firstElementChild;
+  }
+
+  function patchBody(body, parts, chatId, toBottom) {
+    var old = _shown.parts;
+    var kids = body.children;
+    // Yangi (bo'sh) suhbatga birinchi xabar yozilganda ham — o'sha suhbat
+    var sameChat = _shown.chat === chatId || (_shown.chat === "" && !!chatId);
+    var same = _shown.body === body && sameChat && kids.length === old.length;
+    if (same && old.length === parts.length && old.join("") === parts.join("")) return; // hech narsa o'zgarmagan
+
+    var nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 80;
+    var keepTop = body.scrollTop;
+    var added = false;
+    if (!same) {
+      body.innerHTML = parts.join("");
+      added = true;
+    } else {
+      for (var i = 0; i < parts.length; i++) {
+        if (i < old.length && parts[i] === old[i]) continue;
+        var el = toEl(parts[i]);
+        if (!el) continue;
+        var fresh = i >= old.length || TRANSIENT.test(old[i]);
+        if (fresh) {
+          el.classList.add("aai-new");
+          added = true;
+        }
+        if (i < kids.length) body.replaceChild(el, kids[i]);
+        else body.appendChild(el);
+      }
+      while (body.children.length > parts.length) body.removeChild(body.lastElementChild);
+    }
+    _shown = { body: body, chat: chatId, parts: parts };
+    if (!toBottom) body.scrollTop = 0;
+    else if (added || nearBottom) body.scrollTop = body.scrollHeight;
+    else body.scrollTop = keepTop;
   }
 
   /* ─── Tarix ro'yxati ──────────────────────────────────────────────────── */
@@ -1612,8 +1684,10 @@
     renderPending();
     renderMessages();
     renderModeration();
+    // Telefonda fokus klaviaturani qayta ochib, ekranni sakratadi — faqat kompyuterda
     var inp = document.getElementById("aai-input");
-    if (inp) inp.focus();
+    var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (inp && !touch) inp.focus();
   }
 
   function adminAiSend() {
@@ -1869,31 +1943,35 @@
       var t = setTimeout(function () {
         resolve(speechSynthesis.getVoices() || []);
       }, 1500);
-      speechSynthesis.addEventListener(
-        "voiceschanged",
-        function () {
-          clearTimeout(t);
-          resolve(speechSynthesis.getVoices() || []);
-        },
-        { once: true },
-      );
+      try {
+        speechSynthesis.addEventListener(
+          "voiceschanged",
+          function () {
+            clearTimeout(t);
+            resolve(speechSynthesis.getVoices() || []);
+          },
+          { once: true },
+        );
+      } catch (e) {}
     });
   }
+  // Ovozlar ro'yxatini oldindan yuklab qo'yamiz — bosilganda kutilmasin
+  try {
+    if (window.speechSynthesis) speechSynthesis.getVoices();
+  } catch (e) {}
 
   /**
-   * Brauzerning o'z ovozi — server ovozi ishlamasa. Avval o'zbekcha
-   * "Natural/Online" ovoz (Microsoft Edge'da "Madina"/"Sardor" bor), so'ng
-   * har qanday o'zbekcha ovoz. Ruscha matn — ruscha ovoz bilan.
+   * Brauzerning o'z ovozi — server ovozi ishlamasa yoki sozlanmagan bo'lsa.
+   * Ovoz tanlash navbati: o'zbekcha (Edge'da tabiiy "Madina"/"Sardor") →
+   * turkcha (lotin yozuvidagi o'zbekchani eng yaqin o'qiydi) → qozoq/ozarbayjon
+   * → brauzerning standart ovozi. Ya'ni ovoz HAR DOIM chiqadi.
+   * Matn gaplarga bo'lib o'qiladi: Chrome uzun matnni ~15 soniyadan keyin
+   * jimgina to'xtatib qo'yadi.
    */
-  /**
-   * Brauzerning o'z ovozi — server ovozi ishlamasa. Faqat MOS tildagi ovoz
-   * bilan o'qiydi: o'zbekcha matnni ingliz/turk ovozida o'qish tushunarsiz
-   * chiqadi, shuning uchun o'zbekcha ovoz bo'lmasa — o'qimaydi (done(false,
-   * "no-voice")). Microsoft Edge'da tabiiy o'zbekcha ovoz (Madina, Sardor) bor.
-   */
-  async function browserSpeak(text, done) {
-    if (!window.speechSynthesis) return done(false, "no-voice");
+  async function browserSpeak(text, my, done) {
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return done(false, "no-speech");
     var voices = await loadVoices();
+    if (my.stop) return;
     var natural = /natural|online|neural/i;
     var pick = function (re) {
       var list = voices.filter(function (v) {
@@ -1905,39 +1983,118 @@
         }) || list[0]
       );
     };
-    var cyr = (text.match(/[\u0400-\u04FF]/g) || []).length;
+    var cyr = (text.match(/[Ѐ-ӿ]/g) || []).length;
     var lat = (text.match(/[A-Za-z]/g) || []).length;
-    var v = cyr > lat ? pick(/^ru/i) : pick(/^uz/i) || pick(/uzbek|madina|sardor/i);
-    if (!v) return done(false, "no-voice");
-    var u = new SpeechSynthesisUtterance(text.replace(/[\u2018\u2019\u02BB\u02BC`\u00B4]/g, "'"));
-    u.voice = v;
-    u.lang = v.lang;
-    u.rate = 0.95;
-    u.onend = function () {
-      done(true);
+    var ru = cyr > lat;
+    var v = ru
+      ? pick(/^ru/i)
+      : pick(/^uz/i) || pick(/uzbek|madina|sardor/i) || pick(/^tr/i) || pick(/^(kk|az)/i);
+    var lang = v ? v.lang : ru ? "ru-RU" : "tr-TR";
+    var sentences = speechChunks(text.replace(/[‘’ʻʼ`´]/g, "'"), 180);
+    if (!sentences.length) return done(true);
+
+    try {
+      speechSynthesis.cancel();
+    } catch (e) {}
+    // Chrome ba'zan o'qishni "pauza"da qotirib qo'yadi — vaqti-vaqti bilan uyg'otamiz
+    var keep = setInterval(function () {
+      if (my.stop) return clearInterval(keep);
+      try {
+        if (speechSynthesis.paused) speechSynthesis.resume();
+      } catch (e) {}
+    }, 4000);
+    var idx = 0;
+    var finish = function (ok, why) {
+      clearInterval(keep);
+      if (!my.stop) done(ok, why);
     };
-    u.onerror = function () {
-      done(false);
+    var nextOne = function () {
+      if (my.stop) return clearInterval(keep);
+      if (idx >= sentences.length) return finish(true);
+      var u = new SpeechSynthesisUtterance(sentences[idx++]);
+      if (v) u.voice = v;
+      u.lang = lang;
+      u.rate = 0.95;
+      var settled = false;
+      u.onend = function () {
+        if (settled) return;
+        settled = true;
+        nextOne();
+      };
+      u.onerror = function (ev) {
+        if (settled) return;
+        settled = true;
+        var code = ev && ev.error;
+        if (my.stop || code === "interrupted" || code === "canceled") return clearInterval(keep);
+        finish(false, code === "not-allowed" ? "blocked" : "no-speech");
+      };
+      speechSynthesis.speak(u);
     };
-    speechSynthesis.speak(u);
+    // cancel() dan so'ng darhol speak() ba'zan e'tiborsiz qoladi — biroz kutamiz
+    setTimeout(nextOne, 60);
   }
 
-  /** Ovoz chiqmasa — sababini aniq aytamiz (ilgari tugma jimgina o'chib qolardi). */
+  /** Ovoz chiqmasa — sababini aniq aytamiz. */
   function speakError(err, why) {
-    var msg = (err && err.message) || "ovoz xizmati ishlamadi";
+    var msg;
+    if (why === "blocked") msg = "brauzer ovozni to'sdi — «Eshitish» ni yana bir bor bosing";
+    else if (why === "no-speech")
+      msg = "bu brauzerda ovoz chiqarish imkoni yo'q — Google Chrome yoki Microsoft Edge'da oching";
+    else msg = (err && err.message) || "ovoz xizmati ishlamadi";
     var text = "⚠️ Ovoz chiqmadi: " + msg + ".";
-    if (why === "no-voice")
-      text += role() === "admin"
-        ? " Render → Environment bo'limida GEMINI_API_KEY (yoki AZURE_SPEECH_KEY) to'g'ri qo'yilganini tekshiring."
-        : " Birozdan keyin qayta urinib ko'ring yoki Microsoft Edge brauzerida oching.";
+    if (err && role() === "admin" && why !== "blocked")
+      text += " Server ovozi uchun Render → Environment'da GEMINI_API_KEY yoki AZURE_SPEECH_KEY ni tekshiring.";
     if (typeof toast === "function") toast(text);
     try {
       console.warn("[AI ovoz]", msg, err && err.detail ? "— " + err.detail : "");
     } catch (e2) {}
   }
 
-  // 0.05 soniyalik jimjitlik — pleerni bosish paytida "ochish" uchun
-  var SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+  /** 0.1 soniyalik haqiqiy jimjitlik (WAV) — pleerni bosish paytida "ochish" uchun. */
+  var _silentUrl = null;
+  function silentUrl() {
+    if (_silentUrl) return _silentUrl;
+    var n = 800; // 8 kHz × 0.1 s, 8-bit mono
+    var b = new Uint8Array(44 + n);
+    var dv = new DataView(b.buffer);
+    var ws = function (o, s) {
+      for (var i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i);
+    };
+    ws(0, "RIFF");
+    dv.setUint32(4, 36 + n, true);
+    ws(8, "WAVE");
+    ws(12, "fmt ");
+    dv.setUint32(16, 16, true);
+    dv.setUint16(20, 1, true);
+    dv.setUint16(22, 1, true);
+    dv.setUint32(24, 8000, true);
+    dv.setUint32(28, 8000, true);
+    dv.setUint16(32, 1, true);
+    dv.setUint16(34, 8, true);
+    ws(36, "data");
+    dv.setUint32(40, n, true);
+    for (var i = 44; i < b.length; i++) b[i] = 128;
+    try {
+      _silentUrl = URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+    } catch (e) {
+      _silentUrl = "";
+    }
+    return _silentUrl;
+  }
+
+  // Server ovozi sozlanmaganini bir marta bilsak — keyingi safar darhol
+  // brauzer ovozi bilan o'qiymiz (kutishsiz).
+  var _serverTts = true;
+
+  function speakWithBrowser(text, my, err) {
+    if (my.stop) return;
+    my.loading = false;
+    renderMessages();
+    browserSpeak(text, my, function (ok, why) {
+      if (!ok) speakError(err, why);
+      if (_tts === my) stopSpeak();
+    });
+  }
 
   async function speak(i) {
     var st = loadStore();
@@ -1946,25 +2103,30 @@
     if (!m) return;
     if (_tts.idx === i && _tts.chat === chat.id) return stopSpeak();
     stopSpeak();
+    var plain = plainForSpeech(m.content);
+    if (!plain) return;
+
     // ⚠️ Brauzerlar ovozni faqat foydalanuvchi bosgan PAYTDA yoqishga ruxsat
-    // beradi. Ilgari pleer server javobidan (bir necha soniya) keyin
-    // yaratilardi — bu vaqtda ruxsat tugab, play() jimgina rad etilardi va
-    // hech narsa eshitilmasdi. Endi bitta pleer shu zahoti ochiladi va har
-    // bir bo'lak shu pleerda ijro etiladi.
+    // beradi (ayniqsa iPhone). Shuning uchun pleer shu zahoti jimjitlik
+    // bilan "ochiladi" va keyin har bir bo'lak shu pleerda ijro etiladi.
     var player = new Audio();
     try {
-      player.src = SILENT_WAV;
-      var pp = player.play();
-      if (pp && pp.catch) pp.catch(function () {});
+      var su = silentUrl();
+      if (su) {
+        player.src = su;
+        var pp = player.play();
+        if (pp && pp.catch) pp.catch(function () {});
+      }
     } catch (e) {}
     var my = (_tts = { idx: i, chat: chat.id, audio: player, stop: false, loading: true });
     renderMessages();
 
-    // Birinchi bo'lak qisqa — ovoz tezroq boshlansin; qolganlari kattaroq
-    var plain = plainForSpeech(m.content);
-    var first = speechChunks(plain, 220)[0] || "";
-    var chunks = first ? [first].concat(speechChunks(plain.slice(first.length).trim(), 600)) : [];
-    chunks = chunks.filter(function (c) {
+    if (!_serverTts) return speakWithBrowser(plain, my, null);
+
+    // Birinchi bo'lak qisqa — ovoz tezroq boshlansin; qolganlari katta
+    // (so'rovlar soni kam bo'lsin — ovoz xizmatlarida daqiqalik limit bor)
+    var first = speechChunks(plain, 280)[0] || "";
+    var chunks = [first].concat(speechChunks(plain.slice(first.length).trim(), 1500)).filter(function (c) {
       return c && c.trim();
     });
     if (!chunks.length) return stopSpeak();
@@ -1975,17 +2137,15 @@
       try {
         blob = await next;
       } catch (e) {
-        // Server ovozi ishlamadi — qolgan qismini brauzer ovozi o'qiydi
         if (my.stop) return;
-        my.loading = false;
-        renderMessages();
-        browserSpeak(chunks.slice(k).join(" "), function (ok, why) {
-          if (!ok) speakError(e, why);
-          if (_tts === my) stopSpeak();
-        });
-        return;
+        if (e && e.code === "no-tts") _serverTts = false; // server ovozi umuman sozlanmagan
+        // Server ovozi ishlamadi — qolgan qismini brauzer ovozi o'qiydi
+        return speakWithBrowser(chunks.slice(k).join(" "), my, e);
       }
-      if (k + 1 < chunks.length) next = ttsFetch(chunks[k + 1]); // keyingisini oldindan tayyorlash
+      if (k + 1 < chunks.length) {
+        next = ttsFetch(chunks[k + 1]); // keyingisini oldindan tayyorlash
+        next.catch(function () {}); // "unhandled rejection" bo'lmasin
+      }
       if (my.stop) return;
       if (my.loading) {
         my.loading = false;
@@ -1993,50 +2153,75 @@
       }
       var played = await new Promise(function (resolve) {
         var url = URL.createObjectURL(blob);
-        player.onended = function () {
+        var done = function (v) {
+          player.onended = player.onerror = null;
           URL.revokeObjectURL(url);
-          resolve(true);
+          resolve(v);
+        };
+        player.onended = function () {
+          done(true);
         };
         player.onerror = function () {
-          URL.revokeObjectURL(url);
-          resolve(false);
+          done(false);
         };
         player.src = url;
         var p = player.play();
         if (p && p.catch)
           p.catch(function (err) {
-            URL.revokeObjectURL(url);
-            resolve(err && err.name === "NotAllowedError" ? "blocked" : false);
+            if (err && err.name === "AbortError" && my.stop) return; // to'xtatildi
+            done(err && err.name === "NotAllowedError" ? "blocked" : false);
           });
       });
-      if (played === "blocked") {
-        if (typeof toast === "function") toast("🔈 Brauzer ovozni to'sdi — «Eshitish» ni yana bir bor bosing");
-        break;
+      if (my.stop) return;
+      if (played !== true) {
+        // Pleer bu bo'lakni o'ynay olmadi — qolganini brauzer ovozi o'qiydi
+        return speakWithBrowser(chunks.slice(k).join(" "), my, null);
       }
     }
     if (_tts === my) stopSpeak();
   }
 
   function ttsFetch(text) {
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = ctrl
+      ? setTimeout(function () {
+          ctrl.abort();
+        }, 45000)
+      : null;
     return fetch(apiBase() + "/api/ai-tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: text }),
-    }).then(function (r) {
-      if (!r.ok)
-        return r
-          .json()
-          .catch(function () {
-            return {};
-          })
-          .then(function (d) {
-            var er = new Error((d && d.error) || "ovoz xizmati " + r.status);
-            er.detail = d && d.detail;
-            if (er.detail && role() === "admin") er.message += " (" + er.detail + ")";
-            throw er;
-          });
-      return r.blob();
-    });
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (r) {
+        if (!r.ok)
+          return r
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (d) {
+              var er = new Error(
+                (d && d.error) || (r.status === 429 ? "juda ko'p so'rov — biroz kuting" : "ovoz xizmati " + r.status),
+              );
+              er.code = d && d.code;
+              er.detail = d && d.detail;
+              if (er.detail && role() === "admin") er.message += " (" + er.detail + ")";
+              throw er;
+            });
+        return r.blob().then(function (b) {
+          if (!b || b.size < 100) throw new Error("ovoz bo'sh keldi");
+          return b;
+        });
+      })
+      .catch(function (e) {
+        if (e && e.name === "AbortError") throw new Error("ovoz xizmati javob bermadi");
+        throw e;
+      })
+      .finally(function () {
+        if (timer) clearTimeout(timer);
+      });
   }
 
   /* ─── Global funksiyalar (inline onclick) ─────────────────────────────── */
