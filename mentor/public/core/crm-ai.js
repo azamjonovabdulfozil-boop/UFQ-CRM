@@ -1934,6 +1934,20 @@
     return out;
   }
 
+  var PLAY_RATE = 1.1;
+
+  /** Birinchi bo'lak: birinchi gap; u uzun bo'lsa — vergul yoki bo'shliqda kesiladi. */
+  function firstPiece(text, max) {
+    var s1 = (text.match(/^[^.!?\n]+[.!?\n]*/) || [text])[0];
+    if (s1.length <= max * 1.6) return s1;
+    var cut = -1;
+    var re = /[,;:—–]\s/g;
+    var mm;
+    while ((mm = re.exec(s1)) && mm.index < max * 1.6) if (mm.index >= max * 0.4) cut = mm.index + 1;
+    if (cut < 0) cut = s1.lastIndexOf(" ", max);
+    return cut > 20 ? s1.slice(0, cut) : s1;
+  }
+
   function stopSpeak() {
     _tts.stop = true;
     if (_tts.audio) {
@@ -2041,7 +2055,7 @@
       var u = new SpeechSynthesisUtterance(sentences[idx++]);
       if (v) u.voice = v;
       u.lang = lang;
-      u.rate = 0.95;
+      u.rate = 1.1;
       var settled = false;
       u.onend = function () {
         if (settled) return;
@@ -2154,27 +2168,37 @@
     // (so'rovlar soni kam bo'lsin — ovoz xizmatlarida daqiqalik limit bor)
     // (sifatli ovoz bir gapni ~5–10 soniyada tayyorlaydi; keyingi bo'lak
     // oldingisi o'ynayotganda tayyorlanadi — orada uzilish bo'lmaydi)
-    var first = speechChunks(plain, 160)[0] || "";
-    var chunks = [first].concat(speechChunks(plain.slice(first.length).trim(), 450)).filter(function (c) {
+    // Birinchi bo'lak juda qisqa (bitta gap yoki uning boshi) — ovoz 2–3
+    // soniyada boshlanadi. Keyingi bo'laklar o'ynab turgan paytda oldindan
+    // tayyorlanadi (2 tasi birga), shuning uchun orada uzilish bo'lmaydi.
+    var first = firstPiece(plain, 90);
+    var chunks = [first].concat(speechChunks(plain.slice(first.length).trim(), 260)).filter(function (c) {
       return c && c.trim();
     });
     if (!chunks.length) return stopSpeak();
-    var next = ttsFetch(chunks[0]);
+    var jobs = [];
+    var job = function (n) {
+      if (n < chunks.length && !jobs[n]) {
+        jobs[n] = ttsFetch(chunks[n]);
+        jobs[n].catch(function () {}); // "unhandled rejection" bo'lmasin
+      }
+      return jobs[n];
+    };
+    job(0);
+    job(1);
     for (var k = 0; k < chunks.length; k++) {
       if (my.stop) return;
       var blob;
       try {
-        blob = await next;
+        blob = await job(k);
       } catch (e) {
         if (my.stop) return;
         if (e && e.code === "no-tts") _serverTts = false; // server ovozi umuman sozlanmagan
         // Server ovozi ishlamadi — qolgan qismini brauzer ovozi o'qiydi
         return speakWithBrowser(chunks.slice(k).join(" "), my, e);
       }
-      if (k + 1 < chunks.length) {
-        next = ttsFetch(chunks[k + 1]); // keyingisini oldindan tayyorlash
-        next.catch(function () {}); // "unhandled rejection" bo'lmasin
-      }
+      job(k + 1);
+      job(k + 2); // keyingi ikkitasini oldindan tayyorlash
       if (my.stop) return;
       if (my.loading) {
         my.loading = false;
@@ -2194,6 +2218,12 @@
           done(false);
         };
         player.src = url;
+        // Biroz tezroq ijro — ovoz balandligi (tembr) o'zgarmaydi
+        try {
+          player.preservesPitch = true;
+          player.playbackRate = PLAY_RATE;
+          player.defaultPlaybackRate = PLAY_RATE;
+        } catch (e) {}
         var p = player.play();
         if (p && p.catch)
           p.catch(function (err) {

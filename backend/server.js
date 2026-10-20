@@ -1383,10 +1383,11 @@ const LOVABLE_GEMINI_TTS = () =>
 const TTS_STYLE = {
   uz:
     "Siz ona tili o'zbek bo'lgan tajribali toshkentlik diktorsiz. Quyidagi matnni o'zbek adabiy " +
-    "talaffuzida, odamdek tabiiy, iliq va aniq o'qing: o', g', q, x, h, sh, ch tovushlarini to'g'ri " +
-    "ayting, raqamlarni o'zbekcha o'qing, gap oxirida tabiiy pauza qiling, shoshilmang. Chet el " +
+    "talaffuzida, odamdek tabiiy va aniq o'qing: o', g', q, x, h, sh, ch tovushlarini to'g'ri " +
+    "ayting, raqamlarni o'zbekcha o'qing. Sur'at — jonli va tez, yangiliklar diktoridek, ortiqcha " +
+    "pauzalarsiz (lekin har bir so'z aniq eshitilsin). Chet el " +
     "aksenti bo'lmasin. Faqat matnning o'zini o'qing:\n",
-  ru: "Прочитай следующий текст естественно, тепло и чётко, как диктор — носитель русского языка. Читай только сам текст:\n",
+  ru: "Прочитай следующий текст естественно и чётко, в живом быстром темпе, как диктор новостей — носитель русского языка. Читай только сам текст:\n",
 };
 async function lovableGeminiTts(text, lang) {
   let last = null;
