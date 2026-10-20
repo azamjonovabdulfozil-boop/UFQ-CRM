@@ -1441,13 +1441,20 @@ async function lovableGeminiTts(text, lang) {
   throw last || new Error("Gemini ovozi ishlamadi");
 }
 
+let geminiTtsPausedUntil = 0;
+
 app.get("/api/ai-tts/status", requireAuth, (req, res) => {
-  res.json({ ok: true, azure: azureTtsConfigured(), gemini: geminiTtsConfigured(), lovable: lovableReady() });
+  res.json({
+    ok: true,
+    azure: azureTtsConfigured(),
+    gemini: geminiTtsConfigured(),
+    geminiPaused: Date.now() < geminiTtsPausedUntil, // limiti tugagan
+    lovable: lovableReady(),
+  });
 });
 
 // Bir xil matn qayta bosilsa — ovoz xizmatiga qayta murojaat qilmaymiz
 // (limit tejaladi, ovoz darhol chiqadi). Xotirada ~25 MB gacha.
-let geminiTtsPausedUntil = 0;
 const ttsCache = new Map();
 let ttsCacheBytes = 0;
 function ttsCachePut(k, v) {

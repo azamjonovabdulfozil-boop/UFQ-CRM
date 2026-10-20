@@ -29,6 +29,10 @@ services:
         sync: false
       - key: AZURE_SPEECH_REGION
         sync: false
+      # AI chat, «Eshitish» (tabiiy o'zbekcha ovoz) va ovozli xabarlarni
+      # matnga o'girish — ASOSIY kalit. Usiz ovoz ishlamaydi.
+      - key: LOVABLE_API_KEY
+        sync: false
       # Ixtiyoriy: Google Gemini (AI va o'zbekcha ovoz uchun zaxira)
       - key: GEMINI_API_KEY
         sync: false

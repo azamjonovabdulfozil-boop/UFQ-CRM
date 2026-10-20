@@ -1200,6 +1200,7 @@
       ".aai-act:hover{background:var(--bg3);color:var(--text)}.aai-act.on{color:var(--accent);background:var(--accent-light)}",
       ".aai-err .aai-txt{background:var(--orange-light,#fff7ed);color:var(--orange-text,#9a3412);border-color:transparent}",
       /* biriktirilgan fayllar */
+      ".aai-ttswarn{margin:8px 14px 0;padding:9px 12px;border-radius:10px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:12.5px;line-height:1.5}",
       ".aai-voice{margin-top:5px;padding:7px 11px;border-radius:12px;background:var(--bg3);color:var(--text2);font-size:12.5px;font-style:italic;line-height:1.5;white-space:pre-wrap;word-break:break-word}",
       ".aai-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.aai-b.me .aai-files{justify-content:flex-end}",
       ".aai-fimg{width:110px;height:84px;border-radius:10px;object-fit:cover;border:1px solid var(--border);display:block}",
@@ -1284,6 +1285,7 @@
       '<button class="aai-hbtn" onclick="adminAiNew()" title="Yangi suhbat">' + ICON.plus + "<span>Yangi</span></button>" +
       "</div></div>" +
       '<div id="aai-hist-box"></div>' +
+      '<div id="aai-ttsbar"></div>' +
       '<div class="aai-body" id="aai-body"></div>' +
       '<div class="aai-foot">' +
       '<div class="aai-pend" id="aai-pend" style="display:none"></div>' +
@@ -1305,6 +1307,39 @@
     renderModeration();
     pullStore();
     if (R === "student") refreshModState();
+    checkTtsStatus();
+  }
+
+  /* ─── Admin: ovoz xizmati holati ───────────────────────────────────────── */
+  // Serverda ovoz xizmati sozlanmagan bo'lsa «Eshitish» ishlamaydi — admin
+  // buni taxmin qilmasdan, shu yerda aniq ko'radi.
+  var _ttsStatus = null;
+  function checkTtsStatus(force) {
+    if (role() !== "admin") return;
+    if (_ttsStatus && !force) return renderTtsBar();
+    fetch(apiBase() + "/api/ai-tts/status")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d) {
+        if (d && d.ok) _ttsStatus = d;
+        renderTtsBar();
+      })
+      .catch(function () {});
+  }
+  function renderTtsBar(reason) {
+    var bar = document.getElementById("aai-ttsbar");
+    if (!bar) return;
+    var d = _ttsStatus;
+    var bad = reason || (d && !d.azure && !d.lovable && (!d.gemini || d.geminiPaused));
+    if (!bad) {
+      bar.innerHTML = "";
+      return;
+    }
+    bar.innerHTML =
+      '<div class="aai-ttswarn">🔇 <b>«Eshitish» ishlamayapti:</b> ' +
+      esc(reason || "serverda o'zbekcha ovoz xizmati sozlanmagan") +
+      ". Tuzatish: Render → Environment → <b>LOVABLE_API_KEY</b> qo'shing (kompyuterdagi backend/.env faylidagi qiymat), so'ng «Save» bosing.</div>";
   }
 
   /* ─── Talaba: ogohlantirishlar va blok ─────────────────────────────────── */
@@ -2016,20 +2051,10 @@
     var v = ru
       ? pick(/^ru/i)
       : pick(/^uz/i) || pick(/uzbek|madina|sardor/i) || pick(/^tr/i) || pick(/^(kk|az)/i);
-    // Mos ovoz yo'q — kompyuterdagi (internet talab qilmaydigan) standart ovoz.
-    // Ovoz ko'rsatilmasa ba'zi brauzerlar umuman o'qimaydi.
-    if (!v)
-      v =
-        voices.find(function (x) {
-          return x.default && x.localService;
-        }) ||
-        voices.find(function (x) {
-          return x.localService;
-        }) ||
-        voices.find(function (x) {
-          return x.default;
-        }) ||
-        voices[0];
+    // Mos ovoz yo'q — o'zbekcha matnni ruscha/inglizcha ovoz bilan o'qish
+    // tushunarsiz chiqadi (sinovda Windows'dagi ruscha "Irina" shunday o'qidi).
+    // Shuning uchun o'qimaymiz va sababini aniq aytamiz.
+    if (!v) return done(false, "no-voice");
     var lang = v ? v.lang : ru ? "ru-RU" : "tr-TR";
     var sentences = speechChunks(text.replace(/[‘’ʻʼ`´]/g, "'"), 180);
     if (!sentences.length) return done(true);
@@ -2079,12 +2104,16 @@
   function speakError(err, why) {
     var msg;
     if (why === "blocked") msg = "brauzer ovozni to'sdi — «Eshitish» ni yana bir bor bosing";
+    else if (why === "no-voice")
+      msg =
+        "server ovozi ishlamadi, bu kompyuterda esa o'zbekcha ovoz yo'q" +
+        (role() === "admin" ? "" : " — administratorga xabar bering");
     else if (why === "no-speech")
       msg = "bu brauzerda ovoz chiqarish imkoni yo'q — Google Chrome yoki Microsoft Edge'da oching";
     else msg = (err && err.message) || "ovoz xizmati ishlamadi";
     var text = "⚠️ Ovoz chiqmadi: " + msg + ".";
     if (err && role() === "admin" && why !== "blocked")
-      text += " Server ovozi uchun Render → Environment'da GEMINI_API_KEY yoki AZURE_SPEECH_KEY ni tekshiring.";
+      text += " Tuzatish: Render → Environment → LOVABLE_API_KEY qo'shing.";
     if (typeof toast === "function") toast(text);
     try {
       console.warn("[AI ovoz]", msg, err && err.detail ? "— " + err.detail : "");
@@ -2129,6 +2158,10 @@
 
   function speakWithBrowser(text, my, err) {
     if (my.stop) return;
+    if (err && role() === "admin") {
+      renderTtsBar("server ovozi ishlamadi (" + ((err.detail || err.message) + "").slice(0, 200) + ")");
+      checkTtsStatus(true);
+    }
     my.loading = false;
     renderMessages();
     browserSpeak(text, my, function (ok, why) {
