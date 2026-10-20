@@ -58,6 +58,7 @@ const {
   writeLimiter,
   expensiveLimiter,
   ttsLimiter,
+  imgProxyLimiter,
   publicLookupLimiter,
   safeFetch,
   syncPortalAccounts,
@@ -690,13 +691,38 @@ app.post("/api/coins/send-mentor", requireAdmin, writeLimiter, async (req, res) 
 // (http://169.254.169.254/ — bulut metama'lumotlari, http://localhost:27017 —
 // MongoDB). Endi security/ssrf.js ichki IP larni, DNS orqali yashiringan ichki
 // manzillarni va zanjirli redirectlarni bloklaydi; hajm/vaqt ham cheklangan.
-app.get("/api/img-proxy", requireAuth, expensiveLimiter, async (req, res) => {
+// Bir xil rasm qayta so'ralsa — tashqi saytga qayta bormaymiz (1 soat, ~40 MB)
+const imgCache = new Map();
+let imgCacheBytes = 0;
+const IMG_TTL = 60 * 60_000;
+function imgCachePut(url, v) {
+  if (imgCache.has(url)) return;
+  imgCache.set(url, v);
+  imgCacheBytes += v.buffer.length;
+  while (imgCacheBytes > 40 * 1024 * 1024 && imgCache.size > 1) {
+    const [k, old] = imgCache.entries().next().value;
+    imgCache.delete(k);
+    imgCacheBytes -= old.buffer.length;
+  }
+}
+
+app.get("/api/img-proxy", requireAuth, imgProxyLimiter, async (req, res) => {
   const url = String(req.query.url || "");
-  const out = await safeFetch(url, { maxBytes: 12 * 1024 * 1024, timeoutMs: 10000 });
-  if (!out.ok) {
-    if (out.status === 400)
-      await audit("proxy.blocked", { req, actor: req.user, meta: { url: safeLog(url, 200), reason: out.error }, severity: "warn" });
-    return res.status(out.status).json({ ok: false, error: out.error });
+  let out = imgCache.get(url);
+  if (out && Date.now() - out.at > IMG_TTL) {
+    imgCache.delete(url);
+    imgCacheBytes -= out.buffer.length;
+    out = null;
+  }
+  if (!out) {
+    out = await safeFetch(url, { maxBytes: 12 * 1024 * 1024, timeoutMs: 10000 });
+    if (!out.ok) {
+      if (out.status === 400)
+        await audit("proxy.blocked", { req, actor: req.user, meta: { url: safeLog(url, 200), reason: out.error }, severity: "warn" });
+      return res.status(out.status).json({ ok: false, error: out.error });
+    }
+    out = { ok: true, mime: out.mime, buffer: out.buffer, at: Date.now() };
+    imgCachePut(url, out);
   }
   res.setHeader("Content-Type", out.mime);
   res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");

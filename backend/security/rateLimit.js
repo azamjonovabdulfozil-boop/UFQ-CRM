@@ -195,6 +195,18 @@ export const expensiveLimiter = rateLimit({
   blockMs: 2 * 60_000,
 });
 
+/**
+ * Coin Shop rasmlari (fonni olib tashlash uchun proxy). Do'kon ochilganda
+ * bir yo'la o'nlab rasm so'raladi — ular AI limitini yeb qo'ymasligi uchun
+ * alohida va kengroq limit.
+ */
+export const imgProxyLimiter = rateLimit({
+  name: "img-proxy",
+  windowMs: 60_000,
+  max: 150,
+  blockMs: 30_000,
+});
+
 /** "Eshitish" — har bir javob bir nechta bo'lak (so'rov) bo'lib o'qiladi. */
 export const ttsLimiter = rateLimit({
   name: "tts",

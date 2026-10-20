@@ -300,15 +300,58 @@
     _bgActive = 0,
     BG_PARALLEL = 3;
 
+  var _bgPending = {}; // hozir ishlanayotgan rasmlar — qayta navbatga qo'yilmaydi
+  var _bgPausedUntil = 0; // server "juda ko'p so'rov" (429) desa — kutamiz
+  var _bgPumpTimer = null;
+
+  // Fonini olib tashlash shart bo'lmagan (yoki imkonsiz) rasmlar ro'yxati —
+  // sahifa qayta ochilganda ularni serverdan qayta so'ramaymiz.
+  var BG_SKIP_KEY = "cs_bg_skip_v1";
+  var _bgSkip = {};
+  try {
+    (JSON.parse(Storage.prototype.getItem.call(localStorage, BG_SKIP_KEY) || "[]") || []).forEach(function (u) {
+      _bgSkip[u] = 1;
+    });
+  } catch (e) {}
+  function _rememberSkip(src) {
+    if (/^data:/i.test(src) || _bgSkip[src]) return;
+    _bgSkip[src] = 1;
+    try {
+      var list = Object.keys(_bgSkip).slice(-300);
+      Storage.prototype.setItem.call(localStorage, BG_SKIP_KEY, JSON.stringify(list));
+    } catch (e) {}
+  }
+
   function _bgPump() {
+    var wait = _bgPausedUntil - Date.now();
+    if (wait > 0) {
+      if (!_bgPumpTimer)
+        _bgPumpTimer = setTimeout(function () {
+          _bgPumpTimer = null;
+          _bgPump();
+        }, wait + 50);
+      return;
+    }
     while (_bgActive < BG_PARALLEL && _bgQueue.length) {
       var job = _bgQueue.shift();
+      if (_bgCache[job.src] || _bgPending[job.src]) continue;
       _bgActive++;
+      _bgPending[job.src] = 1;
       (function (job) {
-        removeImageBackground(job.src, function (out) {
+        removeImageBackground(job.src, function (out, retryAfter, failed) {
           _bgActive--;
+          delete _bgPending[job.src];
+          if (retryAfter && (job.tries || 0) < 3) {
+            // Limitga urildik — keyinroq qayta urinamiz, hozircha asl rasm ko'rinadi
+            job.tries = (job.tries || 0) + 1;
+            _bgPausedUntil = Math.max(_bgPausedUntil, Date.now() + retryAfter * 1000);
+            _bgQueue.push(job);
+            return _bgPump();
+          }
           _bgCache[job.src] = out || job.src;
-          _applyBgToDom(job.src);
+          if (!out || out === job.src) {
+            if (!failed) _rememberSkip(job.src);
+          } else _applyBgToDom(job.src);
           _bgPump();
         });
       })(job);
@@ -334,7 +377,12 @@
         if (_bgCache[src] !== src) el.src = _bgCache[src];
         continue;
       }
+      if (_bgSkip[src]) {
+        _bgCache[src] = src;
+        continue;
+      }
       if (
+        _bgPending[src] ||
         _bgQueue.some(function (j) {
           return j.src === src;
         })
@@ -488,12 +536,25 @@
       var base = bases[i++];
       fetch(base + "/api/img-proxy?url=" + encodeURIComponent(url))
         .then(function (r) {
-          if (!r.ok) throw new Error("proxy " + r.status);
+          // Server JAVOB berdi (xato bo'lsa ham) — boshqa manzil orqali qayta
+          // so'ramaymiz: ular bitta serverga boradi va so'rovlar ikki barobar
+          // ko'payib, limitga (429) tezroq urilardi.
+          if (r.status === 429) {
+            var ra = parseInt(r.headers.get("retry-after"), 10);
+            i = bases.length;
+            cb(null, ra > 0 ? Math.min(ra, 300) : 30);
+            return null;
+          }
+          if (!r.ok) {
+            i = bases.length;
+            throw new Error("proxy " + r.status);
+          }
           var ct = r.headers.get("content-type") || "";
           if (!/^image\//i.test(ct)) throw new Error("rasm emas");
           return r.blob();
         })
         .then(function (b) {
+          if (!b) return; // 429 — yuqorida hal qilindi
           var fr = new FileReader();
           fr.onload = function () {
             cb(String(fr.result || "") || null);
@@ -510,8 +571,8 @@
     if (!src || /^data:image\/svg/i.test(src)) return cb(src);
     if (!/^data:/i.test(src)) {
       // Tashqi URL — avval proxy orqali yuklab olamiz
-      return fetchImageAsDataUrl(src, function (dataUrl) {
-        if (!dataUrl) return cb(src); // proxy ishlamadi — asl havola qolsin
+      return fetchImageAsDataUrl(src, function (dataUrl, retryAfter) {
+        if (!dataUrl) return cb(src, retryAfter, true); // proxy ishlamadi — asl havola qolsin
         _processBg(dataUrl, function (out) {
           // Fon topilmasa (yoki rasm allaqachon shaffof bo'lsa) — asl havola
           // qoladi, base64 nusxa saqlanmaydi.
