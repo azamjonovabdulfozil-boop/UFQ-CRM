@@ -1,26 +1,26 @@
 /* ============================================================================
-   ADMIN AI YORDAMCHI — CRM ma'lumotlarini biladigan AI (faqat admin)
+   CRM AI YORDAMCHI — admin, mentor va talaba uchun (bitta dvigatel)
    ============================================================================
-   Admin oddiy tilda savol beradi: "qaysi bola sust o'qiyapti?", "Frontend-3
-   guruhida eng yaxshisi kim?", "kim ko'p dars qoldirgan?", "bu oy moliya
-   qanday?" — AI CRM dagi haqiqiy ma'lumotga qarab javob beradi. Boshqa har
-   qanday savolga ham (metodika, marketing, xat yozish va h.k.) javob beradi.
+   Har bir rolning AI si boshqacha ishlaydi:
 
-   QANDAY ISHLAYDI
-   ---------------
-   Har savolda brauzerdagi `D` dan IXCHAM hisobot quriladi: guruhlar, mentorlar,
-   har bir talaba bo'yicha davomat (bu oy / oxirgi 3 oy, oxirgi darslar),
-   baholar, testlar, coin, qarz va oldindan hisoblangan reyting. Bu hisobot
-   AI ga tizim ko'rsatmasi (system prompt) sifatida yuboriladi — AI faqat shu
-   raqamlarga tayanadi va ism o'ylab topmaydi.
+   • ADMIN  — butun markaz ma'lumotini biladi. Hisobot shu yerda, brauzerdagi
+              `D` dan quriladi va AI ga ko'rsatma sifatida yuboriladi.
+   • MENTOR — faqat o'z guruhlari va o'z talabalarini biladi, boshqa har
+              qanday savolga ham javob beradi. Ko'rsatma va ma'lumot SERVERDA
+              quriladi (backend/aiPortal.js). "Talabalar AI suhbatlari"
+              bo'limida o'z talabalarining AI suhbatlari va ogohlantirishlarni
+              ko'radi, bloklangan talabani blokdan chiqaradi.
+   • TALABA — faqat o'qishga oid savollarga javob oladi. Sinfdoshlari haqida
+              AI hech narsa bilmaydi. So'kinsa — 3 marta ogohlantirish,
+              4-chisida AI bloklanadi; har safar mentoriga xabar boradi.
 
-   Telefon raqamlari, parollar va loginlar hisobotga KIRITILMAYDI.
-   Suhbatlar tarixi saqlanadi ("Tarix" ro'yxati), xabarga istalgan fayl
-   biriktiriladi (rasm, ovoz, PDF, Word, Excel, exe…), ovozli xabar yoziladi
-   va javob "Eshitish" tugmasi bilan ovoz chiqarib o'qiladi.
+   Hammasida: suhbatlar tarixi, fayl biriktirish (rasm, ovoz, PDF, Word,
+   Excel…), ovozli xabar va javobni "Eshitish".
 
-   Backend: POST /api/ai-chat  { mode: "admin", system, messages }
-            POST /api/ai-tts   { text } → mp3
+   Backend: POST /api/ai-chat  { mode, system?, messages }
+            POST /api/ai-tts   { text } → audio
+            GET/PUT /api/ai/chats, GET /api/ai/state, /api/ai/students,
+            /api/ai/student-chats, /api/ai/alerts, POST /api/ai/unblock
    ========================================================================== */
 (function () {
   "use strict";
@@ -28,6 +28,23 @@
   var MAX_CONTEXT = 180000; // belgi — juda katta markazda ham sig'sin
   var _focusGroup = ""; // "" = barcha guruhlar (hisobotni bitta guruhga toraytirish uchun)
   var _busy = false;
+
+  /** Joriy foydalanuvchi roli: "admin" | "mentor" | "student". */
+  function role() {
+    try {
+      if (typeof isStudentRole === "function" && isStudentRole()) return "student";
+      if (typeof isMentorRole === "function" && isMentorRole()) return "mentor";
+    } catch (e) {}
+    return "admin";
+  }
+  var WRAP_ID = { admin: "admin-ai-wrap", mentor: "mentor-ai-wrap", student: "student-ai-wrap" };
+  var curUser = function () {
+    try {
+      return (typeof getCurrentUser === "function" && getCurrentUser()) || {};
+    } catch (e) {
+      return {};
+    }
+  };
 
   /* ─── Yordamchilar ─────────────────────────────────────────────────────── */
 
@@ -433,10 +450,38 @@
      rasm ko'rinishi va hujjatdan olingan matn. */
 
   var STORE_KEY = "admin_private_ai_chats_v1";
-  var OLD_HISTORY_KEY = "ai_history_admin";
   var MAX_CHATS = 60;
   var MAX_STORE_BYTES = 2 * 1024 * 1024;
   var _memParts = {}; // xabar kaliti → shu sessiyada yuborilgan fayl qismlari
+
+  /* Admin tarixi localStorage orqali serverga sinxronlanadi (admin_private_*).
+     Mentor va talaba tarixi esa alohida /api/ai/chats ga yoziladi — mentor
+     o'z talabalarining suhbatlarini ko'ra olishi uchun. Ularning brauzerdagi
+     nusxasi faqat kesh: KV sinxroniga tushmaydi (to'g'ridan Storage.prototype). */
+  function storeKey() {
+    var r = role();
+    if (r === "admin") return STORE_KEY;
+    var cu = curUser();
+    return "crm_ai_" + r + "_" + String(cu.studentId || cu.username || cu.mentorName || cu.name || "me").replace(/[^\w.-]/g, "_");
+  }
+  function oldHistoryKey() {
+    var r = role();
+    if (r === "admin") return "ai_history_admin";
+    if (r === "mentor") return "ai_history_mentor";
+    return "ai_history_student_" + (curUser().studentId || "me");
+  }
+  function lsGet(k) {
+    try {
+      return localStorage.getItem(k);
+    } catch (e) {
+      return null;
+    }
+  }
+  function lsSetLocal(k, v) {
+    try {
+      Storage.prototype.setItem.call(localStorage, k, v);
+    } catch (e) {}
+  }
 
   function uid() {
     return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -453,15 +498,16 @@
   }
 
   function loadStore() {
+    var key = storeKey();
     var st = null;
     try {
-      st = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+      st = JSON.parse(lsGet(key) || "null");
     } catch (e) {}
     if (st && Array.isArray(st.chats)) return st;
     st = { chats: [], current: null };
     // Avvalgi (bitta suhbatli) tarix yo'qolmasin — birinchi suhbat bo'lib ko'chadi
     try {
-      var old = JSON.parse(localStorage.getItem(OLD_HISTORY_KEY) || "[]");
+      var old = JSON.parse(lsGet(oldHistoryKey()) || "[]");
       if (Array.isArray(old) && old.length) {
         var now = Date.now();
         var c = { id: uid(), createdAt: now, updatedAt: now, messages: old.map(function (m) {
@@ -469,8 +515,7 @@
         }) };
         st.chats.push(c);
         st.current = c.id;
-        // Bir marta ko'chiriladi — keyingi ochilishlarda yangi ombordan o'qiladi
-        localStorage.setItem(STORE_KEY, JSON.stringify(st));
+        saveStore(st);
       }
     } catch (e) {}
     return st;
@@ -490,9 +535,76 @@
       st.chats.splice(idx, 1);
       json = JSON.stringify(st);
     }
-    try {
-      localStorage.setItem(STORE_KEY, json);
-    } catch (e) {}
+    if (role() === "admin") {
+      try {
+        localStorage.setItem(STORE_KEY, json);
+      } catch (e) {}
+      return;
+    }
+    lsSetLocal(storeKey(), json);
+    schedulePush();
+  }
+
+  /* ── Mentor/talaba tarixini server bilan sinxronlash ── */
+  var _pushTimer = null;
+  var _pulledFor = null;
+
+  function schedulePush() {
+    clearTimeout(_pushTimer);
+    _pushTimer = setTimeout(function () {
+      var st;
+      try {
+        st = JSON.parse(lsGet(storeKey()) || "null");
+      } catch (e) {}
+      if (!st) return;
+      fetch(apiBase() + "/api/ai/chats", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ store: st }),
+      }).catch(function () {});
+    }, 1200);
+  }
+
+  /** Serverdagi tarixni olib, brauzerdagisi bilan birlashtiradi (yangisi qoladi). */
+  function pullStore() {
+    var key = storeKey();
+    if (role() === "admin" || _pulledFor === key) return;
+    _pulledFor = key;
+    fetch(apiBase() + "/api/ai/chats")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d || !d.ok || !d.store) return;
+        var local = loadStore();
+        var byId = {};
+        local.chats.forEach(function (c) {
+          byId[c.id] = c;
+        });
+        var changed = false;
+        var serverHas = {};
+        (d.store.chats || []).forEach(function (c) {
+          serverHas[c.id] = 1;
+          var mine = byId[c.id];
+          if (!mine || (c.updatedAt || 0) > (mine.updatedAt || 0)) {
+            byId[c.id] = c;
+            changed = true;
+          }
+        });
+        var localOnly = local.chats.some(function (c) {
+          return !serverHas[c.id];
+        });
+        if (!changed && !localOnly) return;
+        local.chats = Object.keys(byId).map(function (k) {
+          return byId[k];
+        });
+        if (!local.current && d.store.current) local.current = d.store.current;
+        saveStore(local); // birlashma serverga ham qaytadi
+        if (!_busy) renderMessages();
+      })
+      .catch(function () {
+        _pulledFor = null;
+      });
   }
 
   function currentChat(st, create) {
@@ -933,14 +1045,62 @@
      pastda yozish qatori. O'z klasslari (aai-*) bilan chiziladi — balandlik,
      mobil ko'rinish va mavzu ranglari shu yerda to'liq boshqariladi. */
 
-  var SUGGEST = [
-    { ic: "📉", t: "Kim sust o'qiyapti?", q: "Qaysi talabalar sust o'qiyapti va nima uchun? Har biriga nima qilish kerakligini ham ayt." },
-    { ic: "🏆", t: "Guruhlardagi eng yaxshilar", q: "Har bir guruhda eng yaxshi talaba kim? Jadval qilib ber." },
-    { ic: "🚫", t: "Kim dars qoldiryapti?", q: "Kim ko'p dars qoldiryapti yoki ketma-ket kelmayapti? Kimning ota-onasiga qo'ng'iroq qilish kerak?" },
-    { ic: "💸", t: "Qarzdorlar", q: "Qarzdorlar ro'yxatini summasi bilan ber va jami qarzni hisobla." },
-    { ic: "📊", t: "Guruhlarni solishtir", q: "Guruhlarni davomat va o'zlashtirish bo'yicha solishtir. Qaysi guruh e'tibor talab qiladi?" },
-    { ic: "💰", t: "Moliya holati", q: "Bu oy moliya holati qanday? O'tgan oy bilan solishtir." },
-  ];
+  var SUGGESTS = {
+    admin: [
+      { ic: "📉", t: "Kim sust o'qiyapti?", q: "Qaysi talabalar sust o'qiyapti va nima uchun? Har biriga nima qilish kerakligini ham ayt." },
+      { ic: "🏆", t: "Guruhlardagi eng yaxshilar", q: "Har bir guruhda eng yaxshi talaba kim? Jadval qilib ber." },
+      { ic: "🚫", t: "Kim dars qoldiryapti?", q: "Kim ko'p dars qoldiryapti yoki ketma-ket kelmayapti? Kimning ota-onasiga qo'ng'iroq qilish kerak?" },
+      { ic: "💸", t: "Qarzdorlar", q: "Qarzdorlar ro'yxatini summasi bilan ber va jami qarzni hisobla." },
+      { ic: "📊", t: "Guruhlarni solishtir", q: "Guruhlarni davomat va o'zlashtirish bo'yicha solishtir. Qaysi guruh e'tibor talab qiladi?" },
+      { ic: "💰", t: "Moliya holati", q: "Bu oy moliya holati qanday? O'tgan oy bilan solishtir." },
+    ],
+    mentor: [
+      { ic: "📉", t: "Guruhimda kim sust?", q: "Mening guruhlarimda kim sust o'qiyapti va nima uchun? Har biriga nima qilishim kerak?" },
+      { ic: "🏆", t: "Eng yaxshi talabalarim", q: "Har bir guruhimda eng yaxshi talabalar kim? Jadval qilib ber." },
+      { ic: "🚫", t: "Kim dars qoldiryapti?", q: "Mening talabalarimdan kim ko'p dars qoldiryapti yoki ketma-ket kelmayapti?" },
+      { ic: "📝", t: "Dars rejasi tuz", q: "Keyingi darsim uchun 90 daqiqalik dars rejasini tuzib ber." },
+      { ic: "✅", t: "Test savollari", q: "Guruhim o'tayotgan mavzu bo'yicha javoblari bilan 10 ta test savoli tuz." },
+      { ic: "✉️", t: "Ota-onaga xabar", q: "Dars qoldirayotgan talabaning ota-onasiga yuboriladigan muloyim xabar matnini yozib ber." },
+    ],
+    student: [
+      { ic: "📚", t: "Mavzuni tushuntir", q: "Guruhimda o'tilayotgan mavzuni oddiy qilib, misollar bilan tushuntirib ber." },
+      { ic: "📈", t: "Natijalarim qanday?", q: "Mening davomatim va baholarim qanday? Nimani yaxshilashim kerak?" },
+      { ic: "🗓", t: "O'qish rejasi", q: "Menga bir haftalik o'qish rejasini tuzib ber." },
+      { ic: "💡", t: "Yaxshi o'qish sirlari", q: "Darsni yaxshiroq o'zlashtirish va yodda saqlash uchun maslahatlar ber." },
+    ],
+  };
+  var ROLE_TEXT = {
+    admin: {
+      sub: "markaz ma'lumotlarini biladi",
+      hello:
+        "Salom! Men markazingiz ma'lumotlarini biladigan AI yordamchiman.\n\n" +
+        "- 📊 Talabalar, guruhlar, davomat, baholar, qarzlar va moliya tahlili\n" +
+        "- 📎 Rasm, ovozli xabar, PDF, Word, Excel va boshqa fayllarni tahlil qilaman\n" +
+        "- 🔊 Javobni ovoz chiqarib o'qib beraman\n" +
+        "- 💡 Boshqa har qanday savolga ham yordam beraman\n\nNima yordam kerak?",
+    },
+    mentor: {
+      sub: "guruhlaringizni biladi",
+      hello:
+        "Salom! Men sizning guruhlaringiz va talabalaringizni biladigan AI yordamchiman.\n\n" +
+        "- 👥 Guruhlaringiz, talabalaringiz davomati, baholari va testlari tahlili\n" +
+        "- 📝 Dars rejasi, test savollari, mavzu tushuntirish, ota-onaga xabar\n" +
+        "- 📎 Rasm, ovozli xabar, PDF, Word, Excel fayllarini tahlil qilaman\n" +
+        "- 🔊 Javobni ovoz chiqarib o'qib beraman\n" +
+        "- 💡 Boshqa har qanday savolga ham javob beraman\n\nNima yordam kerak?",
+    },
+    student: {
+      sub: "o'qishingizga yordam beradi",
+      hello:
+        "Salom! Men sizning AI o'qituvchi-yordamchingizman 🙂\n\n" +
+        "- 📚 Dars mavzularini oddiy qilib tushuntiraman\n" +
+        "- 🧩 Masala va mashqlarni bosqichma-bosqich yechishga yordam beraman\n" +
+        "- 📎 Rasm (masalan, daftar yoki masala surati), ovozli xabar, PDF, Word, Excel yuborishingiz mumkin\n" +
+        "- 🔊 Javobni ovoz chiqarib o'qib beraman\n\n" +
+        "Iltimos, odob bilan yozing: so'kinish va haqoratli so'zlar uchun ogohlantirish beriladi, 4-marta AI bloklanadi.\n\nNimani o'rganamiz?",
+    },
+  };
+  var SUGGEST = SUGGESTS.admin;
 
   var STATUS_STEPS = ["Ma'lumotlar yig'ilmoqda…", "Tahlil qilinmoqda…", "Javob yozilmoqda…"];
   var _lastError = "";
@@ -972,7 +1132,9 @@
     var st = document.createElement("style");
     st.id = "aai-styles";
     st.textContent = [
-      "#panel-admin-ai{padding:0}",
+      "#panel-admin-ai,#panel-mentor-ai,#panel-student-ai,#panel-mentor-students-ai{padding:0}",
+      ".aai-blockbar{padding:12px 14px;border-radius:12px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:13px;font-weight:700;line-height:1.5}",
+      ".aai-warn .aai-txt{background:var(--orange-light,#fff7ed);border-color:#fdba74}",
       ".aai{position:relative;display:flex;flex-direction:column;height:calc(100dvh - 64px - 48px);min-height:500px;background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm)}",
       /* sarlavha — mentor AI kabi */
       ".aai-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg2)}",
@@ -1070,7 +1232,8 @@
   /* ─── Chizish ─────────────────────────────────────────────────────────── */
 
   function renderAdminAI() {
-    var wrap = document.getElementById("admin-ai-wrap");
+    var R = role();
+    var wrap = document.getElementById(WRAP_ID[R]);
     if (!wrap || typeof D === "undefined") return;
     // Javob kutilayotganda yoki ovoz yozilayotganda qayta chizmaymiz
     // (live-sync ham shu funksiyani chaqiradi)
@@ -1083,7 +1246,7 @@
       '<div class="aai-drop">📎 Faylni shu yerga tashlang</div>' +
       '<div class="aai-head">' +
       '<div class="aai-who"><div class="aai-ava">' + ICON.bot + "</div>" +
-      '<div><div class="aai-name">AI Yordamchi</div><div class="aai-on"><i></i>Onlayn<span class="aai-on-x"> · markaz ma\'lumotlarini biladi</span></div></div></div>' +
+      '<div><div class="aai-name">AI Yordamchi</div><div class="aai-on"><i></i>Onlayn<span class="aai-on-x"> · ' + ROLE_TEXT[R].sub + '</span><span id="aai-modchip"></span></div></div></div>' +
       '<div class="aai-hbtns">' +
       '<button class="aai-hbtn" id="aai-hbtn" onclick="adminAiToggleHist(event)" title="Oldingi suhbatlar">' + ICON.hist + "<span>Tarix</span>" + ICON.chev + "</button>" +
       '<button class="aai-hbtn" onclick="adminAiNew()" title="Yangi suhbat">' + ICON.plus + "<span>Yangi</span></button>" +
@@ -1107,6 +1270,53 @@
     bindDrop();
     renderPending();
     renderMessages();
+    renderModeration();
+    pullStore();
+    if (R === "student") refreshModState();
+  }
+
+  /* ─── Talaba: ogohlantirishlar va blok ─────────────────────────────────── */
+  var _mod = { warnings: 0, blocked: false, max: 3 };
+
+  function refreshModState() {
+    fetch(apiBase() + "/api/ai/state")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d) {
+        if (d && d.ok && typeof d.warnings === "number") {
+          _mod = { warnings: d.warnings, blocked: !!d.blocked, max: d.max || 3 };
+          renderModeration();
+        }
+      })
+      .catch(function () {});
+  }
+
+  function renderModeration() {
+    if (role() !== "student") return;
+    var chip = document.getElementById("aai-modchip");
+    if (chip)
+      chip.innerHTML = _mod.warnings > 0 || _mod.blocked
+        ? ' · <b style="color:' + (_mod.blocked ? "#dc2626" : "#ea580c") + '">' +
+          (_mod.blocked ? "🚫 bloklangan" : "⚠️ ogohlantirish " + Math.min(_mod.warnings, _mod.max) + "/" + _mod.max) + "</b>"
+        : "";
+    var row = document.getElementById("aai-row");
+    var old = document.getElementById("aai-blocked");
+    if (_mod.blocked) {
+      if (row) row.style.display = "none";
+      if (!old) {
+        var foot = document.querySelector("#aai-root .aai-foot");
+        if (foot)
+          foot.insertAdjacentHTML(
+            "beforeend",
+            '<div id="aai-blocked" class="aai-blockbar">🚫 AI yordamchi siz uchun bloklangan — ' + _mod.max +
+              " marta ogohlantirishdan keyin ham odobsiz so'z ishlatildi. Blokni mentoringiz yoki administrator ochadi.</div>",
+          );
+      }
+    } else {
+      if (row) row.style.display = "";
+      if (old) old.remove();
+    }
   }
 
   /** Sudrab tashlash va Ctrl+V bilan fayl qo'shish. */
@@ -1201,16 +1411,9 @@
     var st = loadStore();
     var chat = currentChat(st, false);
     var msgs = (chat && chat.messages) || [];
-    var html = bubbleBot(
-      md(
-        "Salom! Men markazingiz ma'lumotlarini biladigan AI yordamchiman.\n\n" +
-          "- 📊 Talabalar, guruhlar, davomat, baholar, qarzlar va moliya tahlili\n" +
-          "- 📎 Rasm, ovozli xabar, PDF, Word, Excel va boshqa fayllarni tahlil qilaman\n" +
-          "- 🔊 Javobni ovoz chiqarib o'qib beraman\n" +
-          "- 💡 Boshqa har qanday savolga ham yordam beraman\n\n" +
-          "Nima yordam kerak?",
-      ),
-    );
+    var R = role();
+    SUGGEST = SUGGESTS[R];
+    var html = bubbleBot(md(ROLE_TEXT[R].hello));
     if (!msgs.length && !_busy)
       html +=
         '<div class="aai-chips">' +
@@ -1226,11 +1429,13 @@
           (m.content ? '<div class="aai-txt">' + esc(m.content) + "</div>" : "") + "</div></div>";
       else {
         var speaking = _tts.idx === i && _tts.chat === (chat && chat.id);
+        var loading = speaking && _tts.loading;
         html += bubbleBot(
           md(m.content),
           '<button class="aai-act' + (speaking ? " on" : "") + '" onclick="adminAiSpeak(' + i + ')">' +
-            (speaking ? ICON.stop + "To'xtatish" : ICON.speak + "Eshitish") + "</button>" +
+            (loading ? '<span class="aai-spin"></span>Tayyorlanmoqda…' : speaking ? ICON.stop + "To'xtatish" : ICON.speak + "Eshitish") + "</button>" +
             '<button class="aai-act" onclick="adminAiCopy(' + i + ')">' + ICON.copy + "Nusxalash</button>",
+          m.warn ? "aai-warn" : "",
         );
       }
     });
@@ -1279,7 +1484,7 @@
                 '<div class="aai-hi' + (c.id === st.current ? " cur" : "") + '" onclick="adminAiOpen(\'' + c.id + '\')">' +
                 '<div class="aai-hi-main"><div class="aai-hi-t">' + esc(chatTitle(c)) + "</div>" +
                 '<div class="aai-hi-s">' + esc(fmtWhen(c.updatedAt)) + " · " + n + " ta savol</div></div>" +
-                '<button class="aai-hi-del" onclick="event.stopPropagation();adminAiDel(\'' + c.id + '\')" title="O\'chirish">' + ICON.trash + "</button></div>"
+                (role() === "student" ? "" : '<button class="aai-hi-del" onclick="event.stopPropagation();adminAiDel(\'' + c.id + '\')" title="O\'chirish">' + ICON.trash + "</button>") + "</div>"
               );
             })
             .join("")
@@ -1360,18 +1565,25 @@
       var res = await fetch(apiBase() + "/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "admin", hasFiles: hasFiles, system: systemPrompt(), messages: messages }),
+        body: JSON.stringify(
+          role() === "admin"
+            ? { mode: "admin", hasFiles: hasFiles, system: systemPrompt(), messages: messages }
+            : { mode: role(), hasFiles: hasFiles, messages: messages },
+        ),
       });
       var data = await res.json().catch(function () {
         return {};
       });
+      if (data && data.moderation)
+        _mod = { warnings: data.moderation.warnings || 0, blocked: !!data.moderation.blocked, max: data.moderation.max || 3 };
+      if (data && data.code === "ai-blocked") _mod.blocked = true;
       if (!res.ok || !data.ok) throw new Error(data.error || "Server xato: " + res.status);
       var st2 = loadStore();
       var c2 = st2.chats.find(function (x) {
         return x.id === chat.id;
       });
       if (c2) {
-        c2.messages.push({ role: "assistant", content: data.text || "...", ts: Date.now() });
+        c2.messages.push({ role: "assistant", content: data.text || "...", ts: Date.now(), warn: data.moderation ? true : undefined });
         c2.updatedAt = Date.now();
         saveStore(st2);
       }
@@ -1382,6 +1594,7 @@
     _busy = false;
     renderPending();
     renderMessages();
+    renderModeration();
     var inp = document.getElementById("aai-input");
     if (inp) inp.focus();
   }
@@ -1389,6 +1602,7 @@
   function adminAiSend() {
     var inp = document.getElementById("aai-input");
     if (!inp || _busy || _rec) return;
+    if (role() === "student" && _mod.blocked) return renderModeration();
     if (_pending.some(function (p) { return p.status === "busy"; })) {
       if (typeof toast === "function") toast("⏳ Fayl hali tayyorlanmoqda…");
       return;
@@ -1613,17 +1827,6 @@
     return out;
   }
 
-  function ttsFetch(text) {
-    return fetch(apiBase() + "/api/ai-tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: text }),
-    }).then(function (r) {
-      if (!r.ok) throw new Error("tts " + r.status);
-      return r.blob();
-    });
-  }
-
   function stopSpeak() {
     _tts.stop = true;
     if (_tts.audio) {
@@ -1689,7 +1892,10 @@
     } else u.lang = cyr > lat ? "ru-RU" : "uz-UZ";
     if (!v || !/^uz/i.test(v.lang)) {
       if (cyr <= lat && typeof toast === "function")
-        toast("ℹ️ Bu brauzerda o'zbekcha ovoz yo'q. Tabiiy o'zbekcha ovoz uchun serverga AZURE_SPEECH_KEY qo'ying yoki Microsoft Edge'da oching.");
+        toast(
+          "ℹ️ Server ovozi hozir ishlamadi, bu brauzerda esa o'zbekcha ovoz yo'q. Microsoft Edge brauzerida tabiiy o'zbekcha ovoz bor." +
+            (role() === "admin" ? " Doimiy tabiiy ovoz uchun serverga AZURE_SPEECH_KEY qo'ying." : ""),
+        );
     }
     u.rate = 0.95;
     u.onend = function () {
@@ -1701,6 +1907,9 @@
     speechSynthesis.speak(u);
   }
 
+  // 0.05 soniyalik jimjitlik — pleerni bosish paytida "ochish" uchun
+  var SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+
   async function speak(i) {
     var st = loadStore();
     var chat = currentChat(st, false);
@@ -1708,10 +1917,22 @@
     if (!m) return;
     if (_tts.idx === i && _tts.chat === chat.id) return stopSpeak();
     stopSpeak();
-    var my = (_tts = { idx: i, chat: chat.id, audio: null, stop: false });
+    // ⚠️ Brauzerlar ovozni faqat foydalanuvchi bosgan PAYTDA yoqishga ruxsat
+    // beradi. Ilgari pleer server javobidan (bir necha soniya) keyin
+    // yaratilardi — bu vaqtda ruxsat tugab, play() jimgina rad etilardi va
+    // hech narsa eshitilmasdi. Endi bitta pleer shu zahoti ochiladi va har
+    // bir bo'lak shu pleerda ijro etiladi.
+    var player = new Audio();
+    try {
+      player.src = SILENT_WAV;
+      var pp = player.play();
+      if (pp && pp.catch) pp.catch(function () {});
+    } catch (e) {}
+    var my = (_tts = { idx: i, chat: chat.id, audio: player, stop: false, loading: true });
     renderMessages();
 
     var chunks = speechChunks(plainForSpeech(m.content), 600);
+    if (!chunks.length) return stopSpeak();
     var next = ttsFetch(chunks[0]);
     for (var k = 0; k < chunks.length; k++) {
       if (my.stop) return;
@@ -1719,27 +1940,65 @@
       try {
         blob = await next;
       } catch (e) {
-        // Xizmat ishlamadi — qolgan qismini brauzer ovozi o'qiydi
+        // Server ovozi ishlamadi — qolgan qismini brauzer ovozi o'qiydi
         if (my.stop) return;
-        browserSpeak(chunks.slice(k).join(" "), function () {
+        my.loading = false;
+        renderMessages();
+        browserSpeak(chunks.slice(k).join(" "), function (ok) {
+          if (!ok && typeof toast === "function") toast("⚠️ Ovozni ijro etib bo'lmadi" + (e && e.message ? " (" + e.message + ")" : ""));
           if (_tts === my) stopSpeak();
         });
         return;
       }
       if (k + 1 < chunks.length) next = ttsFetch(chunks[k + 1]); // keyingisini oldindan tayyorlash
       if (my.stop) return;
-      await new Promise(function (resolve) {
+      if (my.loading) {
+        my.loading = false;
+        renderMessages();
+      }
+      var played = await new Promise(function (resolve) {
         var url = URL.createObjectURL(blob);
-        var a = new Audio(url);
-        my.audio = a;
-        a.onended = a.onerror = function () {
+        player.onended = function () {
           URL.revokeObjectURL(url);
-          resolve();
+          resolve(true);
         };
-        a.play().catch(resolve);
+        player.onerror = function () {
+          URL.revokeObjectURL(url);
+          resolve(false);
+        };
+        player.src = url;
+        var p = player.play();
+        if (p && p.catch)
+          p.catch(function (err) {
+            URL.revokeObjectURL(url);
+            resolve(err && err.name === "NotAllowedError" ? "blocked" : false);
+          });
       });
+      if (played === "blocked") {
+        if (typeof toast === "function") toast("🔈 Brauzer ovozni to'sdi — «Eshitish» ni yana bir bor bosing");
+        break;
+      }
     }
     if (_tts === my) stopSpeak();
+  }
+
+  function ttsFetch(text) {
+    return fetch(apiBase() + "/api/ai-tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text }),
+    }).then(function (r) {
+      if (!r.ok)
+        return r
+          .json()
+          .catch(function () {
+            return {};
+          })
+          .then(function (d) {
+            throw new Error((d && d.error) || "ovoz xizmati " + r.status);
+          });
+      return r.blob();
+    });
   }
 
   /* ─── Global funksiyalar (inline onclick) ─────────────────────────────── */
@@ -1825,6 +2084,307 @@
     renderHist();
     renderMessages();
   };
+  window.renderMentorAI = renderAdminAI;
+  window.renderStudentAI = renderAdminAI;
+
+  /* ─── Mentor: talabalarning AI suhbatlari va ogohlantirishlar ────────────── */
+  /* Har bir talabaning AI bilan yozishmalari serverda saqlanadi — mentor ularni
+     shu yerda (faqat o'qish uchun) ko'radi. Talaba so'kinsa yoki haqoratli so'z
+     ishlatsa bu yerga ogohlantirish tushadi; 4-qoidabuzarlikdan keyin talaba
+     bloklanadi va mentor uni shu yerdan blokdan chiqaradi. */
+
+  var _ms = { tab: "chats", students: null, sel: null, store: null, chatId: null, alerts: null, loading: false };
+
+  function msStyles() {
+    if (document.getElementById("aai-ms-styles")) return;
+    var st = document.createElement("style");
+    st.id = "aai-ms-styles";
+    st.textContent = [
+      ".ams{display:flex;flex-direction:column;height:calc(100dvh - 64px - 48px);min-height:460px;background:var(--bg2);border:1px solid var(--border);border-radius:18px;overflow:hidden}",
+      ".ams-tabs{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border)}",
+      ".ams-tab{height:34px;padding:0 14px;border-radius:9px;border:1.5px solid var(--border2);background:var(--bg3);color:var(--text2);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}",
+      ".ams-tab.on{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}",
+      ".ams-badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:#ef4444;color:#fff;font-size:11px;line-height:18px;text-align:center}",
+      ".ams-main{flex:1;display:flex;min-height:0}",
+      ".ams-list{width:250px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto}",
+      ".ams-st{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer}",
+      ".ams-st:hover{background:var(--bg3)}.ams-st.on{background:var(--accent-light)}",
+      ".ams-st b{display:block;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".ams-st small{display:block;font-size:11px;color:var(--text3)}",
+      ".ams-flag{margin-left:auto;font-size:11px;font-weight:800;white-space:nowrap}",
+      ".ams-view{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}",
+      ".ams-vhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg2)}",
+      ".ams-vhead select{max-width:260px}",
+      ".ams-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}",
+      ".ams-empty{margin:auto;text-align:center;color:var(--text3);font-size:13.5px;padding:30px}",
+      ".ams-al{padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg2)}",
+      ".ams-al.new{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.12)}",
+      ".ams-al-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--text3)}",
+      ".ams-al-top b{color:var(--text);font-size:13.5px}",
+      ".ams-al-txt{margin-top:7px;padding:8px 10px;border-radius:9px;background:rgba(239,68,68,.07);color:#b91c1c;font-size:13px;white-space:pre-wrap;word-break:break-word}",
+      "@media (max-width:900px){.ams{height:calc(100dvh - 64px - 24px)}.ams-main{flex-direction:column}.ams-list{width:auto;max-height:200px;border-right:0;border-bottom:1px solid var(--border)}}",
+    ].join("");
+    document.head.appendChild(st);
+  }
+
+  function getJson(url, opts) {
+    return fetch(apiBase() + url, opts).then(function (r) {
+      return r.json().then(function (d) {
+        if (!r.ok || !d.ok) throw new Error((d && d.error) || "Server xato " + r.status);
+        return d;
+      });
+    });
+  }
+
+  function msLoad() {
+    _ms.loading = true;
+    return Promise.all([
+      getJson("/api/ai/students").then(function (d) {
+        _ms.students = d.students || [];
+      }),
+      getJson("/api/ai/alerts").then(function (d) {
+        _ms.alerts = d.alerts || [];
+      }),
+    ])
+      .catch(function (e) {
+        _ms.error = e.message;
+      })
+      .then(function () {
+        _ms.loading = false;
+        msRender();
+      });
+  }
+
+  function msSelect(id) {
+    _ms.sel = id;
+    _ms.store = null;
+    _ms.chatId = null;
+    msRender();
+    getJson("/api/ai/student-chats?studentId=" + encodeURIComponent(id))
+      .then(function (d) {
+        if (_ms.sel !== id) return;
+        _ms.store = d.store || { chats: [] };
+        var chats = (_ms.store.chats || []).slice().sort(function (a, b) {
+          return (b.updatedAt || 0) - (a.updatedAt || 0);
+        });
+        _ms.store.chats = chats;
+        _ms.chatId = chats.length ? chats[0].id : null;
+        msRender();
+      })
+      .catch(function (e) {
+        _ms.store = { chats: [], error: e.message };
+        msRender();
+      });
+  }
+
+  function msUnblock(id) {
+    var go = function () {
+      getJson("/api/ai/unblock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: id }),
+      })
+        .then(function () {
+          if (typeof toast === "function") toast("🔓 Talaba blokdan chiqarildi, ogohlantirishlar nolga tushirildi");
+          msLoad();
+        })
+        .catch(function (e) {
+          if (typeof toast === "function") toast("⚠️ " + e.message);
+        });
+    };
+    if (typeof crmConfirm === "function")
+      crmConfirm("Talaba AI dan yana foydalana olsinmi? Ogohlantirishlar soni nolga tushadi.", { okText: "Blokdan chiqarish" }).then(function (ok) {
+        if (ok) go();
+      });
+    else go();
+  }
+
+  function msRender() {
+    var wrap = document.getElementById("mentor-students-ai-wrap");
+    if (!wrap) return;
+    msStyles();
+    injectStyles();
+    var unread = (_ms.alerts || []).filter(function (a) {
+      return !a.read;
+    }).length;
+    var head =
+      '<div class="ams-tabs">' +
+      '<button class="ams-tab' + (_ms.tab === "chats" ? " on" : "") + '" onclick="aiMsTab(\'chats\')">💬 Talabalar suhbatlari</button>' +
+      '<button class="ams-tab' + (_ms.tab === "alerts" ? " on" : "") + '" onclick="aiMsTab(\'alerts\')">⚠️ Ogohlantirishlar' +
+      (unread ? '<span class="ams-badge">' + unread + "</span>" : "") + "</button>" +
+      '<button class="ams-tab" style="margin-left:auto" onclick="aiMsReload()" title="Yangilash">↻</button></div>';
+
+    if (_ms.students == null) {
+      wrap.innerHTML = '<div class="ams">' + head + '<div class="ams-empty">' + (_ms.error ? "⚠️ " + esc(_ms.error) : "Yuklanmoqda…") + "</div></div>";
+      return;
+    }
+
+    var body;
+    if (_ms.tab === "alerts") {
+      var al = _ms.alerts || [];
+      body =
+        '<div class="ams-body">' +
+        (al.length
+          ? al
+              .map(function (a) {
+                return (
+                  '<div class="ams-al' + (a.read ? "" : " new") + '"><div class="ams-al-top"><b>' + esc(a.studentName) + "</b>" +
+                  (a.groupName ? "<span>· " + esc(a.groupName) + "</span>" : "") +
+                  "<span>· " + esc(fmtWhen(new Date(a.createdAt).getTime())) + "</span>" +
+                  '<span style="margin-left:auto;font-weight:800;color:' + (a.blocked ? "#dc2626" : "#ea580c") + '">' +
+                  (a.blocked ? "🚫 BLOKLANDI" : "⚠️ " + a.warnings + "-ogohlantirish") + "</span></div>" +
+                  '<div class="ams-al-txt">' + esc(a.text || "") + "</div>" +
+                  '<div style="font-size:11.5px;color:var(--text3);margin-top:6px">' +
+                  (a.source === "ai" ? "AI haqoratli gap deb aniqladi" : "So'kinish so'zi aniqlandi") + "</div></div>"
+                );
+              })
+              .join("")
+          : '<div class="ams-empty">✅ Hozircha ogohlantirish yo\'q. Talaba AI ga so\'kinsa yoki haqoratli so\'z yozsa, shu yerda ko\'rinadi.</div>') +
+        "</div>";
+      wrap.innerHTML = '<div class="ams">' + head + body + "</div>";
+      if (unread)
+        getJson("/api/ai/alerts/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(function () {
+            (_ms.alerts || []).forEach(function (a) {
+              a.read = true;
+            });
+            msBadge(0);
+          })
+          .catch(function () {});
+      return;
+    }
+
+    var list = _ms.students
+      .map(function (s) {
+        var flag = s.blocked
+          ? '<span class="ams-flag" style="color:#dc2626">🚫</span>'
+          : s.warnings
+            ? '<span class="ams-flag" style="color:#ea580c">⚠️ ' + s.warnings + "</span>"
+            : "";
+        return (
+          '<div class="ams-st' + (s.id === _ms.sel ? " on" : "") + '" onclick="aiMsSel(' + Number(s.id) + ')">' +
+          "<div style=\"min-width:0\"><b>" + esc(s.name) + "</b><small>" + esc(s.groupName) + " · " +
+          (s.questions ? s.questions + " ta savol" : "suhbat yo'q") + "</small></div>" + flag + "</div>"
+        );
+      })
+      .join("");
+
+    var view;
+    var sel = _ms.students.find(function (s) {
+      return s.id === _ms.sel;
+    });
+    if (!sel) view = '<div class="ams-empty">👈 Talabani tanlang — uning AI bilan yozishmalari shu yerda ko\'rinadi.</div>';
+    else {
+      var vhead =
+        '<div class="ams-vhead"><b style="font-size:14px">' + esc(sel.name) + "</b>" +
+        (sel.blocked
+          ? '<span style="color:#dc2626;font-weight:800;font-size:12px">🚫 AI bloklangan</span><button class="btn btn-sm" onclick="aiMsUnblock(' + Number(sel.id) + ')">🔓 Blokdan chiqarish</button>'
+          : sel.warnings
+            ? '<span style="color:#ea580c;font-weight:800;font-size:12px">⚠️ ' + sel.warnings + " ta ogohlantirish</span>" +
+              '<button class="btn btn-sm" onclick="aiMsUnblock(' + Number(sel.id) + ')">Ogohlantirishlarni nolga tushirish</button>'
+            : "");
+      var chats = (_ms.store && _ms.store.chats) || [];
+      if (chats.length)
+        vhead +=
+          '<select class="fsel" style="margin-left:auto" onchange="aiMsChat(this.value)">' +
+          chats
+            .map(function (c) {
+              return '<option value="' + esc(c.id) + '"' + (c.id === _ms.chatId ? " selected" : "") + ">" + esc(chatTitle(c)) + " · " + esc(fmtWhen(c.updatedAt)) + "</option>";
+            })
+            .join("") +
+          "</select>";
+      vhead += '<span style="font-size:11px;color:var(--text3)">faqat o\'qish</span></div>';
+      var inner;
+      if (!_ms.store) inner = '<div class="ams-empty">Yuklanmoqda…</div>';
+      else if (_ms.store.error) inner = '<div class="ams-empty">⚠️ ' + esc(_ms.store.error) + "</div>";
+      else {
+        var chat = chats.find(function (c) {
+          return c.id === _ms.chatId;
+        });
+        inner = !chat
+          ? '<div class="ams-empty">💬 Talaba hali AI bilan suhbatlashmagan</div>'
+          : (chat.messages || [])
+              .map(function (m) {
+                return m.role === "user"
+                  ? '<div class="aai-b me"><div class="aai-bc">' + filesHtml(m.files) + (m.content ? '<div class="aai-txt">' + esc(m.content) + "</div>" : "") + "</div></div>"
+                  : bubbleBot(md(m.content), "", m.warn ? "aai-warn" : "");
+              })
+              .join("");
+      }
+      view = vhead + '<div class="ams-body" id="ams-body">' + inner + "</div>";
+    }
+    wrap.innerHTML =
+      '<div class="ams">' + head + '<div class="ams-main"><div class="ams-list">' +
+      (list || '<div class="ams-empty">Guruhlaringizda talaba yo\'q</div>') +
+      '</div><div class="ams-view">' + view + "</div></div></div>";
+    var b = document.getElementById("ams-body");
+    if (b) b.scrollTop = b.scrollHeight;
+  }
+
+  function renderMentorStudentsAI() {
+    if (!document.getElementById("mentor-students-ai-wrap")) return;
+    msRender();
+    if (!_ms.loading) msLoad();
+  }
+
+  window.renderMentorStudentsAI = renderMentorStudentsAI;
+  window.aiMsTab = function (t) {
+    _ms.tab = t;
+    msRender();
+  };
+  window.aiMsSel = msSelect;
+  window.aiMsChat = function (id) {
+    _ms.chatId = id;
+    msRender();
+  };
+  window.aiMsUnblock = msUnblock;
+  window.aiMsReload = function () {
+    msLoad();
+    if (_ms.sel != null) msSelect(_ms.sel);
+  };
+
+  /* ─── Mentorga yangi ogohlantirish haqida xabar ─────────────────────────── */
+  /* Har daqiqada tekshiriladi: yangi ogohlantirish bo'lsa — menyuda qizil
+     belgi va ekranda xabar chiqadi. */
+  var _lastUnread = -1;
+
+  function msBadge(n) {
+    var btn = document.getElementById("nav-mentor-students-ai");
+    if (!btn) return;
+    var b = btn.querySelector(".ams-nav-badge");
+    if (!n) {
+      if (b) b.remove();
+      return;
+    }
+    if (!b) {
+      b = document.createElement("span");
+      b.className = "ams-nav-badge";
+      b.style.cssText = "margin-left:auto;min-width:18px;padding:0 5px;border-radius:9px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;line-height:18px;text-align:center";
+      btn.appendChild(b);
+    }
+    b.textContent = n;
+  }
+
+  function pollAlerts() {
+    if (role() !== "mentor") return;
+    fetch(apiBase() + "/api/ai/state")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d || !d.ok || typeof d.alertsUnread !== "number") return;
+        var n = d.alertsUnread;
+        msBadge(n);
+        if (n > 0 && n > _lastUnread && typeof toast === "function")
+          toast("⚠️ " + n + " ta yangi ogohlantirish: talaba AI ga odobsiz so'z yozdi. «Talabalar AI suhbatlari» bo'limini oching.");
+        if (n > _lastUnread && _lastUnread >= 0 && document.getElementById("mentor-students-ai-wrap") && _ms.students) msLoad();
+        _lastUnread = n;
+      })
+      .catch(function () {});
+  }
+  setTimeout(pollAlerts, 4000);
+  setInterval(pollAlerts, 60000);
+
   // Test va tekshiruv uchun
   window.adminAiContext = buildContext;
   window.adminAiPrepare = prepareFile;

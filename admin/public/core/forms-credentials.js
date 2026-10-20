@@ -1350,6 +1350,26 @@ async function saveMentorCredentials() {
   passEl.value = "";
 }
 
+/**
+ * Har bir login serverdagi hisoblar omborida (accounts) haqiqatan bormi —
+ * ro'yxatda ✅ / ⚠️ bilan ko'rsatiladi. ⚠️ bo'lsa bu foydalanuvchi kira
+ * olmaydi: login/parolni qayta saqlash kerak.
+ */
+async function _markServerAccounts(role, listEl) {
+  try {
+    const r = await fetch("/api/admin/accounts?role=" + role);
+    const d = await r.json();
+    if (!d || !d.ok) return;
+    const have = new Set((d.accounts || []).filter((a) => a.status !== "disabled").map((a) => String(a.username).toLowerCase()));
+    listEl.querySelectorAll(".cred-srv").forEach((el) => {
+      const ok = have.has(el.dataset.login);
+      el.textContent = ok ? "✅ kira oladi" : "⚠️ serverda yo'q — qayta saqlang";
+      el.style.color = ok ? "var(--green-text, #15803d)" : "var(--orange-text, #c2410c)";
+      el.title = ok ? "Hisob serverda bor" : "Bu login serverda topilmadi, shuning uchun kirib bo'lmaydi. Mentorni tanlab, login va yangi parol kiritib Saqlash ni bosing.";
+    });
+  } catch (e) {}
+}
+
 function renderMentorCredsList() {
   const listEl = document.getElementById("mentor-creds-list");
   if (!listEl) return;
@@ -1396,10 +1416,12 @@ function renderMentorCredsList() {
     <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:6px">
       <span style="font-weight:600;font-size:13px;flex:1">${u.name}</span>
       <span style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace">${u.login}</span>
+      <span class="cred-srv" data-login="${String(u.login || "").toLowerCase()}" style="font-size:11px;white-space:nowrap"></span>
       <button class="btn btn-sm btn-del-outline" style="padding:3px 8px;font-size:11px" onclick="deleteMentorCredential('${u.mentorId}')">✕ O'chirish</button>
     </div>`,
       )
       .join("");
+  _markServerAccounts("mentor", listEl);
 }
 
 async function deleteMentorCredential(mentorId) {
@@ -1508,10 +1530,12 @@ function renderStudentCredsList() {
     <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:6px">
       <span style="font-weight:600;font-size:13px;flex:1">${u.name}</span>
       <span style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace">${u.login}</span>
+      <span class="cred-srv" data-login="${String(u.login || "").toLowerCase()}" style="font-size:11px;white-space:nowrap"></span>
       <button class="btn btn-sm btn-del-outline" style="padding:3px 8px;font-size:11px" onclick="deleteStudentCredential('${u.studentId}')">✕ O'chirish</button>
     </div>`,
       )
       .join("");
+  _markServerAccounts("student", listEl);
 }
 
 async function deleteStudentCredential(studentId) {

@@ -31,6 +31,9 @@ import {
 } from "./qarzdorBot.js";
 // "Eshitish" tugmasi uchun o'zbekcha tabiiy ovoz (Azure Speech).
 import { azureTts, azureTtsConfigured, normalizeUz } from "./azureTts.js";
+import { geminiTts, geminiTtsConfigured } from "./geminiTts.js";
+// Mentor va talaba AI si: rolga mos ko'rsatma, tarix, so'kinish nazorati.
+import { initAiPortal, HAQORAT_MARK } from "./aiPortal.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -1328,18 +1331,28 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 45000) {
   }
 }
 
-// ─── 🔊 Matnni ovozga aylantirish (admin AI → "Eshitish") ───────────────────
-// Navbat: 1) Azure Speech — o'zbekchani odamdek o'qiydigan Madina/Sardor
-// ovozlari (AZURE_SPEECH_KEY + AZURE_SPEECH_REGION kerak); 2) Lovable nutq
-// modeli; 3) ikkalasi ham bo'lmasa brauzer o'z ovozi bilan o'qiydi.
-app.get("/api/ai-tts/status", requireAdmin, (req, res) => {
-  const lovable = !!(process.env.LOVABLE_API_KEY && !process.env.LOVABLE_API_KEY.includes("your_"));
-  res.json({ ok: true, azure: azureTtsConfigured(), lovable });
+// ─── 🔊 Matnni ovozga aylantirish (AI → "Eshitish") ─────────────────────────
+// Admin, mentor va talaba — hammasi uchun. Navbat:
+//   1) Azure Speech — o'zbekchani odamdek o'qiydigan Madina/Sardor ovozlari
+//      (AZURE_SPEECH_KEY + AZURE_SPEECH_REGION);
+//   2) Google Gemini nutq modeli (GEMINI_API_KEY);
+//   3) Lovable nutq modeli (LOVABLE_API_KEY);
+//   4) hech biri ishlamasa — brauzer o'z ovozi bilan o'qiydi.
+const lovableReady = () => !!(process.env.LOVABLE_API_KEY && !process.env.LOVABLE_API_KEY.includes("your_"));
+const ttsLang = (t) => {
+  const cyr = (String(t).match(/[Ѐ-ӿ]/g) || []).length;
+  const lat = (String(t).match(/[A-Za-z]/g) || []).length;
+  return cyr > lat ? "ru" : "uz";
+};
+
+app.get("/api/ai-tts/status", requireAuth, (req, res) => {
+  res.json({ ok: true, azure: azureTtsConfigured(), gemini: geminiTtsConfigured(), lovable: lovableReady() });
 });
 
-app.post("/api/ai-tts", requireAdmin, expensiveLimiter, async (req, res) => {
+app.post("/api/ai-tts", requireAuth, expensiveLimiter, async (req, res) => {
   const text = String(req.body?.text || "").trim().slice(0, 2500);
   if (!text) return res.status(400).json({ ok: false, error: "Matn bo'sh" });
+  const errors = [];
 
   const sendAudio = (buf, type) => {
     res.setHeader("Content-Type", type || "audio/mpeg");
@@ -1351,54 +1364,62 @@ app.post("/api/ai-tts", requireAdmin, expensiveLimiter, async (req, res) => {
     try {
       return sendAudio(await azureTts(text), "audio/mpeg");
     } catch (e) {
-      console.warn("⚠️  Azure TTS ishlamadi:", e.message);
+      errors.push("Azure: " + e.message);
     }
   }
 
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key || key.includes("your_"))
-    return res.status(503).json({ ok: false, code: "no-tts", error: "Ovoz xizmati sozlanmagan" });
-
-  const body = {
-    model: process.env.LOVABLE_TTS_MODEL || "openai/gpt-4o-mini-tts",
-    input: normalizeUz(text),
-    voice: process.env.LOVABLE_TTS_VOICE || "nova",
-    response_format: "mp3",
-    instructions:
-      "Sen toshkentlik o'zbek diktorisan. Matnni ona tilida gapiradigan odamdek, " +
-      "o'zbek adabiy talaffuzida o'qi: o', g', q, x, sh, ch tovushlarini to'g'ri ayt, " +
-      "raqamlarni o'zbekcha o'qi (masalan 1 250 000 — bir million ikki yuz ellik ming). " +
-      "Ingliz yoki rus aksenti bo'lmasin. Ohang tabiiy, iliq, suhbatdosh, shoshilmasdan. " +
-      "Agar matn ruscha bo'lsa — ruscha tabiiy o'qi.",
-  };
-  const call = () =>
-    fetchWithTimeout(
-      "https://ai.gateway.lovable.dev/v1/audio/speech",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
-        body: JSON.stringify(body),
-      },
-      90000,
-    );
-  try {
-    let r = await call();
-    // Ba'zi nutq modellari "instructions" ni qabul qilmaydi — usiz qayta urinamiz
-    if (r.status === 400) {
-      delete body.instructions;
-      r = await call();
+  if (geminiTtsConfigured()) {
+    try {
+      const out = await geminiTts(normalizeUz(text), ttsLang(text));
+      return sendAudio(out.buf, out.type);
+    } catch (e) {
+      errors.push("Gemini: " + e.message);
     }
-    if (!r.ok) {
-      const t = await r.text().catch(() => "");
-      return res.status(502).json({ ok: false, error: "Ovoz xizmati xatosi: HTTP " + r.status, detail: safeLog(t, 200) });
-    }
-    sendAudio(Buffer.from(await r.arrayBuffer()), r.headers.get("content-type"));
-  } catch (e) {
-    res.status(502).json({
-      ok: false,
-      error: e?.name === "AbortError" ? "Ovoz xizmati javob bermadi" : "Ovoz xizmatiga ulanib bo'lmadi",
-    });
   }
+
+  if (lovableReady()) {
+    const body = {
+      model: process.env.LOVABLE_TTS_MODEL || "openai/gpt-4o-mini-tts",
+      input: normalizeUz(text),
+      voice: process.env.LOVABLE_TTS_VOICE || "nova",
+      response_format: "mp3",
+      instructions:
+        "Sen toshkentlik o'zbek diktorisan. Matnni ona tilida gapiradigan odamdek, " +
+        "o'zbek adabiy talaffuzida o'qi: o', g', q, x, sh, ch tovushlarini to'g'ri ayt, " +
+        "raqamlarni o'zbekcha o'qi. Ingliz yoki rus aksenti bo'lmasin. Ohang tabiiy, iliq, " +
+        "shoshilmasdan. Agar matn ruscha bo'lsa — ruscha tabiiy o'qi.",
+    };
+    const call = () =>
+      fetchWithTimeout(
+        "https://ai.gateway.lovable.dev/v1/audio/speech",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Lovable-API-Key": process.env.LOVABLE_API_KEY },
+          body: JSON.stringify(body),
+        },
+        60000,
+      );
+    try {
+      let r = await call();
+      // Ba'zi nutq modellari "instructions" ni qabul qilmaydi — usiz qayta urinamiz
+      if (r.status === 400) {
+        delete body.instructions;
+        r = await call();
+      }
+      if (r.ok) return sendAudio(Buffer.from(await r.arrayBuffer()), r.headers.get("content-type"));
+      errors.push("Lovable: HTTP " + r.status);
+    } catch (e) {
+      errors.push("Lovable: " + (e?.name === "AbortError" ? "javob bermadi" : e.message));
+    }
+  }
+
+  if (errors.length) console.warn("⚠️  Ovoz xizmatlari ishlamadi:", errors.join(" | "));
+  res.status(errors.length ? 502 : 503).json({
+    ok: false,
+    code: errors.length ? "tts-failed" : "no-tts",
+    error: errors.length ? "Ovoz xizmati ishlamadi" : "Ovoz xizmati sozlanmagan",
+    detail: safeLog(errors.join(" | "), 300),
+  });
 });
 
 // ─── AI xabarlarini yagona ko'rinishga keltirish ────────────────────────────
@@ -1500,31 +1521,77 @@ function aiAnthropicContent(m) {
   return blocks;
 }
 
+// Mentor/talaba AI: tarix, ogohlantirishlar, blok, mentorga xabarlar
+const aiPortal = initAiPortal({
+  app,
+  getDb,
+  readCrmData,
+  readAllKv,
+  ROLES,
+  requireAuth,
+  requireRole,
+  writeLimiter,
+  audit,
+  fail,
+});
+
 app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
   // Klient uzilib qolsa serverda ham to'xtaymiz
   let clientAborted = false;
   req.on("close", () => { clientAborted = true; });
 
-  const { messages, system } = req.body || {};
+  const { messages } = req.body || {};
+  let system = req.body?.system;
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50)
     return res.status(400).json({ ok: false, error: "messages massivi kerak (1–50 ta)" });
   // Admin AI yordamchi CRM hisobotini system prompt ichida yuboradi — unga
   // katta kontekst, uzunroq javob va ko'proq kutish vaqti beriladi. Boshqa
   // rollar uchun system prompt hajmi cheklanadi.
   const isAdminMode = req.body?.mode === "admin" && req.user?.role === ROLES.ADMIN;
+  // Mentor va talaba: ko'rsatma va CRM konteksti SERVERDA quriladi (aiPortal.js).
+  // Brauzerdan kelgan `system` e'tiborga olinmaydi — talaba uni almashtirib
+  // cheklovlarni chetlab o'tolmasin.
+  const isPortalMode = req.user?.role === ROLES.MENTOR || req.user?.role === ROLES.STUDENT;
+  const bigMode = isAdminMode || isPortalMode;
   const systemLimit = isAdminMode ? 250000 : 12000;
-  if (system != null && (typeof system !== "string" || system.length > systemLimit))
+  if (!isPortalMode && system != null && (typeof system !== "string" || system.length > systemLimit))
     return res.status(413).json({ ok: false, error: "Ko'rsatma (system) juda uzun" });
-  const tmo = (ms) => (isAdminMode ? Math.max(ms, req.body?.hasFiles ? 120000 : 60000) : ms);
-  // Fayllar faqat admin rejimida qabul qilinadi; boshqalarda matni olinadi
-  const norm = normalizeAiMessages(messages, isAdminMode);
+  const tmo = (ms) => (bigMode ? Math.max(ms, req.body?.hasFiles ? 120000 : 45000) : ms);
+  // Fayllar (rasm, ovoz, PDF…) admin, mentor va talabadan qabul qilinadi
+  const norm = normalizeAiMessages(messages, bigMode);
   if (norm.error) return res.status(400).json({ ok: false, error: norm.error });
   const nmsgs = norm.msgs;
   // Prompt orqali servisni suiiste'mol qilishga qarshi hajm cheklovi
-  // (admin hujjat matnini ham yuboradi — unga ko'proq ruxsat)
+  // (hujjat matni ham yuboriladi — admin/mentor/talabaga ko'proq ruxsat)
   const totalChars = nmsgs.reduce((n, m) => n + m.text.length, 0);
-  if (totalChars > (isAdminMode ? 400000 : 40000))
+  if (totalChars > (isAdminMode ? 400000 : bigMode ? 200000 : 40000))
     return res.status(413).json({ ok: false, error: "Savol juda uzun" });
+
+  let onReply = null;
+  if (isPortalMode) {
+    const lastUser = [...nmsgs].reverse().find((m) => m.role === "user");
+    let prep;
+    try {
+      prep = await aiPortal.prepareChat(req, lastUser ? lastUser.text : "");
+    } catch (e) {
+      return fail(res, e, req);
+    }
+    if (prep.reply) return res.status(prep.status || 200).json(prep.reply);
+    system = prep.system;
+    onReply = prep.onReply || null;
+  }
+  // AI javobini qaytarish (talaba uchun — haqorat belgisini tekshirib)
+  const done = async (text) => {
+    if (onReply) {
+      try {
+        const v = await onReply(text);
+        if (v) return res.json(v);
+      } catch (e) {
+        console.warn("⚠️  Moderatsiya xatosi:", e.message);
+      }
+    }
+    return res.json({ ok: true, text: String(text).split(HAQORAT_MARK).join("").trim() || "..." });
+  };
 
   const key = process.env.ANTHROPIC_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -1555,7 +1622,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
         const text = data.choices?.[0]?.message?.content || "";
-        if (text) return res.json({ ok: true, text });
+        if (text) return done(text);
         lastErr = "Lovable AI bo'sh javob qaytardi";
       } else {
         lastErr = data?.error?.message || `Lovable AI xato: HTTP ${r.status}`;
@@ -1596,7 +1663,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
         const text =
           data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ||
           "";
-        if (text) return res.json({ ok: true, text });
+        if (text) return done(text);
         lastErr = "Gemini bo'sh javob qaytardi";
       } else {
         lastErr =
@@ -1629,7 +1696,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
           body: JSON.stringify({
             // Tez va arzon model — Claude Haiku 5.5 (ANTHROPIC_MODEL bilan almashtirish mumkin)
             model: process.env.ANTHROPIC_MODEL || "claude-haiku-5-5",
-            max_tokens: isAdminMode ? 8000 : 2048,
+            max_tokens: bigMode ? 8000 : 2048,
             // Chat uchun past effort — tezroq javob
             output_config: { effort: "low" },
             system: system || "",
@@ -1648,7 +1715,7 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
           .filter((b) => b.type === "text")
           .map((b) => b.text)
           .join("");
-        if (text) return res.json({ ok: true, text });
+        if (text) return done(text);
         lastErr = "Anthropic bo'sh javob qaytardi";
       } else {
         lastErr =
@@ -1702,9 +1769,9 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
       text = raw;
     }
     if (!text || !text.trim()) {
-      text = "⚠️ AI bo'sh javob qaytardi. Iltimos, qaytadan urinib ko'ring.";
+      return res.json({ ok: true, text: "⚠️ AI bo'sh javob qaytardi. Iltimos, qaytadan urinib ko'ring." });
     }
-    return res.json({ ok: true, text });
+    return done(text);
   } catch (e) {
     const isTimeout = e?.name === "AbortError";
     // Hech qachon 504 chiqarmaymiz — 200 + xabar bilan qaytaramiz

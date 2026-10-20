@@ -29,6 +29,9 @@ services:
         sync: false
       - key: AZURE_SPEECH_REGION
         sync: false
+      # Ixtiyoriy: Google Gemini (AI va o'zbekcha ovoz uchun zaxira)
+      - key: GEMINI_API_KEY
+        sync: false
 
       # ─── XAVFSIZLIK (majburiy) ─────────────────────────────────────────
       # Sessiya tokenlarini imzolash kaliti. Render uni O'ZI generatsiya

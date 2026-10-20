@@ -29,7 +29,7 @@ export const SCRIPT_GROUPS = [
   // Group 2: auth (constants kerak)
   ["auth.js"],
   // Group 3: data scriptlar — parallel
-  ["data-finance.js", "ai-assistant.js"],
+  ["data-finance.js"],
   // Group 4: student-dashboard BIRINCHI (grading uni patch qiladi)
   ["student-dashboard.js", "attendance-render.js", "coin-system.js"],
   // telegram-bridge setAtt() ni o'raydi — shuning uchun attendance-render.js
@@ -44,6 +44,9 @@ export const SCRIPT_GROUPS = [
   ["certificates.js"],
   // Kengaytirilgan dashboard analitikasi — render funksiyalarini o'raydi
   ["dash-analytics.js"],
+  // AI yordamchi — tarix, fayllar, ovoz; ko'rsatma va ma'lumot serverda
+  // quriladi (mentor — o'z guruhlari, talaba — faqat o'zi)
+  ["crm-ai.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 
