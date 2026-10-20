@@ -1142,6 +1142,11 @@
     retry: I('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', 14),
     trash: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>', 14),
     x: I('<path d="M18 6L6 18M6 6l12 12"/>', 12),
+    trash20: I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>', 20),
+    lock: I('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', 16),
+    up: I('<path d="M6 15l6-6 6 6"/>', 14),
+    play: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="5" width="4.5" height="14" rx="1.2"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.2"/></svg>',
   };
 
   function injectStyles() {
@@ -1236,8 +1241,37 @@
       ".aai-input:focus{border-color:var(--accent)}",
       ".aai-send{width:42px;height:42px;border-radius:12px;border:0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:.15s}",
       ".aai-send:hover{opacity:.9;transform:scale(1.04)}.aai-send:disabled{opacity:.4;cursor:not-allowed;transform:none}",
-      ".aai-rec{display:flex;align-items:center;gap:8px;flex:1;min-height:42px;padding:0 14px;border-radius:12px;background:rgba(239,68,68,.08);color:#dc2626;font-size:13px;font-weight:700}",
-      ".aai-rec i{width:9px;height:9px;border-radius:50%;background:#ef4444;animation:aaiDot 1s infinite}",
+      /* 🎤 Telegram uslubidagi ovozli xabar */
+      ".aai-row{position:relative}",
+      ".aai-mic{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .15s,background .15s}",
+      ".aai-mic.rec{background:#ef4444;transform:scale(1.22);animation:aaiPulse 1.4s infinite}",
+      ".aai-row.recording>.aai-ib,.aai-row.recording>.aai-input,.aai-row.recording>.aai-send:not(.aai-mic){display:none!important}",
+      ".aai-rec{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:42px;padding:0 6px 0 14px;border-radius:12px;background:var(--bg3);border:1.5px solid var(--border2);color:var(--text);font-size:13.5px;overflow:hidden;user-select:none;-webkit-user-select:none}",
+      ".aai-rec-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;flex-shrink:0;animation:aaiBlink 1s infinite}",
+      "@keyframes aaiBlink{50%{opacity:.15}}",
+      ".aai-rec-t{font-variant-numeric:tabular-nums;font-weight:700;min-width:50px;flex-shrink:0}",
+      ".aai-rec-w{display:flex;align-items:center;justify-content:flex-end;gap:2px;height:28px;flex:1;min-width:0;overflow:hidden}",
+      ".aai-rec-w i{width:3px;min-height:3px;border-radius:2px;background:var(--accent);flex-shrink:0}",
+      ".aai-rec-h{color:var(--text3);font-size:12.5px;white-space:nowrap;flex-shrink:0;padding-right:8px;animation:aaiNudge 1.6s ease-in-out infinite}",
+      "@keyframes aaiNudge{50%{transform:translateX(-6px)}}",
+      ".aai-rec-x{width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:-8px}",
+      ".aai-rec-x:hover{background:rgba(239,68,68,.1)}",
+      ".aai-lock{position:absolute;right:3px;bottom:60px;width:36px;padding:9px 0 7px;border-radius:18px;background:var(--bg2);border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.14);display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text3);animation:aaiUp .2s;z-index:5;pointer-events:none}",
+      ".aai-lock svg:last-child{animation:aaiBob 1.2s ease-in-out infinite}",
+      "@keyframes aaiUp{from{opacity:0;transform:translateY(10px)}}",
+      "@keyframes aaiBob{50%{transform:translateY(-3px)}}",
+      /* chatdagi ovozli xabar */
+      ".aai-vm{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;border-radius:18px;background:var(--bg2);border:1px solid var(--border);min-width:210px;max-width:290px}",
+      ".aai-b.me .aai-vm{background:var(--accent);border-color:transparent;border-radius:18px 18px 4px 18px;color:#fff}",
+      ".aai-vm-btn{width:42px;height:42px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform .15s}",
+      ".aai-vm-btn:hover{transform:scale(1.06)}.aai-vm-btn svg{margin-left:2px}.aai-vm.play .aai-vm-btn svg{margin-left:0}",
+      ".aai-b.me .aai-vm-btn{background:#fff;color:var(--accent)}",
+      ".aai-vm-main{flex:1;min-width:0}",
+      ".aai-vm-wave{display:flex;align-items:center;gap:2px;height:26px;cursor:pointer}",
+      ".aai-vm-wave i{flex:1;max-width:3px;min-width:2px;border-radius:2px;background:var(--accent);opacity:.35}",
+      ".aai-vm-wave i.on{opacity:1}",
+      ".aai-b.me .aai-vm-wave i{background:#fff;opacity:.45}.aai-b.me .aai-vm-wave i.on{opacity:1}",
+      ".aai-vm-t{font-size:11.5px;margin-top:2px;opacity:.75;font-variant-numeric:tabular-nums}",
       ".aai-drop{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(59,130,246,.10);border:2.5px dashed var(--accent);border-radius:18px;font-size:15px;font-weight:800;color:var(--accent);pointer-events:none}",
       ".aai.drag .aai-drop{display:flex}",
       "@media (max-width:900px){.aai{height:calc(100dvh - 64px - 24px);min-height:400px;border-radius:14px}" +
@@ -1292,16 +1326,17 @@
       '<div class="aai-row" id="aai-row">' +
       '<input type="file" id="aai-file" multiple style="display:none" onchange="adminAiPick(this)">' +
       '<button class="aai-ib" onclick="document.getElementById(\'aai-file\').click()" title="Fayl biriktirish: rasm, ovoz, PDF, Word, Excel, exe va boshqalar">' + ICON.clip + "</button>" +
-      '<button class="aai-ib" id="aai-mic" onclick="adminAiMic()" title="Ovozli xabar yozish">' + ICON.mic + "</button>" +
       '<textarea id="aai-input" class="aai-input" rows="1" placeholder="' + (window.innerWidth < 600 ? "Savol yozing…" : "Savol yozing yoki fayl biriktiring…") + '" ' +
       "onkeydown=\"if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adminAiSend()}\" " +
-      "oninput=\"this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px';this.style.overflowY=this.scrollHeight>160?'auto':'hidden'\"></textarea>" +
+      "oninput=\"this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px';this.style.overflowY=this.scrollHeight>160?'auto':'hidden';adminAiSendMode()\"></textarea>" +
       '<button class="aai-send" id="aai-send" onclick="adminAiSend()" title="Yuborish">' + ICON.send + "</button>" +
+      '<button class="aai-send aai-mic" id="aai-mic" title="Bosib turing — ovozli xabar yozish" style="display:none">' + ICON.mic + "</button>" +
       "</div></div></div>";
 
     var inp = document.getElementById("aai-input");
     if (inp && keepInput) inp.value = keepInput;
     bindDrop();
+    bindMic();
     renderPending();
     renderMessages();
     renderModeration();
@@ -1446,6 +1481,7 @@
     if (btn) btn.disabled = _busy || _pending.some(function (p) {
       return p.status === "busy";
     });
+    updateSendMode();
   }
 
   function filesHtml(files) {
@@ -1454,6 +1490,7 @@
       '<div class="aai-files">' +
       files
         .map(function (f) {
+          if (f.kind === "voice" && f.wave) return voiceHtml(f);
           return f.thumb
             ? '<img class="aai-fimg" src="' + f.thumb + '" alt="' + esc(f.name) + '" title="' + esc(f.name) + '">'
             : '<div class="aai-fchip">' + (KIND_ICON[f.kind] || "📦") + "<b>" + esc(f.name) + "</b><span>" + fmtSize(f.size || 0) + "</span></div>";
@@ -1856,7 +1893,7 @@
       fileText: fileText || undefined,
       files: ready.length
         ? ready.map(function (p) {
-            return { name: p.name, size: p.size, kind: p.kind, thumb: p.thumb, binary: !!p.part };
+            return { name: p.name, size: p.size, kind: p.kind, thumb: p.thumb, binary: !!p.part, dur: p.dur, wave: p.wave, vid: p.vid };
           })
         : undefined,
     });
@@ -1921,62 +1958,240 @@
     return out;
   }
 
+  /* ─── Telegram uslubi ──────────────────────────────────────────────────
+     • Matn bo'sh bo'lsa — «Yuborish» o'rnida 🎤 turadi.
+     • Bosib turing → yozadi; qo'yib yuboring → darhol yuboriladi.
+     • Chapga suring → bekor; tepaga suring → qulflanadi (qo'l bo'sh).
+     • Bir marta bosish ham qulflangan yozishni boshlaydi (kompyuter uchun).
+     • Chatda xabar ▶ tugmali to'lqin (waveform) ko'rinishida chiqadi.    */
+
+  var _recWant = { lock: false, cancel: false }; // mikrofon ruxsati kutilayotganda
+  var _hold = null; // barmoq/sichqoncha bosib turilgani
+  var _vBlobs = {}; // ovozli xabarlar (shu sahifada)
+
+  function canRecord() {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
+  /** Matn yoki fayl bo'lsa — «Yuborish», bo'lmasa — 🎤. */
+  function updateSendMode() {
+    var send = document.getElementById("aai-send");
+    var mic = document.getElementById("aai-mic");
+    var inp = document.getElementById("aai-input");
+    if (!send || !mic) return;
+    if (_rec) {
+      mic.style.display = "";
+      return;
+    }
+    var has = (inp && inp.value.trim()) || _pending.length || !canRecord();
+    send.style.display = has ? "" : "none";
+    mic.style.display = has ? "none" : "";
+  }
+
+  function recTime(ms) {
+    var s = Math.max(0, ms) / 1000;
+    return Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0") + "," + Math.floor((s * 10) % 10);
+  }
+  function durText(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+  }
+
   function renderRec() {
     var row = document.getElementById("aai-row");
     var mic = document.getElementById("aai-mic");
-    var inp = document.getElementById("aai-input");
-    if (!row || !mic || !inp) return;
-    var old = document.getElementById("aai-recbar");
-    if (_rec) {
-      mic.classList.add("rec");
-      mic.innerHTML = ICON.stop;
-      mic.title = "Yozishni tugatish";
-      inp.style.display = "none";
-      var sec = Math.floor((Date.now() - _rec.t0) / 1000);
-      var txt = "<i></i>Yozilmoqda… " + Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") + " · tugatish uchun ⏹ ni bosing";
-      if (old) old.innerHTML = txt;
-      else mic.insertAdjacentHTML("afterend", '<div class="aai-rec" id="aai-recbar">' + txt + "</div>");
-    } else {
+    if (!row || !mic) return;
+    var bar = document.getElementById("aai-recbar");
+    var lock = document.getElementById("aai-lock");
+    if (!_rec) {
+      row.classList.remove("recording");
       mic.classList.remove("rec");
       mic.innerHTML = ICON.mic;
-      mic.title = "Ovozli xabar yozish";
-      inp.style.display = "";
-      if (old) old.remove();
+      mic.title = "Bosib turing — ovozli xabar yozish";
+      if (bar) bar.remove();
+      if (lock) lock.remove();
+      updateSendMode();
+      return;
+    }
+    row.classList.add("recording");
+    mic.style.display = "";
+    mic.classList.toggle("rec", !_rec.locked);
+    mic.innerHTML = _rec.locked ? ICON.send : ICON.mic;
+    mic.title = _rec.locked ? "Yuborish" : "Qo'yib yuboring — xabar yuboriladi";
+    var narrow = window.innerWidth < 600;
+    if (!bar) {
+      mic.insertAdjacentHTML("beforebegin", '<div class="aai-rec" id="aai-recbar"></div>');
+      bar = document.getElementById("aai-recbar");
+    }
+    bar.innerHTML =
+      (_rec.locked ? '<button class="aai-rec-x" id="aai-rec-x" title="Bekor qilish">' + ICON.trash20 + "</button>" : "") +
+      '<i class="aai-rec-dot"></i><span class="aai-rec-t" id="aai-rec-t"></span>' +
+      '<div class="aai-rec-w" id="aai-rec-w"></div>' +
+      (_rec.locked ? "" : '<span class="aai-rec-h" id="aai-rec-h">‹ ' + (narrow ? "Bekor qilish" : "Bekor qilish uchun chapga suring") + "</span>");
+    var x = document.getElementById("aai-rec-x");
+    if (x)
+      x.onclick = function () {
+        stopRec("cancel");
+      };
+    if (!_rec.locked) {
+      if (!lock) row.insertAdjacentHTML("beforeend", '<div class="aai-lock" id="aai-lock">' + ICON.lock + ICON.up + "</div>");
+    } else if (lock) lock.remove();
+    recTick();
+  }
+
+  /** Vaqt va jonli to'lqin (har 100 ms). */
+  function recTick() {
+    if (!_rec) return;
+    var t = document.getElementById("aai-rec-t");
+    if (t) t.textContent = recTime(Date.now() - _rec.t0);
+    var w = document.getElementById("aai-rec-w");
+    if (w) {
+      var n = Math.max(8, Math.floor((w.clientWidth || 160) / 5));
+      var lv = _rec.levels.slice(-n);
+      var html = "";
+      for (var i = 0; i < lv.length; i++) html += '<i style="height:' + (3 + Math.round(lv[i] * 25)) + 'px"></i>';
+      w.innerHTML = html;
     }
   }
 
+  /** Barmoq surilganda — «bekor qilish» yozuvi va qulf ergashadi. */
+  function recDrag(dx, dy) {
+    var h = document.getElementById("aai-rec-h");
+    if (h) {
+      h.style.transform = "translateX(" + Math.round(dx * 0.7) + "px)";
+      h.style.opacity = String(Math.max(0.15, 1 + dx / 130));
+      h.style.animation = dx < -4 ? "none" : "";
+    }
+    var lock = document.getElementById("aai-lock");
+    if (lock) lock.style.transform = "translateY(" + Math.round(dy * 0.5) + "px)";
+  }
+
+  function bindMic() {
+    var mic = document.getElementById("aai-mic");
+    if (!mic || mic._bound) return;
+    mic._bound = true;
+    mic.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+    });
+    mic.addEventListener("pointerdown", function (e) {
+      if (e.button) return;
+      e.preventDefault();
+      if (_rec && _rec.locked) return stopRec("send"); // qulflangan — yuborish
+      if (_rec || _hold) return;
+      try {
+        mic.setPointerCapture(e.pointerId);
+      } catch (x) {}
+      _hold = { x0: e.clientX, y0: e.clientY, t0: Date.now(), id: e.pointerId };
+      _recWant = { lock: false, cancel: false };
+      startRec();
+    });
+    mic.addEventListener("pointermove", function (e) {
+      if (!_hold || e.pointerId !== _hold.id || !_rec) return;
+      var dx = Math.min(0, e.clientX - _hold.x0);
+      var dy = Math.min(0, e.clientY - _hold.y0);
+      if (dx < -110) {
+        _hold = null;
+        return stopRec("cancel");
+      }
+      if (dy < -80) {
+        _hold = null;
+        return lockRec();
+      }
+      recDrag(dx, dy);
+    });
+    var up = function (e) {
+      if (!_hold || e.pointerId !== _hold.id) return;
+      var quick = Date.now() - _hold.t0 < 400;
+      _hold = null;
+      if (!_rec) {
+        // mikrofon hali ochilmagan (ruxsat so'ralmoqda) — ochilgach qulflanadi
+        _recWant.lock = true;
+        return;
+      }
+      if (quick) lockRec(); // bir marta bosildi — qo'l bo'sh rejim
+      else stopRec("send");
+    };
+    mic.addEventListener("pointerup", up);
+    mic.addEventListener("pointercancel", up);
+  }
+
+  function lockRec() {
+    if (!_rec || _rec.locked) return;
+    _rec.locked = true;
+    try {
+      navigator.vibrate && navigator.vibrate(15);
+    } catch (e) {}
+    renderRec();
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (!_rec) return;
+    if (e.key === "Escape") stopRec("cancel");
+    else if (e.key === "Enter" && _rec.locked) {
+      e.preventDefault();
+      stopRec("send");
+    }
+  });
+
   async function startRec() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!canRecord()) {
       if (typeof toast === "function") toast("⚠️ Bu brauzer ovoz yozishni qo'llab-quvvatlamaydi");
       return;
     }
+    if (_rec || _recWant.starting) return;
+    _recWant.starting = true;
     try {
-      var stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      var stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      _recWant.starting = false;
+      if (_recWant.cancel) {
+        stream.getTracks().forEach(function (t) {
+          t.stop();
+        });
+        return;
+      }
       var Ctx = window.AudioContext || window.webkitAudioContext;
       var ctx = new Ctx();
+      if (ctx.state === "suspended") ctx.resume().catch(function () {});
       var src = ctx.createMediaStreamSource(stream);
-      var proc = ctx.createScriptProcessor(4096, 1, 1);
+      var proc = ctx.createScriptProcessor(2048, 1, 1);
       var chunks = [];
+      var levels = [];
       proc.onaudioprocess = function (e) {
-        chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        var d = e.inputBuffer.getChannelData(0);
+        chunks.push(new Float32Array(d));
+        var sum = 0;
+        for (var i = 0; i < d.length; i += 4) sum += d[i] * d[i];
+        var rms = Math.sqrt(sum / (d.length / 4));
+        levels.push(Math.min(1, Math.sqrt(rms) * 1.9));
       };
       src.connect(proc);
       proc.connect(ctx.destination);
-      _rec = { stream: stream, ctx: ctx, src: src, proc: proc, chunks: chunks, t0: Date.now() };
+      _rec = { stream: stream, ctx: ctx, src: src, proc: proc, chunks: chunks, levels: levels, t0: Date.now(), locked: !!_recWant.lock };
       _rec.timer = setInterval(function () {
-        if (Date.now() - _rec.t0 > MAX_REC_SEC * 1000) stopRec();
-        else renderRec();
-      }, 500);
+        if (!_rec) return;
+        if (Date.now() - _rec.t0 > MAX_REC_SEC * 1000) stopRec("send");
+        else recTick();
+      }, 100);
+      try {
+        navigator.vibrate && navigator.vibrate(25);
+      } catch (e) {}
       renderRec();
     } catch (e) {
-      if (typeof toast === "function") toast("⚠️ Mikrofonga ruxsat berilmadi");
+      _recWant.starting = false;
+      _hold = null;
+      if (typeof toast === "function") toast("⚠️ Mikrofonga ruxsat berilmadi — brauzer manzil satridagi 🔒 belgisidan ruxsat bering");
     }
   }
 
-  function stopRec() {
+  /** @param {"send"|"cancel"} mode */
+  function stopRec(mode) {
     var r = _rec;
-    if (!r) return;
+    if (!r) {
+      _recWant.cancel = mode === "cancel";
+      return;
+    }
     _rec = null;
+    _hold = null;
     clearInterval(r.timer);
     try {
       r.proc.disconnect();
@@ -1990,9 +2205,15 @@
       r.ctx.close();
     } catch (e) {}
     renderRec();
+    if (mode !== "send") {
+      try {
+        navigator.vibrate && navigator.vibrate([10, 40, 10]);
+      } catch (e) {}
+      return;
+    }
     var sec = (Date.now() - r.t0) / 1000;
     if (sec < 0.8 || !r.chunks.length) {
-      if (typeof toast === "function") toast("⚠️ Ovoz juda qisqa");
+      if (typeof toast === "function") toast("🎤 Ovozli xabar uchun tugmani bosib turing");
       return;
     }
     var all = new Float32Array(r.chunks.reduce(function (n, c) {
@@ -2004,11 +2225,238 @@
       o += c.length;
     });
     var blob = encodeWav([downsample(all, rate, 16000)], 16000);
+    sendVoice(blob, all.length / rate, waveOf(r.levels, 40));
+  }
+
+  /** To'lqin: 0–9 raqamlardan iborat qisqa satr (tarixda kam joy egallaydi). */
+  function waveOf(levels, n) {
+    var out = [];
+    var max = 0;
+    for (var i = 0; i < n; i++) {
+      var a = Math.floor((i * levels.length) / n);
+      var b = Math.max(a + 1, Math.floor(((i + 1) * levels.length) / n));
+      var s = 0;
+      for (var j = a; j < b && j < levels.length; j++) s += levels[j];
+      var v = s / Math.max(1, Math.min(b, levels.length) - a);
+      out.push(v);
+      if (v > max) max = v;
+    }
+    return out
+      .map(function (v) {
+        return max ? Math.round((v / max) * 9) : 0;
+      })
+      .join("");
+  }
+
+  /** Yozilgan ovozni darhol AI ga yuboradi (Telegramdagidek). */
+  function sendVoice(blob, dur, wave) {
     var d = new Date();
-    var file = new File([blob], "Ovozli xabar " + String(d.getHours()).padStart(2, "0") + "-" + String(d.getMinutes()).padStart(2, "0") + ".wav", { type: "audio/wav" });
-    addFiles([file], "voice");
-    var inp = document.getElementById("aai-input");
-    if (inp) inp.focus();
+    var name = "Ovozli xabar " + String(d.getHours()).padStart(2, "0") + "-" + String(d.getMinutes()).padStart(2, "0") + ".wav";
+    var file = new File([blob], name, { type: "audio/wav" });
+    var vid = uid();
+    _vBlobs[vid] = blob;
+    vPut(vid, blob);
+    var item = { id: uid(), name: name, size: blob.size, kind: "voice", status: "busy", dur: Math.round(dur * 10) / 10, wave: wave, vid: vid };
+    _pending.push(item);
+    renderPending();
+    prepareFile(file, "voice")
+      .then(function (r) {
+        Object.assign(item, r, { status: "ready" });
+      })
+      .catch(function (e) {
+        item.status = "error";
+        item.error = (e && e.message) || "xato";
+      })
+      .then(function () {
+        renderPending();
+        if (item.status !== "ready") return;
+        // AI hali oldingi savolga javob yozayotgan bo'lsa — tugashini kutamiz
+        var tries = 0;
+        (function trySend() {
+          if (_pending.indexOf(item) < 0) return; // foydalanuvchi olib tashladi yoki yuborildi
+          if (!_busy && !_rec) return adminAiSend();
+          if (++tries < 600) setTimeout(trySend, 500);
+        })();
+      });
+  }
+
+  /* Ovozli xabarlar qurilmada saqlanadi — sahifa yangilansa ham eshitiladi. */
+  var _vdb = null;
+  function vdb() {
+    if (_vdb) return _vdb;
+    _vdb = new Promise(function (res, rej) {
+      try {
+        var q = indexedDB.open("crm-ai-voice", 1);
+        q.onupgradeneeded = function () {
+          q.result.createObjectStore("v");
+        };
+        q.onsuccess = function () {
+          res(q.result);
+        };
+        q.onerror = function () {
+          rej(q.error);
+        };
+      } catch (e) {
+        rej(e);
+      }
+    });
+    return _vdb;
+  }
+  function vPut(id, blob) {
+    vdb()
+      .then(function (db) {
+        db.transaction("v", "readwrite").objectStore("v").put(blob, id);
+      })
+      .catch(function () {});
+  }
+  function vGet(id) {
+    if (_vBlobs[id]) return Promise.resolve(_vBlobs[id]);
+    return vdb()
+      .then(function (db) {
+        return new Promise(function (res) {
+          var q = db.transaction("v").objectStore("v").get(id);
+          q.onsuccess = function () {
+            if (q.result) _vBlobs[id] = q.result;
+            res(q.result || null);
+          };
+          q.onerror = function () {
+            res(null);
+          };
+        });
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  function voiceHtml(f) {
+    var w = String(f.wave || "");
+    var bars = "";
+    for (var i = 0; i < w.length; i++) bars += '<i style="height:' + (4 + Number(w[i]) * 2.4) + 'px"></i>';
+    var id = esc(f.vid || "");
+    return (
+      '<div class="aai-vm" data-vm="' + id + '" data-dur="' + Number(f.dur || 0) + '">' +
+      '<button class="aai-vm-btn" onclick="adminAiVoice(\'' + id + '\')" title="Eshitish">' + ICON.play + "</button>" +
+      '<div class="aai-vm-main"><div class="aai-vm-wave" onclick="adminAiVoice(\'' + id + '\', event)">' + bars + "</div>" +
+      '<div class="aai-vm-t">' + durText(f.dur) + "</div></div></div>"
+    );
+  }
+
+  /* Ijro — bir vaqtda bitta ovozli xabar */
+  var _vp = null;
+
+  function vpPaint() {
+    if (!_vp) return;
+    var a = _vp.audio;
+    var dur = a.duration && isFinite(a.duration) ? a.duration : _vp.dur;
+    var pct = dur ? Math.min(1, a.currentTime / dur) : 0;
+    var playing = !a.paused && !a.ended;
+    document.querySelectorAll('[data-vm="' + _vp.vid + '"]').forEach(function (el) {
+      el.classList.toggle("play", playing);
+      var b = el.querySelector(".aai-vm-btn");
+      var want = playing ? "pause" : "play";
+      if (b && b.getAttribute("data-s") !== want) {
+        b.setAttribute("data-s", want);
+        b.innerHTML = ICON[want];
+      }
+      var bars = el.querySelectorAll(".aai-vm-wave i");
+      var on = Math.round(pct * bars.length);
+      bars.forEach(function (x, i) {
+        x.classList.toggle("on", i < on);
+      });
+      var t = el.querySelector(".aai-vm-t");
+      if (t) t.textContent = durText(a.currentTime > 0 ? a.currentTime : dur);
+    });
+  }
+
+  function vpReset(vid) {
+    document.querySelectorAll('[data-vm="' + vid + '"]').forEach(function (el) {
+      el.classList.remove("play");
+      var b = el.querySelector(".aai-vm-btn");
+      if (b) {
+        b.removeAttribute("data-s");
+        b.innerHTML = ICON.play;
+      }
+      el.querySelectorAll(".aai-vm-wave i").forEach(function (x) {
+        x.classList.remove("on");
+      });
+      var t = el.querySelector(".aai-vm-t");
+      if (t) t.textContent = durText(Number(el.getAttribute("data-dur")) || 0);
+    });
+  }
+
+  function vpStop() {
+    var p = _vp;
+    if (!p) return;
+    _vp = null;
+    cancelAnimationFrame(p.raf);
+    try {
+      p.audio.pause();
+    } catch (e) {}
+    if (p.url) URL.revokeObjectURL(p.url);
+    vpReset(p.vid);
+  }
+
+  function vpLoop() {
+    if (!_vp) return;
+    vpPaint();
+    _vp.raf = requestAnimationFrame(vpLoop);
+  }
+
+  /** ▶ / ⏸; to'lqinga bosilsa — o'sha joydan ijro. */
+  function playVoice(vid, ev) {
+    if (!vid) return;
+    var seek = null;
+    if (ev && ev.currentTarget) {
+      var rc = ev.currentTarget.getBoundingClientRect();
+      if (rc.width) seek = Math.max(0, Math.min(1, (ev.clientX - rc.left) / rc.width));
+    }
+    if (_vp && _vp.vid === vid) {
+      var a0 = _vp.audio;
+      if (seek != null && a0.duration && isFinite(a0.duration)) {
+        a0.currentTime = seek * a0.duration;
+        if (a0.paused) a0.play().catch(function () {});
+      } else if (a0.paused) a0.play().catch(function () {});
+      else a0.pause();
+      vpPaint();
+      return;
+    }
+    vpStop();
+    if (_tts.idx >= 0) stopSpeak();
+    // Pleer shu zahoti (bosish paytida) yaratiladi — iPhone ovozni to'smasin
+    var a = new Audio();
+    try {
+      var su = silentUrl();
+      if (su) {
+        a.src = su;
+        var pp = a.play();
+        if (pp && pp.catch) pp.catch(function () {});
+      }
+    } catch (e) {}
+    var el = document.querySelector('[data-vm="' + vid + '"]');
+    var dur = el ? Number(el.getAttribute("data-dur")) || 0 : 0;
+    var me = (_vp = { vid: vid, audio: a, url: null, dur: dur, raf: 0 });
+    vGet(vid).then(function (blob) {
+      if (_vp !== me) return;
+      if (!blob) {
+        vpStop();
+        if (typeof toast === "function") toast("🎤 Bu ovozli xabar boshqa qurilmada yozilgan — uni faqat o'sha qurilmada eshitish mumkin");
+        return;
+      }
+      me.url = URL.createObjectURL(blob);
+      a.onended = function () {
+        if (_vp === me) vpStop();
+      };
+      a.src = me.url;
+      var start = function () {
+        if (seek != null && a.duration && isFinite(a.duration)) a.currentTime = seek * a.duration;
+      };
+      a.onloadedmetadata = start;
+      a.play().catch(function () {
+        if (_vp === me) vpStop();
+      });
+      vpLoop();
+    });
   }
 
   /* ─── 🔊 Eshitish ─────────────────────────────────────────────────────── */
@@ -2265,6 +2713,7 @@
   async function speakContent(chatId, i, content) {
     if (_tts.idx === i && _tts.chat === chatId) return stopSpeak();
     stopSpeak();
+    vpStop();
     var plain = plainForSpeech(content);
     if (!plain) return;
     var chat = { id: chatId };
@@ -2445,9 +2894,14 @@
     renderPending();
   };
   window.adminAiMic = function () {
-    if (_rec) stopRec();
-    else startRec();
+    if (_rec) stopRec("send");
+    else {
+      _recWant = { lock: true, cancel: false };
+      startRec();
+    }
   };
+  window.adminAiSendMode = updateSendMode;
+  window.adminAiVoice = playVoice;
   window.adminAiToggleHist = function (e) {
     if (e) e.stopPropagation();
     _histOpen = !_histOpen;
