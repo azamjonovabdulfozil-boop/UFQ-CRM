@@ -48,6 +48,8 @@ export const SCRIPT_GROUPS = [
   ["dash-analytics.js"],
   // AI yordamchi (admin/mentor/talaba) — admin uchun CRM hisobotini quradi
   ["crm-ai.js"],
+  // 📚 Darsliklar (admin) va davomatdagi «📘 Dars metodi» (mentor)
+  ["textbooks.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 

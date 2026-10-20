@@ -47,6 +47,8 @@ export const SCRIPT_GROUPS = [
   // AI yordamchi — tarix, fayllar, ovoz; ko'rsatma va ma'lumot serverda
   // quriladi (mentor — o'z guruhlari, talaba — faqat o'zi)
   ["crm-ai.js"],
+  // 📚 Darsliklar (admin) va davomatdagi «📘 Dars metodi» (mentor)
+  ["textbooks.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 

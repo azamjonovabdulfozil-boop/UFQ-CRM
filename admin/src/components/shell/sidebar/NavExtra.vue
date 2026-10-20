@@ -10,6 +10,10 @@
     <button class="nav-btn" id="nav-admin-ai" onclick="go('admin-ai', this)">
       <span class="nav-ic">🤖</span><span>AI Yordamchi</span>
     </button>
+    <button class="nav-btn" id="nav-textbooks" onclick="go('textbooks', this)">
+      <span class="nav-ic">📚</span><span>Darsliklar</span>
+      <span class="nav-count" id="nc-textbooks">0</span>
+    </button>
     <button class="nav-btn" id="nav-certificates" onclick="go('certificates', this)">
       <span class="nav-ic">🎖</span><span>Sertifikatlar</span>
       <span class="nav-count" id="nc-certificates">0</span>

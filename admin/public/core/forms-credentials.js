@@ -701,6 +701,8 @@ function updateTopbar(tab) {
       L === "ru" ? "Должники" : L === "en" ? "Debtors" : "Qarzdorlar",
     "admin-ai":
       L === "ru" ? "🤖 AI Ассистент" : L === "en" ? "🤖 AI Assistant" : "🤖 AI Yordamchi",
+    textbooks:
+      L === "ru" ? "📚 Учебники" : L === "en" ? "📚 Textbooks" : "📚 Darsliklar",
     finance: t("finance_title"),
     certificates:
       L === "ru" ? "🎖 Сертификаты" : L === "en" ? "🎖 Certificates" : "🎖 Sertifikatlar",
@@ -939,6 +941,7 @@ function go(tab, el) {
     renderDebtors();
   }
   if (tab === "admin-ai" && typeof renderAdminAI === "function") renderAdminAI();
+  if (tab === "textbooks" && typeof renderTextbooks === "function") renderTextbooks();
   if (tab === "finance") renderFinance();
   if (tab === "settings") {
     setTimeout(() => {
