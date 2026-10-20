@@ -125,6 +125,12 @@ async function syncFromBackend() {
     window.__CRM_KV_LOADED__ = true;
     hideDataLockBanner();
 
+    // ⚠️ Bu funksiya har 30 soniyada chaqiriladi. Ilgari server ma'lumoti
+    // o'zgarmagan bo'lsa ham BUTUN ekran qayta chizilardi — sahifa vaqti-vaqti
+    // bilan "yonib-o'chardi". Endi o'zgarish bo'lmasa — hech narsa qilinmaydi.
+    var _sig = JSON.stringify(json.data);
+    if (_sig === window.__CRM_LAST_SYNC_SIG__) return;
+
     // ⚠️ "O'chirgan narsa qaytib kelardi" — hozirgina o'zimiz saqlagan bo'lsak,
     // server bizning yozuvimizni hali olmagan bo'lishi mumkin. Shu grace oyna
     // ichida serverning (eski) nusxasini ustiga yozmaymiz; oyna o'tgach keyingi
@@ -144,6 +150,7 @@ async function syncFromBackend() {
       return;
     }
 
+    window.__CRM_LAST_SYNC_SIG__ = _sig;
     const fresh = _mergeData(json.data);
     // localStorage ni ham yangilash — RAW yozamiz (shimni chetlab): bu server
     // ma'lumoti, uni backendga qaytarib yozish (echo) va "mahalliy yozdik"

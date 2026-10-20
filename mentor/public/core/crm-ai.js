@@ -1989,6 +1989,20 @@
     var v = ru
       ? pick(/^ru/i)
       : pick(/^uz/i) || pick(/uzbek|madina|sardor/i) || pick(/^tr/i) || pick(/^(kk|az)/i);
+    // Mos ovoz yo'q — kompyuterdagi (internet talab qilmaydigan) standart ovoz.
+    // Ovoz ko'rsatilmasa ba'zi brauzerlar umuman o'qimaydi.
+    if (!v)
+      v =
+        voices.find(function (x) {
+          return x.default && x.localService;
+        }) ||
+        voices.find(function (x) {
+          return x.localService;
+        }) ||
+        voices.find(function (x) {
+          return x.default;
+        }) ||
+        voices[0];
     var lang = v ? v.lang : ru ? "ru-RU" : "tr-TR";
     var sentences = speechChunks(text.replace(/[‘’ʻʼ`´]/g, "'"), 180);
     if (!sentences.length) return done(true);

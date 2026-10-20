@@ -1353,6 +1353,7 @@ app.get("/api/ai-tts/status", requireAuth, (req, res) => {
 
 // Bir xil matn qayta bosilsa — ovoz xizmatiga qayta murojaat qilmaymiz
 // (limit tejaladi, ovoz darhol chiqadi). Xotirada ~25 MB gacha.
+let geminiTtsPausedUntil = 0;
 const ttsCache = new Map();
 let ttsCacheBytes = 0;
 function ttsCachePut(k, v) {
@@ -1394,14 +1395,18 @@ app.post("/api/ai-tts", requireAuth, ttsLimiter, async (req, res) => {
     }
   }
 
-  if (geminiTtsConfigured()) {
+  // Gemini limiti tugagan bo'lsa (429) — 10 daqiqa unga bormaymiz, aks holda
+  // har bosishda bir necha soniya bekorga kutilardi.
+  if (geminiTtsConfigured() && Date.now() > geminiTtsPausedUntil) {
     try {
       const out = await geminiTts(normalizeUz(text), ttsLang(text));
       return sendAudio(out.buf, out.type);
     } catch (e) {
+      if (/HTTP (429|403)|quota/i.test(e.message)) geminiTtsPausedUntil = Date.now() + 10 * 60_000;
       errors.push("Gemini: " + e.message);
     }
   }
+  else if (geminiTtsConfigured()) errors.push("Gemini: limit tugagan (vaqtincha o'tkazib yuborildi)");
 
   if (lovableReady()) {
     const body = {

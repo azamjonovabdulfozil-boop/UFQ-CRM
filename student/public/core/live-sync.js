@@ -368,7 +368,24 @@
     }
   }
 
+  var reconnectTimer = null;
+  var refreshTimer = null;
+  function reconnectSoon(ms) {
+    dropSSE();
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(function () {
+      reconnectTimer = null;
+      if (started && !es) connectSSE();
+    }, ms || 3000);
+  }
+
   function connectSSE() {
+    // Token oqim manzilida turadi va 15 daqiqada eskiradi — undan oldin
+    // jimgina yangi token bilan qayta ulanamiz.
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      if (started && es) reconnectSoon(50);
+    }, 10 * 60 * 1000);
     if (!window.EventSource) return false;
     // ⚠️ Oqim endi himoyalangan: EventSource sarlavha qo'sha olmagani uchun
     // qisqa umrli access token manzilga qo'shiladi (CRMAuth uni yangilab
@@ -408,7 +425,14 @@
     es.onerror = function () {
       // Ulanish uzildi — zaxira polling darhol yoqiladi, ma'lumot to'xtamaydi.
       startPolling();
-      if (sseOpened) return; // ishlab turgan ulanish uzildi — o'zi tiklaydi
+      if (sseOpened) {
+        // ⚠️ Brauzer o'zi qayta ulansa — ESKI manzil bilan ulanadi, unda esa
+        // 15 daqiqalik token allaqachon eskirgan: server 401 qaytaradi
+        // (konsolda "Failed to load resource: 401") va oqim butunlay o'ladi.
+        // Shuning uchun o'zimiz yopamiz va YANGI token bilan qayta ulanamiz.
+        reconnectSoon();
+        return;
+      }
       // Hech qachon ochilmagan bo'lsa, demak endpoint yo'q (eski backend).
       // 2 urinishdan keyin butunlay to'xtatamiz — console 404 ga to'lmasin.
       sseFails++;
@@ -533,6 +557,9 @@
   function stop() {
     started = false;
     dropSSE();
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    clearTimeout(refreshTimer);
     if (probeTimer) {
       clearInterval(probeTimer);
       probeTimer = null;
