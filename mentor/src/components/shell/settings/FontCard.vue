@@ -62,6 +62,24 @@
                   >
                 </button>
               </div>
+              <div
+                id="font-preview"
+                style="
+                  margin-top: 14px;
+                  padding: 12px 14px;
+                  border-radius: 12px;
+                  background: var(--bg3);
+                  border: 1px solid var(--border);
+                  color: var(--text2);
+                  font-size: 14px;
+                  line-height: 1.55;
+                "
+              >
+                <div style="font-size: 15px; font-weight: 700; color: var(--text)">
+                  Namuna matn
+                </div>
+                Bugun 5-dars — Kasrlar. Uyga vazifa: 25-bet, 3–7-mashqlar.
+              </div>
             </div>
           </div>
 </template>

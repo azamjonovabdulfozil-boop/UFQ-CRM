@@ -678,6 +678,9 @@ function renderSettingsPanel(){
   if(nameCard)nameCard.style.display=(isMentorRole()||isStudentRole())?'none':'';
   const logoCard=document.getElementById('sett-logo-card');
   if(logoCard)logoCard.style.display=(isMentorRole()||isStudentRole())?'none':'';
+  // «Ma'lumotlar» (export / hammasini tiklash) — faqat admin uchun
+  const dataCard=document.getElementById('sett-data-card');
+  if(dataCard)dataCard.style.display=(isMentorRole()||isStudentRole())?'none':'';
   // Student profile & motivation cards
   const profileCard=document.getElementById('student-profile-card');
   const motivCard=document.getElementById('student-motivation-card');
@@ -699,7 +702,7 @@ function renderSettingsPanel(){
 function renderStudentProfileCard(){
   const cu=getCurrentUser();
   const studentId=cu.studentId?parseInt(cu.studentId):null;
-  const s=studentId?D.students.find(x=>x.id===studentId):null;
+  const s=studentId?((D&&D.students)||[]).find(x=>x.id===studentId):null;
   const body=document.getElementById('student-profile-card-body');
   if(!body)return;
   // Update header
@@ -909,7 +912,7 @@ function renderStudentGoalsPage(){
   // Achievements data
   const cu=getCurrentUser();
   const studentId=cu.studentId?parseInt(cu.studentId):null;
-  const s=studentId?D.students.find(x=>x.id===studentId):null;
+  const s=studentId?((D&&D.students)||[]).find(x=>x.id===studentId):null;
   const grp=s?D.groups.find(g=>g.id===s.groupId):null;
   const allInGrp=grp?D.students.filter(st=>st.groupId===grp.id):[];
   const attData=D.attendance||{};

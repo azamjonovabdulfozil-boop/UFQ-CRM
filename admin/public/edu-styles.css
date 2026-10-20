@@ -2033,3 +2033,6 @@ body.theme-dark.theme-black{
   background:#000;color:var(--text);
 }
 body.theme-black .sidebar,body.theme-black .topbar{background:#0b0b0c}
+
+/* Fon mavzulari (Yorug' / Avtomatik / Qora) — uchalasi bir qatorda */
+.theme-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
