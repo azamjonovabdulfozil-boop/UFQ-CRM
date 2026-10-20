@@ -1691,18 +1691,14 @@
       return Array.isArray(m.content);
     });
     try {
-      var res = await fetch(apiBase() + "/api/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          role() === "admin"
-            ? { mode: "admin", hasFiles: hasFiles, system: systemPrompt(), messages: messages }
-            : { mode: role(), hasFiles: hasFiles, messages: messages },
-        ),
-      });
-      var data = await res.json().catch(function () {
-        return {};
-      });
+      var payload = JSON.stringify(
+        role() === "admin"
+          ? { async: true, mode: "admin", hasFiles: hasFiles, system: systemPrompt(), messages: messages }
+          : { async: true, mode: role(), hasFiles: hasFiles, messages: messages },
+      );
+      var out = await askAi(payload);
+      var res = out.res;
+      var data = out.data;
       if (data && data.moderation)
         _mod = { warnings: data.moderation.warnings || 0, blocked: !!data.moderation.blocked, max: data.moderation.max || 3 };
       if (data && data.code === "ai-blocked") _mod.blocked = true;
@@ -1736,6 +1732,87 @@
     var inp = document.getElementById("aai-input");
     var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
     if (inp && !touch) inp.focus();
+  }
+
+  /**
+   * AI ga so'rov: server so'rovni darhol qabul qiladi (job), javob tayyor
+   * bo'lguncha qisqa so'rovlar bilan tekshiramiz. Uzoq ochiq ulanish yo'q —
+   * oraliq proxy (Vercel) uni uza olmaydi. Tarmoq uzilishi, server qayta
+   * ishga tushishi kabi vaqtinchalik xatolarda avtomatik qayta uriniladi —
+   * foydalanuvchi "server xatosi"ni ko'rmaydi, javob birinchi urinishda keladi.
+   */
+  var sleep = function (ms) {
+    return new Promise(function (r) {
+      setTimeout(r, ms);
+    });
+  };
+  var transient = function (status) {
+    return !status || status === 404 || status === 408 || status === 425 || status === 429 || status >= 500;
+  };
+
+  async function askAi(payload) {
+    var lastStatus = 0;
+    var lastErr = "";
+    for (var attempt = 0; attempt < 4; attempt++) {
+      if (attempt) await sleep(attempt === 1 ? 1500 : attempt * 3000);
+      var res, data;
+      try {
+        res = await fetch(apiBase() + "/api/ai-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        });
+        data = await res.json().catch(function () {
+          return null;
+        });
+      } catch (e) {
+        lastErr = "internet aloqasi uzildi";
+        continue; // tarmoq xatosi — qayta urinamiz
+      }
+      lastStatus = res.status;
+      if (!data) {
+        lastErr = "server javob bermadi (HTTP " + res.status + ")";
+        if (transient(res.status)) continue;
+        return { res: res, data: { ok: false, error: lastErr } };
+      }
+      // Eski server (job qo'llamaydi) — javob shu yerning o'zida
+      if (!data.job) {
+        if (!data.ok && transient(res.status) && data.code !== "ai-blocked" && res.status !== 429) {
+          lastErr = data.error || "server xatosi " + res.status;
+          continue;
+        }
+        return { res: res, data: data };
+      }
+      // Javob tayyor bo'lguncha tekshirib turamiz (4 daqiqagacha)
+      var started = Date.now();
+      var misses = 0;
+      while (Date.now() - started < 240000) {
+        await sleep(Date.now() - started < 10000 ? 1000 : 1800);
+        var pr, pd;
+        try {
+          pr = await fetch(apiBase() + "/api/ai-chat/job/" + encodeURIComponent(data.job), { cache: "no-store" });
+          pd = await pr.json().catch(function () {
+            return null;
+          });
+        } catch (e) {
+          if (++misses > 8) break;
+          continue; // vaqtinchalik uzilish — tekshirishda davom etamiz
+        }
+        if (pr.status === 404 && pd && pd.code === "job-not-found") {
+          lastErr = "server qayta ishga tushdi";
+          break; // server qayta ishga tushgan — so'rovni qayta yuboramiz
+        }
+        if (!pd) {
+          if (++misses > 8) break;
+          continue;
+        }
+        if (pd.pending) continue;
+        return { res: pr, data: pd };
+      }
+      if (Date.now() - started >= 240000)
+        return { res: { ok: false, status: 504 }, data: { ok: false, error: "AI javobi juda uzoq tayyorlandi — qaytadan urinib ko'ring" } };
+    }
+    return { res: { ok: false, status: lastStatus }, data: { ok: false, error: lastErr || "server javob bermadi" } };
   }
 
   function adminAiSend() {

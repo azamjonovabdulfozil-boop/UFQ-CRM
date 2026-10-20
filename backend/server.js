@@ -5,6 +5,7 @@
  * Ishga tushirish: cd backend && npm install && npm start
  */
 
+import { randomUUID } from "node:crypto";
 import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve, sep } from "path";
@@ -1709,7 +1710,7 @@ async function transcribeAudio(f) {
   return "";
 }
 
-app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
+async function aiChatCore(req, res) {
   // Klient uzilib qolsa serverda ham to'xtaymiz
   let clientAborted = false;
   req.on("close", () => { clientAborted = true; });
@@ -1980,6 +1981,65 @@ app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
         (lastErr ? "\n\n_" + lastErr + "_" : ""),
     });
   }
+}
+
+// ─── AI javobi — fon vazifasi (job) sifatida ───────────────────────────────
+// ⚠️ Saytda so'rov Vercel orqali Render'ga boradi. Admin AI ga butun CRM
+// hisoboti yuboriladi — birinchi javob uzoq tayyorlanadi va oraliq proxy
+// uzoq ochiq turgan ulanishni uzib qo'yardi: foydalanuvchi "server xatosi"
+// ko'rardi, sahifani yangilab qayta so'rasa — ishlardi. Endi so'rov darhol
+// qabul qilinadi (job id), brauzer esa javob tayyor bo'lguncha qisqa
+// so'rovlar bilan tekshirib turadi — uzoq ulanish yo'q, uzilish ham yo'q.
+const aiJobs = new Map(); // id → { owner, at, done, status, body }
+const AI_JOB_TTL = 10 * 60_000;
+function sweepAiJobs() {
+  const now = Date.now();
+  for (const [id, j] of aiJobs) if (now - j.at > AI_JOB_TTL) aiJobs.delete(id);
+}
+
+app.post("/api/ai-chat", requireAuth, expensiveLimiter, async (req, res) => {
+  if (!req.body?.async) return aiChatCore(req, res);
+  sweepAiJobs();
+  const id = randomUUID();
+  const job = { owner: String(req.user?.sub || ""), at: Date.now(), done: false, status: 200, body: null };
+  aiJobs.set(id, job);
+  // Fon jarayoni uchun so'rov/javob "nusxasi": haqiqiy ulanish darhol yopiladi
+  const fakeReq = Object.create(req);
+  fakeReq.on = () => fakeReq;
+  const fakeRes = {
+    statusCode: 200,
+    headersSent: false,
+    status(c) {
+      this.statusCode = c;
+      return this;
+    },
+    setHeader() {},
+    json(b) {
+      if (job.done) return this;
+      job.done = true;
+      job.status = this.statusCode;
+      job.body = b;
+      this.headersSent = true;
+      return this;
+    },
+  };
+  res.status(202).json({ ok: true, job: id });
+  try {
+    await aiChatCore(fakeReq, fakeRes);
+  } catch (e) {
+    console.error("❌ AI job xatosi:", e?.stack || e);
+  }
+  if (!job.done) fakeRes.status(500).json({ ok: false, error: "AI javobi tayyorlanmadi — qaytadan urinib ko'ring" });
+});
+
+app.get("/api/ai-chat/job/:id", requireAuth, (req, res) => {
+  const job = aiJobs.get(String(req.params.id || ""));
+  res.setHeader("Cache-Control", "no-store");
+  if (!job || job.owner !== String(req.user?.sub || ""))
+    return res.status(404).json({ ok: false, code: "job-not-found", error: "So'rov topilmadi — qaytadan yuboring" });
+  if (!job.done) return res.json({ ok: true, pending: true });
+  aiJobs.delete(req.params.id);
+  return res.status(job.status || 200).json(job.body);
 });
 
 // ─── Frontend static — Render uchun BITTA PORT, path orqali ajratilgan ─────────
