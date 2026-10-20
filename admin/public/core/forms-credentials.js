@@ -1444,12 +1444,10 @@ function renderMentorCredsList() {
     <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:6px">
       <span style="font-weight:600;font-size:13px;flex:1">${u.name}</span>
       <span style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace">${u.login}</span>
-      <span class="cred-srv" data-login="${String(u.login || "").toLowerCase()}" style="font-size:11px;white-space:nowrap"></span>
       <button class="btn btn-sm btn-del-outline" style="padding:3px 8px;font-size:11px" onclick="deleteMentorCredential('${u.mentorId}')">✕ O'chirish</button>
     </div>`,
       )
       .join("");
-  _markServerAccounts("mentor", listEl);
 }
 
 async function deleteMentorCredential(mentorId) {
@@ -1560,12 +1558,10 @@ function renderStudentCredsList() {
     <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:var(--r-md);border:1px solid var(--border);margin-bottom:6px">
       <span style="font-weight:600;font-size:13px;flex:1">${u.name}</span>
       <span style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace">${u.login}</span>
-      <span class="cred-srv" data-login="${String(u.login || "").toLowerCase()}" style="font-size:11px;white-space:nowrap"></span>
       <button class="btn btn-sm btn-del-outline" style="padding:3px 8px;font-size:11px" onclick="deleteStudentCredential('${u.studentId}')">✕ O'chirish</button>
     </div>`,
       )
       .join("");
-  _markServerAccounts("student", listEl);
 }
 
 async function deleteStudentCredential(studentId) {

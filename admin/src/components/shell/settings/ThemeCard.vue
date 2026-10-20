@@ -49,22 +49,20 @@
                 </div>
                 <div
                   class="theme-opt"
-                  id="theme-snow"
-                  onclick="setTheme('snow')"
+                  id="theme-black"
+                  onclick="setTheme('black')"
                 >
-                  <div
-                    class="theme-preview"
-                    style="
-                      background: linear-gradient(135deg, #e8f4fd, #f0f8ff);
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      font-size: 28px;
-                    "
-                  >
-                    ❄️
+                  <div class="theme-preview" style="background: #000; display: flex; overflow: hidden">
+                    <div style="width: 30%; height: 100%; background: #0d0d0f; border-right: 1px solid #222"></div>
+                    <div style="flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px">
+                      <div style="height: 8px; border-radius: 4px; background: #1c1c20"></div>
+                      <div style="display: flex; gap: 6px; flex: 1">
+                        <div style="flex: 1; border-radius: 6px; background: #141416"></div>
+                        <div style="flex: 1; border-radius: 6px; background: #141416"></div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="theme-label" data-t="theme_snow">❄️ Qor</div>
+                  <div class="theme-label" data-t="theme_black">⚫ Qora</div>
                 </div>
               </div>
             </div>

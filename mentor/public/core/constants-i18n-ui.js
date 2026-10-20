@@ -99,7 +99,7 @@ const TRANSLATIONS = {
     income:'Kirim', expense:'Chiqim', salary:'Mentor oylik',
     all_:'Barchasi',
     goals:'Maqsadlar', goals_title:'Maqsadlarim', goals_sub:'O\'quv maqsadlaringizni belgilang',
-    theme_snow:'❄️ Qor',
+    theme_black:'⚫ Qora',
     nav_mentor_dash:'Dashboard', nav_mentor_groups:'Guruhlar', nav_my_schedule:'Mening jadvalim', nav_chat:'Chat',
     nav_tests:'Testlar', nav_grades:'Baholash',
     nav_student_dash:'Dashboard', nav_schedule:'Dars jadvali', nav_rating:'Guruh reytingi',
@@ -180,7 +180,7 @@ const TRANSLATIONS = {
     income:'Доход', expense:'Расход', salary:'Зарплата',
     all_:'Все',
     goals:'Цели', goals_title:'Мои цели', goals_sub:'Установите свои учебные цели',
-    theme_snow:'❄️ Снег',
+    theme_black:'⚫ Чёрный',
     nav_mentor_dash:'Дашборд', nav_mentor_groups:'Группы', nav_my_schedule:'Моё расписание', nav_chat:'Чат',
     nav_tests:'Тесты', nav_grades:'Оценки',
     nav_student_dash:'Дашборд', nav_schedule:'Расписание', nav_rating:'Рейтинг группы',
@@ -261,7 +261,7 @@ const TRANSLATIONS = {
     income:'Income', expense:'Expense', salary:'Mentor salary',
     all_:'All',
     goals:'Goals', goals_title:'My Goals', goals_sub:'Set your learning goals',
-    theme_snow:'❄️ Snow',
+    theme_black:'⚫ Black',
     nav_mentor_dash:'Dashboard', nav_mentor_groups:'Groups', nav_my_schedule:'My Schedule', nav_chat:'Chat',
     nav_tests:'Tests', nav_grades:'Grades',
     nav_student_dash:'Dashboard', nav_schedule:'Schedule', nav_rating:'Group Rating',
@@ -582,10 +582,11 @@ function saveUI(){
 // FIX #6 - Font size must affect ALL elements via CSS variable
 function applyUISettings(){
   const body=document.body;
-  body.classList.remove('theme-light','theme-dark','theme-snow');
+  body.classList.remove('theme-light','theme-dark','theme-snow','theme-black');
+  if(_uiSettings.theme==='snow')_uiSettings.theme='light'; // «Qor» mavzusi olib tashlandi
   if(_uiSettings.theme==='light')body.classList.add('theme-light');
   else if(_uiSettings.theme==='dark')body.classList.add('theme-dark');
-  else if(_uiSettings.theme==='snow')body.classList.add('theme-snow');
+  else if(_uiSettings.theme==='black')body.classList.add('theme-dark','theme-black');
 
   // FIX #6: Remove all font size classes and re-apply properly
   body.classList.remove('fs-sm','fs-md','fs-lg','fs-xl');
@@ -649,7 +650,7 @@ function renderSettingsPanel(){
   const inp=document.getElementById('sett-crm-name');if(inp)inp.value=_brandSettings.crmName||'EduManage';
   const prev=document.getElementById('sett-name-preview');if(prev)prev.textContent=_brandSettings.crmName||'EduManage';
   applyLogo();
-  ['light','auto','snow'].forEach(th=>{const el=document.getElementById('theme-'+th);if(el)el.classList.toggle('selected',_uiSettings.theme===th);});
+  ['light','auto','black'].forEach(th=>{const el=document.getElementById('theme-'+th);if(el)el.classList.toggle('selected',_uiSettings.theme===th);});
   ['sm','md','lg','xl'].forEach(s=>{const el=document.getElementById('fs-'+s);if(el)el.classList.toggle('selected',(_uiSettings.fontSize||'md')===s);});
   document.querySelectorAll('.accent-swatch').forEach(sw=>sw.classList.toggle('selected',sw.dataset.color===(_uiSettings.accent||'blue')));
   // Mentor/Student creds kartochkasi faqat adminga ko'rsatiladi

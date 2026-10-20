@@ -1940,3 +1940,19 @@ button > .ic:only-child,.badge > .ic:only-child{margin-right:0}
 @media (hover: none){
   .cs-card:hover,.cs-shop-card:hover,.cs-btn:hover,.cs-mini-btn:hover,.cs-buyrow:hover{transform:none;filter:none}
 }
+
+
+/* ⚫ QORA MAVZU — to'liq qora fon (OLED). theme-dark bilan birga qo'yiladi,
+   shuning uchun qorong'i rejimdagi barcha moslashuvlar ham ishlaydi. */
+body.theme-dark.theme-black{
+  --bg:#000000;--bg2:#0b0b0c;--bg3:#151517;--bg4:#1d1d20;
+  --text:#f4f4f5;--text2:#a1a1aa;--text3:#71717a;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --accent-light:rgba(59,130,246,.16);--teal-light:rgba(13,148,136,.16);
+  --purple-light:rgba(124,58,237,.16);--amber-light:rgba(217,119,6,.16);
+  --orange-light:rgba(234,88,12,.16);--green-ok-light:rgba(5,150,105,.16);
+  --blue-light:rgba(37,99,235,.16);--indigo-light:rgba(99,102,241,.16);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.6);--shadow-md:0 4px 10px rgba(0,0,0,.6);
+  background:#000;color:var(--text);
+}
+body.theme-black .sidebar,body.theme-black .topbar{background:#0b0b0c}

@@ -26,6 +26,8 @@ export const SCRIPT_GROUPS = [
   ["secure-auth.js"],
   // Group 1: mustaqil util scriptlar — parallel
   ["backend-storage.js", "constants-i18n-ui.js"],
+  // «Matn o'lchami» butun loyihadagi matnga ta'sir qilsin (fs-* sinfiga qaraydi)
+  ["ui-scale.js"],
   // Group 2: auth (constants kerak)
   ["auth.js"],
   // Group 3: data scriptlar — parallel
