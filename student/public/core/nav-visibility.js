@@ -60,18 +60,18 @@
     st.id = "nav-visibility-style";
     st.textContent =
       "#sidebar .nav-btn." + HIDDEN_CLASS + "{display:none!important}" +
-      ".navvis-list{display:flex;flex-direction:column;gap:8px}" +
-      ".navvis-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg);cursor:pointer;user-select:none;transition:border-color .2s,opacity .2s}" +
+      ".navvis-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:8px}" +
+      ".navvis-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg);cursor:pointer;user-select:none;transition:border-color .2s,opacity .2s}" +
       ".navvis-row:hover{border-color:var(--border2)}" +
       ".navvis-row.off{opacity:.55}" +
       ".navvis-ic{width:22px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text2);flex-shrink:0}" +
       ".navvis-name{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
-      ".navvis-sw{position:relative;width:40px;height:22px;border-radius:11px;border:none;padding:0;background:var(--bg4);cursor:pointer;flex-shrink:0;transition:background .2s}" +
+      ".navvis-sw{position:relative;width:40px;height:22px;min-height:0;min-width:0;max-width:none;border-radius:11px;border:none;padding:0;background:var(--bg4);cursor:pointer;flex-shrink:0;transition:background .2s}" +
       ".navvis-sw::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}" +
       ".navvis-sw[aria-checked='true']{background:var(--accent)}" +
       ".navvis-sw[aria-checked='true']::after{transform:translateX(18px)}" +
       ".navvis-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
-      ".navvis-actions{display:flex;justify-content:flex-end;margin-top:12px}" +
+      ".navvis-actions{grid-column:1/-1;display:flex;justify-content:flex-end;margin-top:4px}" +
       ".navvis-reset{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:var(--r-md);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer}" +
       ".navvis-reset:hover{border-color:var(--accent);color:var(--accent)}";
     document.head.appendChild(st);

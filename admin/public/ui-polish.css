@@ -185,3 +185,26 @@ table tbody tr:hover > td {
     box-shadow: none;
   }
 }
+
+/* ── «Asosiy rang» — ixcham ranglar ───────────────────────────────
+   Doirachalar kichikroq, tanlangani qalin qora hoshiya va kattalashish
+   o'rniga toza halqa bilan belgilanadi. */
+.accent-grid {
+  gap: 10px;
+  align-items: center;
+}
+.accent-swatch {
+  width: 32px;
+  height: 32px;
+  border: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.accent-swatch:hover {
+  transform: scale(1.08);
+}
+.accent-swatch.selected {
+  transform: none;
+  box-shadow:
+    0 0 0 2px var(--bg2),
+    0 0 0 4px var(--accent);
+}
