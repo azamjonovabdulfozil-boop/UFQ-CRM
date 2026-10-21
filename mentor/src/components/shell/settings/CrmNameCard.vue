@@ -43,7 +43,7 @@
                     background: linear-gradient(
                       135deg,
                       var(--accent),
-                      var(--teal)
+                      var(--accent-2)
                     );
                     -webkit-background-clip: text;
                     background-clip: text;

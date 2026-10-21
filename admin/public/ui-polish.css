@@ -208,3 +208,50 @@ table tbody tr:hover > td {
     0 0 0 2px var(--bg2),
     0 0 0 4px var(--accent);
 }
+
+/* ── «Asosiy rang» butun interfeysga ta'sir qilsin ─────────────────
+   Ilgari faol menyu, logotip, til tugmasi va avatar gradientining
+   yarmi doim yashil-moviy (--teal) edi — rang almashtirilsa deyarli
+   sezilmasdi. Endi har bir rangning o'z jufti bor (--accent-2) va
+   brend elementlari faqat tanlangan rangdan foydalanadi. */
+:root { --accent-2: #0d9488; }
+body.accent-teal   { --accent-2: #0ea5e9; }
+body.accent-purple { --accent-2: #a855f7; }
+body.accent-orange { --accent-2: #f59e0b; }
+body.accent-rose   { --accent-2: #ec4899; }
+body.accent-green  { --accent-2: #22c55e; }
+
+.logo-mark,
+.u-av,
+.lang-btn.active,
+.lang-btn.active:hover {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.logo-name {
+  background-image: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+/* Faol menyu — tanlangan rangda fon, chap chiziq va yozuv */
+.nav-btn.active,
+.nav-btn.active:hover {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.nav-btn.active .nav-ic { color: var(--accent); }
+.nav-btn.active .nav-count {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+/* Sozlamalardagi tanlangan variantlar ham shu rangda */
+.theme-opt.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.theme-opt.selected .theme-label { color: var(--accent); }
+.font-size-btn.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg2));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
