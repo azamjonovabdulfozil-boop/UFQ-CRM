@@ -60,7 +60,11 @@
     st.id = "nav-visibility-style";
     st.textContent =
       "#sidebar .nav-btn." + HIDDEN_CLASS + "{display:none!important}" +
-      ".navvis-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:8px}" +
+      "#sett-nav-card{grid-column:1/-1}" +
+      ".navvis-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}" +
+      "@media(max-width:1100px){.navvis-list{grid-template-columns:repeat(3,minmax(0,1fr))}}" +
+      "@media(max-width:760px){.navvis-list{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
+      "@media(max-width:400px){.navvis-list{grid-template-columns:1fr}}" +
       ".navvis-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg);cursor:pointer;user-select:none;transition:border-color .2s,opacity .2s}" +
       ".navvis-row:hover{border-color:var(--border2)}" +
       ".navvis-row.off{opacity:.55}" +

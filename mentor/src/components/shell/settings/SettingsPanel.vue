@@ -1,7 +1,6 @@
 <template>
       <div id="panel-settings" class="panel">
         <div class="settings-wrap">
-          <NavVisibilityCard />
           <CrmNameCard />
           <LogoCard />
           <ThemeCard />
@@ -17,6 +16,8 @@
           <!-- STUDENT PROFILE CARD - faqat talaba ko'radi -->
           <!-- STUDENT MOTIVATION CARD - faqat talaba ko'radi -->
           <StudentMotivationCard />
+          <!-- BO'LIMLAR — eng pastda, butun kenglikda -->
+          <NavVisibilityCard />
         </div>
       </div>
 </template>

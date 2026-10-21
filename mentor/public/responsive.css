@@ -414,16 +414,12 @@ button {
   }
 }
 
-/* 4.4 Sozlamalar
-   align-items: start — har bir karta o'z bo'yida qoladi. Aks holda karta
-   qatordagi eng baland qo'shnisi bo'yiga cho'zilib, ichi bo'sh ulkan
-   bo'lib qolardi (masalan, «Asosiy rang»). */
+/* 4.4 Sozlamalar */
 .settings-wrap {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
   gap: var(--rs-gap);
   padding-bottom: 40px;
-  align-items: start;
 }
 
 /* 4.5 Profil detali */
