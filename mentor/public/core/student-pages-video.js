@@ -391,7 +391,7 @@ function _buildStudentChatMsgsHtml(msgs, mentorName, L){
       <div style="max-width:72%;padding:10px 14px;border-radius:${isMe?'16px 4px 16px 16px':'4px 16px 16px 16px'};background:${isMe?'var(--accent)':'var(--bg3)'};color:${isMe?'#fff':'var(--text)'};font-size:13px;line-height:1.5;box-shadow:var(--shadow-sm)">
         <div style="font-size:10px;opacity:.7;margin-bottom:4px;font-weight:600">${isMe?'Siz':'🎓 '+mentorName}${date?' · '+date+' '+time:''}</div>
         ${typeof _chatAttachmentHtml==='function'?_chatAttachmentHtml(m):''}
-        ${m.text?`<span data-emoji-ok>${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`:''}
+        ${m.text?`<span>${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`:''}
         ${isMe?`<div style="text-align:right;margin-top:3px;font-size:10px">${m.read?`<span style="color:#cfe8ff;font-weight:700">✓✓</span>`:'<span style="opacity:.7">✓</span>'}</div>`:''}
       </div>
     </div>`;
@@ -426,7 +426,7 @@ function renderStudentChatPage(){
       </div>
     </div>
     <div id="student-chat-page-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:var(--bg)">${msgsHtml}</div>
-    <div id="student-chat-emoji-picker" data-emoji-ok style="display:none;padding:10px 20px;border-top:1px solid var(--border);background:var(--bg2);flex-wrap:wrap;gap:6px">
+    <div id="student-chat-emoji-picker" style="display:none;padding:10px 20px;border-top:1px solid var(--border);background:var(--bg2);flex-wrap:wrap;gap:6px">
       ${CHAT_EMOJIS.map(e=>`<span onclick="insertChatEmoji('${e}')" style="font-size:20px;cursor:pointer;padding:4px">${e}</span>`).join('')}
     </div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;display:flex;gap:8px">

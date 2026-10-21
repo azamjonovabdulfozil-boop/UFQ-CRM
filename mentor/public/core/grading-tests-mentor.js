@@ -1631,7 +1631,7 @@ function _buildMentorMsgsHtml(msgs, L){
     return `<div style="display:flex;justify-content:${isMentor?'flex-end':'flex-start'};margin-bottom:10px">
       <div style="max-width:70%;background:${isMentor?'var(--accent)':'var(--bg2)'};color:${isMentor?'#fff':'var(--text)'};padding:10px 14px;border-radius:${isMentor?'14px 14px 4px 14px':'14px 14px 14px 4px'};font-size:13px;line-height:1.5;box-shadow:var(--shadow-sm)">
         ${_chatAttachmentHtml(m)}
-        ${m.text?`<span data-emoji-ok>${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`:''}
+        ${m.text?`<span>${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`:''}
         <div style="font-size:10px;opacity:.7;margin-top:4px;text-align:right;display:flex;gap:4px;justify-content:flex-end;align-items:center">${time}${isMentor?' '+_chatTicks(m):''}</div>
       </div>
     </div>`;
@@ -1742,7 +1742,7 @@ function renderMentorChat(){
       <div id="chat-msgs-area" class="chat-msgs-area">
         ${msgsHtml}
       </div>
-      <div id="chat-emoji-picker" data-emoji-ok style="display:none;padding:10px 14px;border-top:1px solid var(--border2);background:var(--bg2);flex-wrap:wrap;gap:6px">
+      <div id="chat-emoji-picker" style="display:none;padding:10px 14px;border-top:1px solid var(--border2);background:var(--bg2);flex-wrap:wrap;gap:6px">
         ${CHAT_EMOJIS.map(e=>`<span onclick="insertChatEmoji('${e}')" style="font-size:20px;cursor:pointer;padding:4px">${e}</span>`).join('')}
       </div>
       <div style="padding:10px 14px;border-top:1px solid var(--border2);background:var(--bg2);display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
@@ -1814,7 +1814,7 @@ function renderStudentChatSection(studentId){
       <div style="max-width:75%;background:${isMentor?'var(--bg3)':'var(--accent)'};color:${isMentor?'var(--text)':'#fff'};padding:8px 12px;border-radius:${isMentor?'12px 12px 12px 4px':'12px 12px 4px 12px'};font-size:13px;line-height:1.5;box-shadow:var(--shadow-sm)">
         ${isMentor?`<div style="font-size:10px;font-weight:700;opacity:.7;margin-bottom:3px">🎓 ${mentorName}</div>`:''}
         ${_chatAttachmentHtml(m)}
-        ${m.text?`<span data-emoji-ok>${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`:''}
+        ${m.text?`<span>${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`:''}
         <div style="font-size:10px;opacity:.6;text-align:right;margin-top:3px">${time}${isMe?' '+(m.read?`<span style="color:#cfe8ff;font-weight:700">✓✓</span>`:'<span style="opacity:.7">✓</span>'):''}</div>
       </div>
     </div>`;

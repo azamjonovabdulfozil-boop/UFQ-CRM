@@ -13,7 +13,8 @@
 // generatsiya qiladi (innerHTML). Bitta joyda ushlab qolish —
 // har bir sahifa, modal va dinamik render'ni bir xil qamrab oladi.
 //
-// Emoji SAQLANISHI kerak bo'lgan joylar (chat emoji tanlagichi):
+// Loyihada stiker (rangli emoji) ko'rinmaydi: xaritadagisi ikonkaga
+// aylanadi, xaritada yo'g'i olib tashlanadi. Istisno kerak bo'lsa:
 //   elementga  data-emoji-ok  atributini qo'ying — o'sha subtree
 //   butunlay chetlab o'tiladi.
 // ================================================
@@ -220,6 +221,26 @@
     award:
       '<circle cx="12" cy="9" r="5.5"/><path d="m8.2 13.6-1.2 8.4 5-2.6 5 2.6-1.2-8.4"/>',
     undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5 5 0 0 1 0 10H10"/>',
+
+    // ── Qo'shimcha (ilgari emoji bo'lib qolgan belgilar uchun) ──
+    mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/>',
+    volume: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
+    "volume-x": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>',
+    unlock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.8-1.2"/>',
+    "circle-fill": '<circle cx="12" cy="12" r="8" fill="currentColor"/>',
+    school: '<path d="m4 10 8-5 8 5"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/><path d="M2 20h20"/>',
+    "eye-off": '<path d="M9.9 4.2A10 10 0 0 1 12 4c6 0 10 8 10 8a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s4 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M14.1 14.1a3 3 0 0 1-4.2-4.2"/><path d="m2 2 20 20"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+    laugh: '<circle cx="12" cy="12" r="9"/><path d="M8 13.5h8a4 4 0 0 1-8 0z"/><path d="m8 9 1.5 1-1.5 1M16 9l-1.5 1 1.5 1"/>',
+    "smile-heart": '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M8.2 8.2c.5-.6 1.5-.6 1.8.2.3-.8 1.3-.8 1.8-.2M12.2 8.2c.5-.6 1.5-.6 1.8.2.3-.8 1.3-.8 1.8-.2"/>',
+    cool: '<circle cx="12" cy="12" r="9"/><path d="M5.5 9.5h13"/><path d="M6.5 9.5a2.5 2.5 0 0 0 5 0M12.5 9.5a2.5 2.5 0 0 0 5 0"/><path d="M9 15.5a4 4 0 0 0 6 0"/>',
+    sad: '<circle cx="12" cy="12" r="9"/><path d="M16 16.5a5 5 0 0 0-8 0"/><path d="M9 9.5h.01M15 9.5h.01"/>',
+    surprised: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="15" r="2"/><path d="M9 9.5h.01M15 9.5h.01"/>',
+    puzzle: '<path d="M19.4 14.6a2.5 2.5 0 1 0 0-5H18V6a2 2 0 0 0-2-2h-3.4a2.5 2.5 0 1 0-5 0H4a2 2 0 0 0-2 2v3.6a2.5 2.5 0 1 1 0 5V18a2 2 0 0 0 2 2h3.6a2.5 2.5 0 1 1 5 0H16a2 2 0 0 0 2-2v-3.4z"/>',
+    pause: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
+    scale: '<path d="M12 3v18M7 21h10M5 7h14"/><path d="m5 7-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/>',
+    "credit-card": '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
   };
 
   // Ranglari ma'noga bog'liq bo'lgan ikonkalar (statuslar, medallar).
@@ -233,22 +254,7 @@
     "medal-silver": ["medal", "#94a3b8"],
     "medal-bronze": ["medal", "#d97706"],
     "heart-green": ["heart", "#10b981"],
-  
-    // ── Qo'shimcha (ilgari emoji bo'lib qolgan belgilar uchun) ──
-    mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/>',
-    volume: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
-    "volume-x": '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>',
-    unlock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.8-1.2"/>',
-    "circle-fill": '<circle cx="12" cy="12" r="8" fill="currentColor"/>',
-    school: '<path d="m4 10 8-5 8 5"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/><path d="M2 20h20"/>',
-    "eye-off": '<path d="M9.9 4.2A10 10 0 0 1 12 4c6 0 10 8 10 8a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s4 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M14.1 14.1a3 3 0 0 1-4.2-4.2"/><path d="m2 2 20 20"/>',
-    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
-    archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
-    puzzle: '<path d="M19.4 14.6a2.5 2.5 0 1 0 0-5H18V6a2 2 0 0 0-2-2h-3.4a2.5 2.5 0 1 0-5 0H4a2 2 0 0 0-2 2v3.6a2.5 2.5 0 1 1 0 5V18a2 2 0 0 0 2 2h3.6a2.5 2.5 0 1 1 5 0H16a2 2 0 0 0 2-2v-3.4z"/>',
-    pause: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
-    scale: '<path d="M12 3v18M7 21h10M5 7h14"/><path d="m5 7-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/>',
-    "credit-card": '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
-};
+  };
 
   // ─────────────────────────────────────────────────────────────
   // 2. EMOJI → IKONKA
@@ -300,6 +306,24 @@
     "🎓": "graduation-cap",
     "👁": "eye",
     "👀": "eye",
+    "😀": "smile",
+    "😃": "smile",
+    "😄": "smile",
+    "😁": "smile",
+    "😂": "laugh",
+    "🤣": "laugh",
+    "😆": "laugh",
+    "🥰": "smile-heart",
+    "😍": "smile-heart",
+    "😘": "smile-heart",
+    "😎": "cool",
+    "😢": "sad",
+    "😭": "sad",
+    "😔": "sad",
+    "😞": "sad",
+    "😮": "surprised",
+    "😯": "surprised",
+    "😲": "surprised",
     "😊": "smile",
     "👍": "thumbs-up",
     "👈": "hand",
@@ -569,9 +593,29 @@
     return name ? IC(name, cls ? { cls: cls } : null) : "";
   }
 
+  // Xaritada YO'Q emoji (AI javobi, bazadagi matn, foydalanuvchi yozgan
+  // xabar) ham rangli stiker bo'lib chiqmasin — u olib tashlanadi.
+  // Xaritadagilar keyin ikonkaga aylanadi; ➤ kabi oddiy belgi saqlanadi.
+  var UNKNOWN_RE = /(?:[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F000}-\u{1FAFF}\u2600-\u27BF])(?:[\uFE0E\uFE0F\u{1F3FB}-\u{1F3FF}]|\u200D[\u{1F000}-\u{1FAFF}\u2600-\u27BF]\uFE0F?)*/gu;
+  var KEEP_CHARS = { "\u27A4": 1 };
+  function knownEmoji(m) {
+    var bare = m.replace(VS, "");
+    if (KEEP_CHARS[bare] || FLAGS.indexOf(bare) !== -1 || EMOJI_MAP[bare]) return true;
+    var head = bare.split(ZWJ)[0].replace(SKIN_RE, "");
+    return !!EMOJI_MAP[head] || FLAGS.indexOf(head) !== -1;
+  }
+  function dropUnknown(s) {
+    UNKNOWN_RE.lastIndex = 0;
+    if (!UNKNOWN_RE.test(s)) return s;
+    UNKNOWN_RE.lastIndex = 0;
+    return s.replace(UNKNOWN_RE, function (m) {
+      return knownEmoji(m) ? m : "";
+    });
+  }
+
   /** Matndan emoji'ni butunlay olib tashlaydi (alert/confirm/title uchun). */
   function stripEmoji(s) {
-    return String(s == null ? "" : s)
+    return dropUnknown(String(s == null ? "" : s))
       .replace(EMOJI_RE, "")
       .replace(/\s{2,}/g, " ")
       .trim();
@@ -613,9 +657,15 @@
   function convertTextNode(node) {
     var txt = node.nodeValue;
     if (!txt) return;
+    if (skipNode(node.parentNode)) return;
+    // Noma'lum emoji — olib tashlanadi (stiker bo'lib qolmasin)
+    var clean = dropUnknown(txt);
+    if (clean !== txt) {
+      node.nodeValue = clean;
+      txt = clean;
+    }
     EMOJI_RE.lastIndex = 0;
     if (!EMOJI_RE.test(txt)) return;
-    if (skipNode(node.parentNode)) return;
 
     EMOJI_RE.lastIndex = 0;
     var cls = sizeClass(nearestFontPx(node.parentNode));
@@ -649,14 +699,14 @@
       var a = TEXT_ATTRS[i];
       if (!el.hasAttribute || !el.hasAttribute(a)) continue;
       var v = el.getAttribute(a);
-      EMOJI_RE.lastIndex = 0;
-      if (EMOJI_RE.test(v)) el.setAttribute(a, stripEmoji(v));
+      var sv = stripEmoji(v);
+      if (sv !== v.trim()) el.setAttribute(a, sv);
     }
     // <option> matni — SVG qo'yib bo'lmaydi
     if (el.tagName === "OPTION") {
-      EMOJI_RE.lastIndex = 0;
-      if (EMOJI_RE.test(el.textContent))
-        el.textContent = stripEmoji(el.textContent);
+      var ot = el.textContent;
+      var so = stripEmoji(ot);
+      if (so !== ot.trim()) el.textContent = so;
     }
   }
 

@@ -117,7 +117,7 @@
       return '<div style="display:flex;justify-content:' + (fromMentor ? 'flex-end' : 'flex-start') + ';margin-bottom:10px">'
         + '<div style="max-width:72%;background:' + (fromMentor ? 'var(--accent)' : 'var(--bg3)') + ';color:' + (fromMentor ? '#fff' : 'var(--text)') + ';padding:10px 14px;border-radius:' + (fromMentor ? '14px 14px 4px 14px' : '14px 14px 14px 4px') + ';font-size:13px;line-height:1.5;box-shadow:var(--shadow-sm)">'
         + '<div style="font-size:10px;opacity:.75;margin-bottom:4px;font-weight:700">' + who + ' · ' + time + '</div>'
-        + '<span data-emoji-ok>' + txt + '</span>'
+        + '<span>' + txt + '</span>'
         + '</div>'
         + '</div>';
     }).join('');
