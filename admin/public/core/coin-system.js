@@ -577,7 +577,12 @@
             throw new Error("proxy " + r.status);
           }
           var ct = r.headers.get("content-type") || "";
-          if (!/^image\//i.test(ct)) throw new Error("rasm emas");
+          if (!/^image\//i.test(ct)) {
+            // Server javob berdi, lekin rasmni ololmadi — boshqa manzil ham
+            // shu serverga boradi, qayta so'ramaymiz
+            i = bases.length;
+            throw new Error("rasm emas");
+          }
           return r.blob();
         })
         .then(function (b) {

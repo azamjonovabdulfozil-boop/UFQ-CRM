@@ -725,7 +725,10 @@ app.get("/api/img-proxy", requireAuth, imgProxyLimiter, async (req, res) => {
     if (!out.ok) {
       if (out.status === 400)
         await audit("proxy.blocked", { req, actor: req.user, meta: { url: safeLog(url, 200), reason: out.error }, severity: "warn" });
-      return res.status(out.status).json({ ok: false, error: out.error });
+      // SSRF taqiqi (400) — haqiqiy xato. Tashqi sayt rasm bermasa esa bu
+      // normal holat: brauzer rasmni asl havolasidan ko'rsatadi.
+      if (out.status === 400) return res.status(400).json({ ok: false, error: out.error });
+      return res.json({ ok: false, upstream: out.status, error: out.error });
     }
     out = { ok: true, mime: out.mime, buffer: out.buffer, at: Date.now() };
     imgCachePut(url, out);
@@ -1060,8 +1063,8 @@ app.get("/api/health/full", requireAdmin, async (_req, res) => {
     ok: true,
     service: "EduManage CRM",
     version: "3.0.0-mongodb",
-    davomatBot: await botStatus(),
-    sms: await smsStatus(),
+    davomatBot: (await notifyStatuses()).tg,
+    sms: (await notifyStatuses()).sms,
     anthropic: aiOk ? "✅ Anthropic" : "➡️ Pollinations (bepul)",
     mongodb: mongoOk ? `✅ ulangan (${db.databaseName})` : "❌ ulanmagan",
     mongoInfo,
@@ -1278,16 +1281,41 @@ app.post("/api/notify/sms", requireStaff, expensiveLimiter, async (req, res) => 
 });
 
 /** Ikkala kanalning holati — Qarzdorlar sahifasi shuni ko'rsatadi. */
-app.get("/api/notify/status", requireStaff, async (_req, res) => {
-  res.json({
-    ok: true,
-    telegram: { status: await botStatus(), envKey: "TELEGRAM_BOT_TOKEN" },
-    sms: {
-      status: await smsStatus(),
-      ready: smsReady(),
-      envKey: "ESKIZ_EMAIL / ESKIZ_PASSWORD",
-    },
-  });
+// Telegram/Eskiz tashqi xizmatlar — javob bermasa so'rov osilib qolmasin
+// (Vercel uni 502 qilib qaytarardi). Har biri ko'pi bilan 6 soniya kutiladi,
+// natija 60 soniya keshlanadi.
+function within(promise, ms, fallback) {
+  return Promise.race([
+    Promise.resolve(promise).catch((e) => "❌ " + (e?.message || "xato")),
+    new Promise((r) => setTimeout(() => r(fallback), ms)),
+  ]);
+}
+let notifyCache = null;
+async function notifyStatuses() {
+  if (notifyCache && Date.now() - notifyCache.at < 60_000) return notifyCache;
+  const [tg, sms] = await Promise.all([
+    within(botStatus(), 6000, "⏳ Telegram javob bermadi"),
+    within(smsStatus(), 6000, "⏳ Eskiz javob bermadi"),
+  ]);
+  notifyCache = { at: Date.now(), tg, sms };
+  return notifyCache;
+}
+
+app.get("/api/notify/status", requireStaff, async (req, res) => {
+  try {
+    const st = await notifyStatuses();
+    res.json({
+      ok: true,
+      telegram: { status: st.tg, envKey: "TELEGRAM_BOT_TOKEN" },
+      sms: {
+        status: st.sms,
+        ready: smsReady(),
+        envKey: "ESKIZ_EMAIL / ESKIZ_PASSWORD",
+      },
+    });
+  } catch (e) {
+    fail(res, e, req);
+  }
 });
 
 // ─── 🤖 Qarzdorlar boti (alohida token) ─────────────────────────────────────

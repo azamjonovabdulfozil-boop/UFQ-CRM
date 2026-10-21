@@ -77,7 +77,7 @@ async function login() {
   const fd = new FormData();
   fd.append("email", c.email);
   fd.append("password", c.password);
-  const r = await fetch(`${BASE}/auth/login`, { method: "POST", body: fd });
+  const r = await fetch(`${BASE}/auth/login`, { method: "POST", body: fd, signal: AbortSignal.timeout(15000) });
   const data = await r.json().catch(() => ({}));
   const tok = data?.data?.token;
   if (!tok)
@@ -118,6 +118,7 @@ async function post(path, fields, tok) {
     method: "POST",
     headers: { Authorization: "Bearer " + tok },
     body: fd,
+    signal: AbortSignal.timeout(20000),
   });
   const data = await r.json().catch(() => ({}));
   return { status: r.status, data };
@@ -222,6 +223,7 @@ async function balance(tok) {
   try {
     const r = await fetch(`${BASE}/user/get-limit`, {
       headers: { Authorization: "Bearer " + tok },
+      signal: AbortSignal.timeout(8000),
     });
     const d = await r.json().catch(() => ({}));
     return d?.data?.balance ?? null;
