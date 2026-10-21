@@ -18,9 +18,9 @@ CrmShell.vue                  ildiz
 │         Mentors, Students, Tests, Grades, Finance, ShopPanels,
 │         StudentGoals, AiPanels
 │         └── settings/SettingsPanel.vue
-│               CrmNameCard, LogoCard, ThemeCard, FontCard, AccentCard,
+│               AppearanceCard (mavzu + rang + matn), CrmNameCard, LogoCard,
 │               DataCard, AdminCredsCard, MentorCredsCard,
-│               StudentCredsCard, StudentMotivationCard
+│               StudentCredsCard, StudentMotivationCard, NavVisibilityCard
 ├── modals/AppModals.vue
 │         MainModal, DetailModal, AttendanceModal, DeleteModal,
 │         FinanceModal, SalaryModal

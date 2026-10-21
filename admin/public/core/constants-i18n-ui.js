@@ -135,6 +135,7 @@ const TRANSLATIONS = {
     lessons_done:'O\'qilgan darslar', lessons_left:'Qolgan darslar', goals_done_pct:'Maqsad bajarilishi', monthly_progress:'Oylik progress',
     chart_grades:'Baholar grafigi', chart_attendance:'Davomat grafigi', chart_progress:'Progress grafigi', overall_rating:'Umumiy reyting', current_month:'Joriy oy',
     goal_deadline_label:'Muddat', goal_overdue:'Muddati o\'tgan', goal_due_today:'Bugun tugaydi', goal_days_left:'{n} kun qoldi', goal_remaining_pct:'{n}% qoldi',
+    sett_sec_look:'Ko\'rinish', sett_sec_look_sub:'Mavzu, asosiy rang va matn o\'lchami — faqat sizning qurilmangizda', sett_sec_brand:'Brending', sett_sec_brand_sub:'CRM nomi va logotipi — hamma foydalanuvchilarga ko\'rinadi', sett_sec_access:'Hisoblar va xavfsizlik', sett_sec_access_sub:'Kirish loginlari, parollar va bloklangan qurilmalar', sett_sec_data:'Ma\'lumotlar', sett_sec_data_sub:'Zaxira nusxa olish va tozalash', sett_sec_menu:'Menyu bo\'limlari', sett_sec_menu_sub:'Chap menyuda qaysi bo\'limlar ko\'rinishini tanlang', acc_blue:'Ko\'k', acc_teal:'Moviy', acc_purple:'Binafsha', acc_orange:'To\'q sariq', acc_rose:'Pushti', acc_green:'Yashil',
   },
   ru: {
     menu:'Меню', dashboard:'Главная', courses:'Курсы', groups:'Группы',
@@ -216,6 +217,7 @@ const TRANSLATIONS = {
     lessons_done:'Пройдено уроков', lessons_left:'Осталось уроков', goals_done_pct:'Выполнение целей', monthly_progress:'Прогресс за месяц',
     chart_grades:'График оценок', chart_attendance:'График посещаемости', chart_progress:'График прогресса', overall_rating:'Общий рейтинг', current_month:'Текущий месяц',
     goal_deadline_label:'Срок', goal_overdue:'Просрочено', goal_due_today:'Сегодня срок', goal_days_left:'Осталось {n} дн.', goal_remaining_pct:'{n}% осталось',
+    sett_sec_look:'Внешний вид', sett_sec_look_sub:'Тема, основной цвет и размер текста — только на этом устройстве', sett_sec_brand:'Брендинг', sett_sec_brand_sub:'Название и логотип CRM — видны всем пользователям', sett_sec_access:'Аккаунты и безопасность', sett_sec_access_sub:'Логины, пароли и заблокированные устройства', sett_sec_data:'Данные', sett_sec_data_sub:'Резервная копия и очистка', sett_sec_menu:'Разделы меню', sett_sec_menu_sub:'Выберите, какие разделы показывать в левом меню', acc_blue:'Синий', acc_teal:'Бирюзовый', acc_purple:'Фиолетовый', acc_orange:'Оранжевый', acc_rose:'Розовый', acc_green:'Зелёный',
   },
   en: {
     menu:'Menu', dashboard:'Dashboard', courses:'Courses', groups:'Groups',
@@ -297,6 +299,7 @@ const TRANSLATIONS = {
     lessons_done:'Lessons done', lessons_left:'Lessons left', goals_done_pct:'Goals completed', monthly_progress:'Monthly progress',
     chart_grades:'Grades chart', chart_attendance:'Attendance chart', chart_progress:'Progress chart', overall_rating:'Overall rating', current_month:'Current month',
     goal_deadline_label:'Deadline', goal_overdue:'Overdue', goal_due_today:'Due today', goal_days_left:'{n} days left', goal_remaining_pct:'{n}% remaining',
+    sett_sec_look:'Appearance', sett_sec_look_sub:'Theme, accent colour and text size — on this device only', sett_sec_brand:'Branding', sett_sec_brand_sub:'CRM name and logo — visible to every user', sett_sec_access:'Accounts & security', sett_sec_access_sub:'Logins, passwords and blocked devices', sett_sec_data:'Data', sett_sec_data_sub:'Backup and reset', sett_sec_menu:'Menu sections', sett_sec_menu_sub:'Choose which sections appear in the left menu', acc_blue:'Blue', acc_teal:'Teal', acc_purple:'Purple', acc_orange:'Orange', acc_rose:'Pink', acc_green:'Green',
   }
 };
 let _finModal_type=null,_finModal_editId=null;
@@ -886,139 +889,146 @@ function _goalDeadlineLabel(deadline, done){
   if(diffDays<=3) return `<span style="color:var(--amber-text);font-weight:700">⏰ ${t('goal_days_left').replace('{n}',diffDays)}</span>`;
   return `<span style="color:var(--text3)">📅 ${dateStr}</span>`;
 }
+// Maqsadlar ro'yxati filtri: 'all' | 'active' | 'done'
+function setGoalFilter(f){window._goalFilter=f;renderStudentGoalsPage();}
+function _goalEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function renderStudentGoalsPage(){
   const body=document.getElementById('student-goals-panel-body');
   if(!body)return;
   const goals=getStudentGoals();
   const doneGoals=goals.filter(g=>g.done).length;
+  const activeGoals=goals.length-doneGoals;
   const progPct=goals.length?Math.round(doneGoals/goals.length*100):0;
+  const filter=['all','active','done'].includes(window._goalFilter)?window._goalFilter:'all';
 
-  // Labels
+  // Matnlar
   const L=LANG;
+  const tr=(uz,ru,en)=>L==='ru'?ru:L==='en'?en:uz;
   const lbl={
-    title:     L==='ru'?'Мои цели':L==='en'?'My Goals':'Mening maqsadlarim',
-    addPh:     L==='ru'?'Yangi maqsad yozing...':L==='en'?'Write a new goal...':'Yangi maqsad yozing...',
-    addBtn:    L==='ru'?'Qo\'shish':L==='en'?'Add':'Qo\'shish',
-    emptyT:    L==='ru'?'Hali maqsad yo\'q':L==='en'?'No goals yet':'Hali maqsad yo\'q',
-    emptySub:  L==='ru'?'Birinchi maqsadingizni qo\'shing':L==='en'?'Add your first goal':'Birinchi maqsadingizni qo\'shing',
-    done:      L==='ru'?'Bajarildi':L==='en'?'Done':'Bajarildi',
-    active:    L==='ru'?'Jarayonda':L==='en'?'In progress':'Jarayonda',
-    del:       L==='ru'?'O\'chirish':L==='en'?'Delete':'O\'chirish',
-    achTitle:  L==='ru'?'Yutuqlar':L==='en'?'Achievements':'Yutuqlar',
-    achSub:    L==='ru'?'earned':L==='en'?'earned':'qo\'lga kiritildi',
-    quote:     (()=>{const q={uz:['Har bir dars seni maqsadingga yaqinlashtiradi.','Bugungi mehnat, ertangi muvaffaqiyat.','Bilim — eng qimmatli boylik.'],ru:['Каждый урок — шаг к цели.','Сегодняшний труд — завтрашний успех.','Знание — самое ценное.'],en:['Every lesson is a step forward.','Today\'s effort is tomorrow\'s success.','Knowledge is priceless.']};const a=q[L]||q.uz;return a[Math.floor(Date.now()/86400000)%a.length];})(),
+    title:   tr('Mening maqsadlarim','Мои цели','My goals'),
+    addPh:   tr('Yangi maqsad yozing...','Напишите новую цель...','Write a new goal...'),
+    addBtn:  tr('Qo\'shish','Добавить','Add'),
+    all:     tr('Hammasi','Все','All'),
+    active:  tr('Jarayonda','В процессе','In progress'),
+    done:    tr('Bajarildi','Выполнено','Done'),
+    doneTab: tr('Bajarilgan','Выполненные','Completed'),
+    del:     tr('O\'chirish','Удалить','Delete'),
+    mark:    tr('Bajarildi deb belgilash','Отметить выполненной','Mark as done'),
+    unmark:  tr('Qayta ochish','Вернуть в работу','Reopen'),
+    ring:    tr('bajarildi','выполнено','done'),
+    achTitle:tr('Yutuqlar','Достижения','Achievements'),
+    achSub:  tr('qo\'lga kiritildi','получено','earned'),
+    achGot:  tr('Qo\'lga kiritildi','Получено','Earned'),
+    heroNone:tr('Birinchi maqsadingizni qo\'shing','Добавьте первую цель','Add your first goal'),
+    heroSome:tr('{d} / {n} ta maqsad bajarildi','Выполнено {d} из {n}','{d} of {n} goals done'),
+    emptyT:  tr('Hali maqsad yo\'q','Целей пока нет','No goals yet'),
+    emptySub:tr('Yuqoridagi qatorga maqsad yozib, «Qo\'shish»ni bosing','Напишите цель выше и нажмите «Добавить»','Type a goal above and press “Add”'),
+    emptyAct:tr('Jarayondagi maqsad yo\'q — hammasi bajarilgan!','Нет целей в процессе — всё выполнено!','Nothing in progress — all done!'),
+    emptyDone:tr('Hali bajarilgan maqsad yo\'q','Пока нет выполненных целей','No completed goals yet'),
+    motTitle:tr('Kun motivatsiyasi','Мотивация дня','Daily motivation'),
+    quote:   (()=>{const q={uz:['Har bir dars seni maqsadingga yaqinlashtiradi.','Bugungi mehnat, ertangi muvaffaqiyat.','Bilim — eng qimmatli boylik.'],ru:['Каждый урок — шаг к цели.','Сегодняшний труд — завтрашний успех.','Знание — самое ценное.'],en:['Every lesson is a step forward.','Today\'s effort is tomorrow\'s success.','Knowledge is priceless.']};const a=q[L]||q.uz;return a[Math.floor(Date.now()/86400000)%a.length];})(),
   };
 
-  // Achievements data
+  // Yutuqlar uchun ma'lumot
   const cu=getCurrentUser();
   const studentId=cu.studentId?parseInt(cu.studentId):null;
   const s=studentId?((D&&D.students)||[]).find(x=>x.id===studentId):null;
-  const grp=s?D.groups.find(g=>g.id===s.groupId):null;
-  const allInGrp=grp?D.students.filter(st=>st.groupId===grp.id):[];
+  const grp=s?(D.groups||[]).find(g=>g.id===s.groupId):null;
+  const allInGrp=grp?(D.students||[]).filter(st=>st.groupId===grp.id):[];
   const attData=D.attendance||{};
   function getAtt(sid){const sk='s'+sid;let pr=0,tot=0;Object.keys(attData).forEach(k=>{const d=attData[k];if(d&&d[sk])Object.values(d[sk]).forEach(v=>{if(v==='K'||v==='Y'||v==='S'){tot++;if(v==='K')pr++;}});});return tot?Math.round(pr/tot*100):0;}
   const attPct=s?getAtt(s.id):0;
   const ratings=allInGrp.map(st=>({id:st.id,p:getAtt(st.id)})).sort((a,b)=>b.p-a.p);
   const rank=ratings.findIndex(r=>r.id===(s?s.id:0))+1;
-  const saved=goals.length>0;
-  const howUz=['Darslarga muntazam keling, davomat 80%+ bo\'lsin.','Oyda 90%+ darslarga keling, sababsiz o\'tkazmang.','Guruhda davomat bo\'yicha 1-o\'ringa chiqing.','100% davomat — birorta ham o\'tkazmaslik!','Maqsadlar bo\'limiga birinchi maqsad qo\'shing.','Kamida 1 maqsadni bajarildi deb belgilang.'];
-  const howRu=['Ходи регулярно, рейтинг 80%+.','Посещай 90%+ уроков в месяц.','Стань 1-м в группе по посещаемости.','100% посещаемость — ни одного пропуска!','Добавь первую цель в разделе Цели.','Отметь хотя бы 1 цель выполненной.'];
-  const howEn=['Come regularly, rating 80%+.','Attend 90%+ lessons per month.','Be #1 in group by attendance.','100% attendance — zero skips!','Add your first goal here.','Mark at least 1 goal as done.'];
+  const howUz=['Davomat 80% dan yuqori bo\'lsin','Oyiga 90%+ darsga keling','Guruhda davomat bo\'yicha 1-o\'rin','100% davomat — birorta o\'tkazmasdan','Birinchi maqsadni qo\'shing','Kamida 1 maqsadni bajaring'];
+  const howRu=['Посещаемость выше 80%','Посещайте 90%+ уроков','1-е место в группе по посещаемости','100% посещаемость без пропусков','Добавьте первую цель','Выполните хотя бы 1 цель'];
+  const howEn=['Attendance above 80%','Attend 90%+ of lessons','#1 in group by attendance','100% attendance, no skips','Add your first goal','Complete at least 1 goal'];
   const howArr=L==='ru'?howRu:L==='en'?howEn:howUz;
   const achList=[
-    {icon:'🎓',name:L==='ru'?'A\'lochi':L==='en'?'Top Student':'A\'lochi',earned:attPct>=80},
-    {icon:'⚡',name:L==='ru'?'Faol':L==='en'?'Active':'Faol o\'quvchi',earned:attPct>=90},
-    {icon:'👑',name:L==='ru'?'Lider':L==='en'?'Leader':'Guruh lideri',earned:rank===1&&allInGrp.length>1},
-    {icon:'💎',name:L==='ru'?'Ideal':L==='en'?'Perfect':'Mukammal',earned:attPct===100},
-    {icon:'🎯',name:L==='ru'?'Maqsadli':L==='en'?'Goal Setter':'Maqsadli',earned:saved},
-    {icon:'🏅',name:L==='ru'?'Yetuvchi':L==='en'?'Achiever':'Yetuvchi',earned:doneGoals>=1},
+    {icon:'🎓',name:tr('A\'lochi','Отличник','Top student'),earned:attPct>=80},
+    {icon:'⚡',name:tr('Faol o\'quvchi','Активный','Active'),earned:attPct>=90},
+    {icon:'👑',name:tr('Guruh lideri','Лидер группы','Group leader'),earned:rank===1&&allInGrp.length>1},
+    {icon:'💎',name:tr('Mukammal','Идеальный','Perfect'),earned:attPct===100},
+    {icon:'🎯',name:tr('Maqsadli','Целеустремлённый','Goal setter'),earned:goals.length>0},
+    {icon:'🏅',name:tr('Yetuvchi','Достигатор','Achiever'),earned:doneGoals>=1},
   ];
   const earnedCount=achList.filter(a=>a.earned).length;
 
-  // Goals HTML
-  const goalsHtml=goals.length?goals.map((g,gi)=>`
-    <div style="position:relative;display:flex;align-items:center;gap:0;margin-bottom:10px">
-      <div style="position:absolute;left:22px;top:0;bottom:0;width:2px;background:${g.done?'var(--teal)':'var(--accent)'};opacity:.25;z-index:0"></div>
-      <div style="position:relative;z-index:1;width:46px;flex-shrink:0;display:flex;justify-content:center">
-        <button onclick="toggleStudentGoal(${g.id})" style="width:36px;height:36px;border-radius:50%;border:3px solid ${g.done?'var(--teal)':'var(--accent)'};background:${g.done?'var(--teal)':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:${g.done?'#fff':'var(--accent)'};transition:.2s;flex-shrink:0">${g.done?'✓':'○'}</button>
-      </div>
-      <div style="flex:1;background:${g.done?'var(--bg3)':'var(--bg)'};border:1.5px solid ${g.done?'var(--border)':'var(--accent)'};border-radius:12px;padding:11px 14px;margin-left:6px;box-shadow:${g.done?'none':'0 2px 8px rgba(59,130,246,.1)'}">
-        <div style="font-size:13px;font-weight:${g.done?500:700};color:${g.done?'var(--text3)':'var(--text)'};text-decoration:${g.done?'line-through':'none'}">${g.text}</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:3px">
-          <span style="font-size:11px;color:${g.done?'var(--teal-text)':'var(--accent-text)'};">${g.done?'🏆 '+lbl.done:'🔥 '+lbl.active}</span>
-          ${g.deadline?`<span style="font-size:11px">${_goalDeadlineLabel(g.deadline,g.done)}</span>`:''}
+  // Ro'yxat (filtr bo'yicha)
+  const shown=goals.filter(g=>filter==='all'?true:filter==='done'?g.done:!g.done);
+  const emptyText=!goals.length?`<b>${lbl.emptyT}</b>${lbl.emptySub}`:filter==='active'?`<b>${lbl.emptyAct}</b>`:`<b>${lbl.emptyDone}</b>`;
+  const listHtml=shown.length?shown.map(g=>`
+      <div class="gp-item${g.done?' is-done':''}">
+        <button type="button" class="gp-check" onclick="toggleStudentGoal(${g.id})" title="${g.done?lbl.unmark:lbl.mark}" aria-label="${g.done?lbl.unmark:lbl.mark}">${g.done?'✓':''}</button>
+        <div class="gp-item-body">
+          <div class="gp-item-text">${_goalEsc(g.text)}</div>
+          <div class="gp-item-meta">
+            <span class="gp-badge ${g.done?'done':'active'}">${g.done?lbl.done:lbl.active}</span>
+            ${g.deadline?`<span>${_goalDeadlineLabel(g.deadline,g.done)}</span>`:''}
+          </div>
         </div>
-      </div>
-      <button onclick="deleteStudentGoal(${g.id})" style="margin-left:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:6px;border-radius:8px;flex-shrink:0" onmouseover="this.style.color='var(--orange-text)'" onmouseout="this.style.color='var(--text3)'" title="${lbl.del}">🗑</button>
-    </div>`).join(''):`
-    <div style="text-align:center;padding:48px 20px;display:flex;flex-direction:column;align-items:center;gap:10px">
-      <div style="font-size:48px;opacity:.3">🎯</div>
-      <div style="font-size:14px;font-weight:800;color:var(--text)">${lbl.emptyT}</div>
-      <div style="font-size:12px;color:var(--text3)">${lbl.emptySub}</div>
-    </div>`;
+        <button type="button" class="gp-del" onclick="deleteStudentGoal(${g.id})" title="${lbl.del}" aria-label="${lbl.del}">🗑</button>
+      </div>`).join(''):`
+      <div class="gp-empty"><div class="gp-empty-ic">🎯</div>${emptyText}</div>`;
 
-  // Achievements HTML — hexagonal badge grid
+  const tab=(k,label,n)=>`<button type="button" class="gp-tab${filter===k?' on':''}" onclick="setGoalFilter('${k}')">${label}<i>${n}</i></button>`;
+
   const achHtml=achList.map((a,ai)=>`
-    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:80px" title="${howArr[ai]}">
-      <div style="position:relative;width:60px;height:60px">
-        <svg width="60" height="60" viewBox="0 0 60 60" style="position:absolute;top:0;left:0">
-          <polygon points="30,3 55,16 55,44 30,57 5,44 5,16" fill="${a.earned?'var(--teal)':'var(--bg4)'}" stroke="${a.earned?'var(--teal-text)':'var(--border2)'}" stroke-width="2" opacity="${a.earned?1:.6}"/>
-        </svg>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;opacity:${a.earned?1:.35}">${a.icon}</div>
-        ${a.earned?'<div style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;background:#22c55e;border-radius:50%;border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px">✓</div>':''}
-      </div>
-      <div style="font-size:10px;font-weight:700;color:${a.earned?'var(--teal-text)':'var(--text3)'};text-align:center;line-height:1.2">${a.name}</div>
-    </div>`).join('');
+        <div class="gp-ach${a.earned?' on':''}" title="${_goalEsc(howArr[ai])}">
+          <div class="gp-ach-ic">${a.earned?a.icon:'🔒'}</div>
+          <div class="gp-ach-name">${a.name}</div>
+          <div class="gp-ach-how">${a.earned?'✓ '+lbl.achGot:_goalEsc(howArr[ai])}</div>
+        </div>`).join('');
 
   body.innerHTML=`
-  <div style="max-width:720px;margin:0 auto;padding:4px 0 32px">
-
-    <!-- TOP HERO BANNER -->
-    <div style="background:linear-gradient(135deg,var(--accent) 0%,var(--teal) 100%);border-radius:20px;padding:24px 28px;margin-bottom:20px;position:relative;overflow:hidden;color:#fff">
-      <div style="position:absolute;right:-20px;top:-20px;font-size:130px;opacity:.06;pointer-events:none">🎯</div>
-      <div style="position:absolute;left:-10px;bottom:-20px;font-size:100px;opacity:.05;pointer-events:none">⭐</div>
-      <div style="font-size:11px;font-weight:700;opacity:.75;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${lbl.title}</div>
-      <div style="font-size:28px;font-weight:900;letter-spacing:-.5px;margin-bottom:12px">${goals.length?progPct+'% bajarildi':'Hali maqsad yo\'q'}</div>
-      ${goals.length?`
-      <div style="background:rgba(255,255,255,.2);border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">
-        <div style="background:#fff;height:100%;border-radius:99px;width:${progPct}%;transition:width .6s ease"></div>
-      </div>
-      <div style="font-size:12px;opacity:.85">${doneGoals} / ${goals.length} ta maqsad · ${t('goal_remaining_pct').replace('{n}',100-progPct)} · ${earnedCount}/6 yutuq</div>
-      `:`<div style="font-size:13px;opacity:.75">Pastdagi maydonga birinchi maqsadingizni yozing</div>`}
-    </div>
-
-    <!-- ADD GOAL -->
-    <div class="goal-add-row" style="background:var(--bg);border:2px dashed var(--accent);border-radius:16px;padding:16px 18px;margin-bottom:20px">
-      <span style="font-size:22px;flex-shrink:0">✏️</span>
-      <input type="text" id="new-goal-inp" placeholder="${lbl.addPh}" onkeydown="if(event.key==='Enter')addStudentGoal()" style="background:transparent;border:none;outline:none;font-size:14px;font-weight:600;color:var(--text)">
-      <input type="date" id="new-goal-deadline" title="${t('goal_deadline_label')}" style="background:var(--bg2);border:1.5px solid var(--border2);border-radius:10px;padding:7px 10px;font-size:12.5px;color:var(--text)">
-      <button onclick="addStudentGoal()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">+ ${lbl.addBtn}</button>
-    </div>
-
-    <!-- GOALS LIST -->
-    <div style="margin-bottom:24px">
-      ${goalsHtml}
-    </div>
-
-    <!-- QUOTE STRIPE -->
-    <div style="background:var(--bg2);border-left:4px solid var(--accent);border-radius:0 12px 12px 0;padding:14px 18px;margin-bottom:24px;font-size:13px;font-style:italic;color:var(--text2);line-height:1.7">
-      ✨ "${lbl.quote}"
-    </div>
-
-    <!-- ACHIEVEMENTS -->
-    <div style="background:var(--bg);border:1.5px solid var(--border2);border-radius:18px;padding:20px 22px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-        <div>
-          <div style="font-size:14px;font-weight:800;color:var(--text)">🏆 ${lbl.achTitle}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${earnedCount}/6 ${lbl.achSub}</div>
+  <div class="gp">
+    <div class="gp-main">
+      <section class="gp-hero">
+        <div class="gp-ring" style="--p:${progPct}">
+          <div class="gp-ring-in"><b>${progPct}%</b><small>${lbl.ring}</small></div>
         </div>
-        <div style="background:var(--accent-light);color:var(--accent-text);border:1.5px solid var(--accent);border-radius:99px;padding:4px 14px;font-size:13px;font-weight:800">${earnedCount}/6</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
-        ${achHtml}
-      </div>
+        <div class="gp-hero-txt">
+          <div class="gp-eyebrow">${lbl.title}</div>
+          <div class="gp-hero-title">${goals.length?lbl.heroSome.replace('{d}',doneGoals).replace('{n}',goals.length):lbl.heroNone}</div>
+          <div class="gp-hero-sub">“${lbl.quote}”</div>
+          <div class="gp-stats">
+            <div class="gp-stat"><b>${activeGoals}</b>${lbl.active}</div>
+            <div class="gp-stat"><b>${doneGoals}</b>${lbl.done}</div>
+            <div class="gp-stat"><b>${earnedCount}/6</b>${lbl.achTitle}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="gp-card">
+        <div class="gp-add">
+          <input type="text" id="new-goal-inp" placeholder="${lbl.addPh}" onkeydown="if(event.key==='Enter')addStudentGoal()" maxlength="200">
+          <input type="date" id="new-goal-deadline" title="${t('goal_deadline_label')}">
+          <button type="button" class="btn btn-primary" onclick="addStudentGoal()">+ ${lbl.addBtn}</button>
+        </div>
+        <div class="gp-tabs">
+          ${tab('all',lbl.all,goals.length)}
+          ${tab('active',lbl.active,activeGoals)}
+          ${tab('done',lbl.doneTab,doneGoals)}
+        </div>
+        <div class="gp-list">${listHtml}
+        </div>
+      </section>
     </div>
 
+    <aside class="gp-side">
+      <section class="gp-card">
+        <div class="gp-card-head">
+          <div><h3>🏆 ${lbl.achTitle}</h3><p>${earnedCount}/6 ${lbl.achSub}</p></div>
+          <span class="gp-pill">${earnedCount}/6</span>
+        </div>
+        <div class="gp-ach-grid">${achHtml}
+        </div>
+      </section>
+      <section class="gp-card gp-quote">
+        <span class="gp-quote-ic">✨</span>
+        <div><div style="font-style:normal;font-weight:700;color:var(--text);margin-bottom:2px">${lbl.motTitle}</div>${lbl.quote}</div>
+      </section>
+    </aside>
   </div>`;
 }
 
