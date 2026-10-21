@@ -1,12 +1,12 @@
 <template>
       <div id="panel-settings" class="panel">
         <div class="settings-wrap">
+          <NavVisibilityCard />
           <CrmNameCard />
           <LogoCard />
           <ThemeCard />
           <FontCard />
           <AccentCard />
-          <NavVisibilityCard />
           <DataCard />
           <!-- ADMIN SELF CREDENTIALS CARD - faqat admin ko'radi -->
           <AdminCredsCard />
