@@ -135,7 +135,7 @@ const TRANSLATIONS = {
     lessons_done:'O\'qilgan darslar', lessons_left:'Qolgan darslar', goals_done_pct:'Maqsad bajarilishi', monthly_progress:'Oylik progress',
     chart_grades:'Baholar grafigi', chart_attendance:'Davomat grafigi', chart_progress:'Progress grafigi', overall_rating:'Umumiy reyting', current_month:'Joriy oy',
     goal_deadline_label:'Muddat', goal_overdue:'Muddati o\'tgan', goal_due_today:'Bugun tugaydi', goal_days_left:'{n} kun qoldi', goal_remaining_pct:'{n}% qoldi',
-    sett_sec_look:'Ko\'rinish', sett_sec_look_sub:'Mavzu, asosiy rang va matn o\'lchami — faqat sizning qurilmangizda', sett_sec_brand:'Brending', sett_sec_brand_sub:'CRM nomi va logotipi — hamma foydalanuvchilarga ko\'rinadi', sett_sec_access:'Hisoblar va xavfsizlik', sett_sec_access_sub:'Kirish loginlari, parollar va bloklangan qurilmalar', sett_sec_data:'Ma\'lumotlar', sett_sec_data_sub:'Zaxira nusxa olish va tozalash', sett_sec_menu:'Menyu bo\'limlari', sett_sec_menu_sub:'Chap menyuda qaysi bo\'limlar ko\'rinishini tanlang', acc_blue:'Ko\'k', acc_teal:'Moviy', acc_purple:'Binafsha', acc_orange:'To\'q sariq', acc_rose:'Pushti', acc_green:'Yashil',
+    sett_sec_look:'Ko\'rinish', sett_sec_look_sub:'Mavzu, asosiy rang va matn o\'lchami — faqat sizning qurilmangizda', sett_sec_brand:'Brending', sett_sec_brand_sub:'CRM nomi va logotipi — hamma foydalanuvchilarga ko\'rinadi', sett_sec_access:'Hisoblar', sett_sec_access_sub:'Admin, mentor va talabalarning kirish loginlari va parollari', sett_sec_devices:'Xavfsizlik', sett_sec_devices_sub:'Parol ko\'p marta xato kiritilgani uchun bloklangan qurilmalar', sett_nav_look:'Mavzu, rang, matn', sett_nav_brand:'Nom va logotip', sett_nav_access:'Login va parollar', sett_nav_devices:'Bloklangan qurilmalar', sett_nav_data:'Zaxira va tozalash', sett_nav_menu:'Menyuni sozlash', sett_sec_data:'Ma\'lumotlar', sett_sec_data_sub:'Zaxira nusxa olish va tozalash', sett_sec_menu:'Menyu bo\'limlari', sett_sec_menu_sub:'Chap menyuda qaysi bo\'limlar ko\'rinishini tanlang', acc_blue:'Ko\'k', acc_teal:'Moviy', acc_purple:'Binafsha', acc_orange:'To\'q sariq', acc_rose:'Pushti', acc_green:'Yashil',
   },
   ru: {
     menu:'Меню', dashboard:'Главная', courses:'Курсы', groups:'Группы',
@@ -217,7 +217,7 @@ const TRANSLATIONS = {
     lessons_done:'Пройдено уроков', lessons_left:'Осталось уроков', goals_done_pct:'Выполнение целей', monthly_progress:'Прогресс за месяц',
     chart_grades:'График оценок', chart_attendance:'График посещаемости', chart_progress:'График прогресса', overall_rating:'Общий рейтинг', current_month:'Текущий месяц',
     goal_deadline_label:'Срок', goal_overdue:'Просрочено', goal_due_today:'Сегодня срок', goal_days_left:'Осталось {n} дн.', goal_remaining_pct:'{n}% осталось',
-    sett_sec_look:'Внешний вид', sett_sec_look_sub:'Тема, основной цвет и размер текста — только на этом устройстве', sett_sec_brand:'Брендинг', sett_sec_brand_sub:'Название и логотип CRM — видны всем пользователям', sett_sec_access:'Аккаунты и безопасность', sett_sec_access_sub:'Логины, пароли и заблокированные устройства', sett_sec_data:'Данные', sett_sec_data_sub:'Резервная копия и очистка', sett_sec_menu:'Разделы меню', sett_sec_menu_sub:'Выберите, какие разделы показывать в левом меню', acc_blue:'Синий', acc_teal:'Бирюзовый', acc_purple:'Фиолетовый', acc_orange:'Оранжевый', acc_rose:'Розовый', acc_green:'Зелёный',
+    sett_sec_look:'Внешний вид', sett_sec_look_sub:'Тема, основной цвет и размер текста — только на этом устройстве', sett_sec_brand:'Брендинг', sett_sec_brand_sub:'Название и логотип CRM — видны всем пользователям', sett_sec_access:'Аккаунты', sett_sec_access_sub:'Логины и пароли админа, менторов и студентов', sett_sec_devices:'Безопасность', sett_sec_devices_sub:'Устройства, заблокированные из-за неверного пароля', sett_nav_look:'Тема, цвет, текст', sett_nav_brand:'Название и логотип', sett_nav_access:'Логины и пароли', sett_nav_devices:'Заблокированные устройства', sett_nav_data:'Резерв и очистка', sett_nav_menu:'Настройка меню', sett_sec_data:'Данные', sett_sec_data_sub:'Резервная копия и очистка', sett_sec_menu:'Разделы меню', sett_sec_menu_sub:'Выберите, какие разделы показывать в левом меню', acc_blue:'Синий', acc_teal:'Бирюзовый', acc_purple:'Фиолетовый', acc_orange:'Оранжевый', acc_rose:'Розовый', acc_green:'Зелёный',
   },
   en: {
     menu:'Menu', dashboard:'Dashboard', courses:'Courses', groups:'Groups',
@@ -299,7 +299,7 @@ const TRANSLATIONS = {
     lessons_done:'Lessons done', lessons_left:'Lessons left', goals_done_pct:'Goals completed', monthly_progress:'Monthly progress',
     chart_grades:'Grades chart', chart_attendance:'Attendance chart', chart_progress:'Progress chart', overall_rating:'Overall rating', current_month:'Current month',
     goal_deadline_label:'Deadline', goal_overdue:'Overdue', goal_due_today:'Due today', goal_days_left:'{n} days left', goal_remaining_pct:'{n}% remaining',
-    sett_sec_look:'Appearance', sett_sec_look_sub:'Theme, accent colour and text size — on this device only', sett_sec_brand:'Branding', sett_sec_brand_sub:'CRM name and logo — visible to every user', sett_sec_access:'Accounts & security', sett_sec_access_sub:'Logins, passwords and blocked devices', sett_sec_data:'Data', sett_sec_data_sub:'Backup and reset', sett_sec_menu:'Menu sections', sett_sec_menu_sub:'Choose which sections appear in the left menu', acc_blue:'Blue', acc_teal:'Teal', acc_purple:'Purple', acc_orange:'Orange', acc_rose:'Pink', acc_green:'Green',
+    sett_sec_look:'Appearance', sett_sec_look_sub:'Theme, accent colour and text size — on this device only', sett_sec_brand:'Branding', sett_sec_brand_sub:'CRM name and logo — visible to every user', sett_sec_access:'Accounts', sett_sec_access_sub:'Logins and passwords for admin, mentors and students', sett_sec_devices:'Security', sett_sec_devices_sub:'Devices blocked after too many wrong passwords', sett_nav_look:'Theme, colour, text', sett_nav_brand:'Name and logo', sett_nav_access:'Logins and passwords', sett_nav_devices:'Blocked devices', sett_nav_data:'Backup and reset', sett_nav_menu:'Customise menu', sett_sec_data:'Data', sett_sec_data_sub:'Backup and reset', sett_sec_menu:'Menu sections', sett_sec_menu_sub:'Choose which sections appear in the left menu', acc_blue:'Blue', acc_teal:'Teal', acc_purple:'Purple', acc_orange:'Orange', acc_rose:'Pink', acc_green:'Green',
   }
 };
 let _finModal_type=null,_finModal_editId=null;
@@ -891,6 +891,8 @@ function _goalDeadlineLabel(deadline, done){
 }
 // Maqsadlar ro'yxati filtri: 'all' | 'active' | 'done'
 function setGoalFilter(f){window._goalFilter=f;renderStudentGoalsPage();}
+// «G'oyalar»dagi tayyor maqsadni yozish maydoniga qo'yadi
+function fillGoalIdea(text){const inp=document.getElementById('new-goal-inp');if(!inp)return;inp.value=text;inp.focus();}
 function _goalEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function renderStudentGoalsPage(){
   const body=document.getElementById('student-goals-panel-body');
@@ -900,39 +902,56 @@ function renderStudentGoalsPage(){
   const activeGoals=goals.length-doneGoals;
   const progPct=goals.length?Math.round(doneGoals/goals.length*100):0;
   const filter=['all','active','done'].includes(window._goalFilter)?window._goalFilter:'all';
+  const today=new Date();today.setHours(0,0,0,0);
+  const dayDiff=d=>{const x=new Date(d);x.setHours(0,0,0,0);return Math.round((x-today)/86400000);};
+  const soonGoals=goals.filter(g=>!g.done&&g.deadline&&dayDiff(g.deadline)<=7);
 
-  // Matnlar
   const L=LANG;
   const tr=(uz,ru,en)=>L==='ru'?ru:L==='en'?en:uz;
+  const cu=getCurrentUser();
+  const studentId=cu.studentId?parseInt(cu.studentId):null;
+  const s=studentId?((D&&D.students)||[]).find(x=>x.id===studentId):null;
+  const savedName=_uiSettings['studentDisplayName_'+(studentId||'')];
+  const firstName=((savedName||(s&&(s.firstName||s.name))||cu.studentName||cu.name||'').trim().split(/\s+/)[0])||'';
   const lbl={
-    title:   tr('Mening maqsadlarim','Мои цели','My goals'),
+    eyebrow: tr('Maqsadlar markazi','Центр целей','Goals hub'),
+    hello:   firstName?tr(`Salom, ${_goalEsc(firstName)}! Maqsadlaring sari olg'a`,`Привет, ${_goalEsc(firstName)}! Вперёд к целям`,`Hi, ${_goalEsc(firstName)}! Keep going`):tr('Maqsadlaring sari olg\'a','Вперёд к целям','Keep going'),
+    barCap:  goals.length?tr(`${doneGoals} / ${goals.length} ta maqsad bajarildi`,`Выполнено ${doneGoals} из ${goals.length}`,`${doneGoals} of ${goals.length} goals done`):tr('Hali maqsad yo\'q — pastda birinchisini qo\'shing','Целей пока нет — добавьте первую ниже','No goals yet — add your first one below'),
+    ring:    tr('bajarildi','выполнено','done'),
+    total:   tr('Jami maqsadlar','Всего целей','Total goals'),
+    active:  tr('Jarayonda','В процессе','In progress'),
+    done:    tr('Bajarildi','Выполнено','Done'),
+    soon:    tr('Muddati yaqin','Срок близко','Due soon'),
+    listT:   tr('Mening maqsadlarim','Мои цели','My goals'),
+    listSub: tr('Maqsad yozing, muddat qo\'ying va bajarganda belgilang','Пишите цель, ставьте срок и отмечайте выполнение','Write a goal, set a deadline, tick it off when done'),
     addPh:   tr('Yangi maqsad yozing...','Напишите новую цель...','Write a new goal...'),
     addBtn:  tr('Qo\'shish','Добавить','Add'),
     all:     tr('Hammasi','Все','All'),
-    active:  tr('Jarayonda','В процессе','In progress'),
-    done:    tr('Bajarildi','Выполнено','Done'),
     doneTab: tr('Bajarilgan','Выполненные','Completed'),
     del:     tr('O\'chirish','Удалить','Delete'),
     mark:    tr('Bajarildi deb belgilash','Отметить выполненной','Mark as done'),
     unmark:  tr('Qayta ochish','Вернуть в работу','Reopen'),
-    ring:    tr('bajarildi','выполнено','done'),
-    achTitle:tr('Yutuqlar','Достижения','Achievements'),
-    achSub:  tr('qo\'lga kiritildi','получено','earned'),
-    achGot:  tr('Qo\'lga kiritildi','Получено','Earned'),
-    heroNone:tr('Birinchi maqsadingizni qo\'shing','Добавьте первую цель','Add your first goal'),
-    heroSome:tr('{d} / {n} ta maqsad bajarildi','Выполнено {d} из {n}','{d} of {n} goals done'),
     emptyT:  tr('Hali maqsad yo\'q','Целей пока нет','No goals yet'),
-    emptySub:tr('Yuqoridagi qatorga maqsad yozib, «Qo\'shish»ni bosing','Напишите цель выше и нажмите «Добавить»','Type a goal above and press “Add”'),
+    emptySub:tr('Yuqoridagi qatorga yozing yoki o\'ngdagi g\'oyalardan birini tanlang','Напишите выше или выберите идею справа','Type above or pick an idea on the right'),
     emptyAct:tr('Jarayondagi maqsad yo\'q — hammasi bajarilgan!','Нет целей в процессе — всё выполнено!','Nothing in progress — all done!'),
     emptyDone:tr('Hali bajarilgan maqsad yo\'q','Пока нет выполненных целей','No completed goals yet'),
-    motTitle:tr('Kun motivatsiyasi','Мотивация дня','Daily motivation'),
+    dlT:     tr('Yaqin muddatlar','Ближайшие сроки','Upcoming deadlines'),
+    dlSub:   tr('Muddati bor, hali bajarilmagan maqsadlar','Невыполненные цели со сроком','Open goals with a deadline'),
+    dlNone:  tr('Muddatli maqsad yo\'q. Maqsad qo\'shganda sanani ham tanlang.','Нет целей со сроком. Укажите дату при добавлении.','No goals with a deadline. Pick a date when adding one.'),
+    ideasT:  tr('Maqsad g\'oyalari','Идеи для целей','Goal ideas'),
+    ideasSub:tr('Bosing — yozish maydoniga tushadi','Нажмите — попадёт в поле ввода','Tap to put it in the input'),
+    achT:    tr('Yutuqlar','Достижения','Achievements'),
+    achSub:  tr('Davomat va maqsadlar uchun beriladigan nishonlar','Значки за посещаемость и цели','Badges for attendance and goals'),
+    achGot:  tr('Qo\'lga kiritildi','Получено','Earned'),
     quote:   (()=>{const q={uz:['Har bir dars seni maqsadingga yaqinlashtiradi.','Bugungi mehnat, ertangi muvaffaqiyat.','Bilim — eng qimmatli boylik.'],ru:['Каждый урок — шаг к цели.','Сегодняшний труд — завтрашний успех.','Знание — самое ценное.'],en:['Every lesson is a step forward.','Today\'s effort is tomorrow\'s success.','Knowledge is priceless.']};const a=q[L]||q.uz;return a[Math.floor(Date.now()/86400000)%a.length];})(),
   };
+  const ideas=L==='ru'
+    ?['30 минут английского каждый день','Читать 1 книгу в месяц','100% посещаемость в этом месяце','Закончить проект курса','Набрать 90+ баллов на тестах','Писать код 1 час в день']
+    :L==='en'
+    ?['30 minutes of English every day','Read 1 book a month','100% attendance this month','Finish the course project','Score 90+ on tests','Code for 1 hour a day']
+    :['Har kuni 30 daqiqa ingliz tili','Oyiga 1 ta kitob o\'qish','Bu oy 100% davomat','Kurs loyihasini tugatish','Testlardan 90+ ball olish','Har kuni 1 soat kod yozish'];
 
-  // Yutuqlar uchun ma'lumot
-  const cu=getCurrentUser();
-  const studentId=cu.studentId?parseInt(cu.studentId):null;
-  const s=studentId?((D&&D.students)||[]).find(x=>x.id===studentId):null;
+  // Yutuqlar
   const grp=s?(D.groups||[]).find(g=>g.id===s.groupId):null;
   const allInGrp=grp?(D.students||[]).filter(st=>st.groupId===grp.id):[];
   const attData=D.attendance||{};
@@ -940,10 +959,11 @@ function renderStudentGoalsPage(){
   const attPct=s?getAtt(s.id):0;
   const ratings=allInGrp.map(st=>({id:st.id,p:getAtt(st.id)})).sort((a,b)=>b.p-a.p);
   const rank=ratings.findIndex(r=>r.id===(s?s.id:0))+1;
-  const howUz=['Davomat 80% dan yuqori bo\'lsin','Oyiga 90%+ darsga keling','Guruhda davomat bo\'yicha 1-o\'rin','100% davomat — birorta o\'tkazmasdan','Birinchi maqsadni qo\'shing','Kamida 1 maqsadni bajaring'];
-  const howRu=['Посещаемость выше 80%','Посещайте 90%+ уроков','1-е место в группе по посещаемости','100% посещаемость без пропусков','Добавьте первую цель','Выполните хотя бы 1 цель'];
-  const howEn=['Attendance above 80%','Attend 90%+ of lessons','#1 in group by attendance','100% attendance, no skips','Add your first goal','Complete at least 1 goal'];
-  const howArr=L==='ru'?howRu:L==='en'?howEn:howUz;
+  const how=L==='ru'
+    ?['Посещаемость выше 80%','Посещайте 90%+ уроков','1-е место в группе','100% без пропусков','Добавьте первую цель','Выполните 1 цель']
+    :L==='en'
+    ?['Attendance above 80%','Attend 90%+ of lessons','#1 in your group','100%, no skips','Add your first goal','Complete 1 goal']
+    :['Davomat 80% dan yuqori','90%+ darsga keling','Guruhda 1-o\'rin','100% — o\'tkazmasdan','Birinchi maqsadni qo\'shing','1 ta maqsadni bajaring'];
   const achList=[
     {icon:'🎓',name:tr('A\'lochi','Отличник','Top student'),earned:attPct>=80},
     {icon:'⚡',name:tr('Faol o\'quvchi','Активный','Active'),earned:attPct>=90},
@@ -954,81 +974,108 @@ function renderStudentGoalsPage(){
   ];
   const earnedCount=achList.filter(a=>a.earned).length;
 
-  // Ro'yxat (filtr bo'yicha)
+  // Ro'yxat
   const shown=goals.filter(g=>filter==='all'?true:filter==='done'?g.done:!g.done);
-  const emptyText=!goals.length?`<b>${lbl.emptyT}</b>${lbl.emptySub}`:filter==='active'?`<b>${lbl.emptyAct}</b>`:`<b>${lbl.emptyDone}</b>`;
-  const listHtml=shown.length?shown.map(g=>`
-      <div class="gp-item${g.done?' is-done':''}">
-        <button type="button" class="gp-check" onclick="toggleStudentGoal(${g.id})" title="${g.done?lbl.unmark:lbl.mark}" aria-label="${g.done?lbl.unmark:lbl.mark}">${g.done?'✓':''}</button>
-        <div class="gp-item-body">
-          <div class="gp-item-text">${_goalEsc(g.text)}</div>
-          <div class="gp-item-meta">
-            <span class="gp-badge ${g.done?'done':'active'}">${g.done?lbl.done:lbl.active}</span>
-            ${g.deadline?`<span>${_goalDeadlineLabel(g.deadline,g.done)}</span>`:''}
+  const emptyHtml=!goals.length?`<b>${lbl.emptyT}</b>${lbl.emptySub}`:filter==='active'?`<b>${lbl.emptyAct}</b>`:`<b>${lbl.emptyDone}</b>`;
+  const listHtml=shown.length?shown.map(g=>{
+    const late=!g.done&&g.deadline&&dayDiff(g.deadline)<0;
+    return `
+        <div class="gx-item${g.done?' is-done':''}${late?' is-late':''}">
+          <button type="button" class="gx-check" onclick="toggleStudentGoal(${g.id})" title="${g.done?lbl.unmark:lbl.mark}" aria-label="${g.done?lbl.unmark:lbl.mark}">${g.done?'✓':''}</button>
+          <div class="gx-item-body">
+            <div class="gx-item-text">${_goalEsc(g.text)}</div>
+            <div class="gx-item-meta">
+              <span class="gx-badge ${g.done?'done':'active'}">${g.done?lbl.done:lbl.active}</span>
+              ${g.deadline?`<span>${_goalDeadlineLabel(g.deadline,g.done)}</span>`:''}
+            </div>
           </div>
-        </div>
-        <button type="button" class="gp-del" onclick="deleteStudentGoal(${g.id})" title="${lbl.del}" aria-label="${lbl.del}">🗑</button>
-      </div>`).join(''):`
-      <div class="gp-empty"><div class="gp-empty-ic">🎯</div>${emptyText}</div>`;
+          <button type="button" class="gx-del" onclick="deleteStudentGoal(${g.id})" title="${lbl.del}" aria-label="${lbl.del}">🗑</button>
+        </div>`;}).join(''):`
+        <div class="gx-empty"><div class="gx-empty-ic">🎯</div>${emptyHtml}</div>`;
+  const tab=(k,label,n)=>`<button type="button" class="gx-tab${filter===k?' on':''}" onclick="setGoalFilter('${k}')">${label}<i>${n}</i></button>`;
 
-  const tab=(k,label,n)=>`<button type="button" class="gp-tab${filter===k?' on':''}" onclick="setGoalFilter('${k}')">${label}<i>${n}</i></button>`;
+  // Yaqin muddatlar
+  const months=L==='ru'?['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек']:L==='en'?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']:['yan','fev','mar','apr','may','iyn','iyl','avg','sen','okt','noy','dek'];
+  const upcoming=goals.filter(g=>!g.done&&g.deadline).sort((a,b)=>new Date(a.deadline)-new Date(b.deadline)).slice(0,4);
+  const dlHtml=upcoming.length?upcoming.map(g=>{const d=new Date(g.deadline);return `
+          <div class="gx-dl-row">
+            <div class="gx-dl-date"><b>${d.getDate()}</b><small>${months[d.getMonth()]}</small></div>
+            <div class="gx-dl-txt"><div>${_goalEsc(g.text)}</div><span>${_goalDeadlineLabel(g.deadline,false)}</span></div>
+          </div>`;}).join(''):`<div class="gx-muted">${lbl.dlNone}</div>`;
+
+  const ideasHtml=ideas.map(i=>`<button type="button" class="gx-idea" onclick="fillGoalIdea(this.textContent)">${_goalEsc(i)}</button>`).join('');
 
   const achHtml=achList.map((a,ai)=>`
-        <div class="gp-ach${a.earned?' on':''}" title="${_goalEsc(howArr[ai])}">
-          <div class="gp-ach-ic">${a.earned?a.icon:'🔒'}</div>
-          <div class="gp-ach-name">${a.name}</div>
-          <div class="gp-ach-how">${a.earned?'✓ '+lbl.achGot:_goalEsc(howArr[ai])}</div>
+        <div class="gx-ach${a.earned?' on':''}">
+          <div class="gx-ach-ic">${a.earned?a.icon:'🔒'}</div>
+          <div class="gx-ach-name">${a.name}</div>
+          <div class="gx-ach-how">${a.earned?'✓ '+lbl.achGot:_goalEsc(how[ai])}</div>
         </div>`).join('');
 
   body.innerHTML=`
-  <div class="gp">
-    <div class="gp-main">
-      <section class="gp-hero">
-        <div class="gp-ring" style="--p:${progPct}">
-          <div class="gp-ring-in"><b>${progPct}%</b><small>${lbl.ring}</small></div>
+  <div class="gx">
+    <section class="gx-hero">
+      <div class="gx-hero-txt">
+        <span class="gx-eyebrow">${lbl.eyebrow}</span>
+        <h1>${lbl.hello}</h1>
+        <div class="gx-hero-quote">“${lbl.quote}”</div>
+        <div class="gx-bar">
+          <div class="gx-bar-track"><div class="gx-bar-fill" style="width:${progPct}%"></div></div>
+          <div class="gx-bar-cap">${lbl.barCap}</div>
         </div>
-        <div class="gp-hero-txt">
-          <div class="gp-eyebrow">${lbl.title}</div>
-          <div class="gp-hero-title">${goals.length?lbl.heroSome.replace('{d}',doneGoals).replace('{n}',goals.length):lbl.heroNone}</div>
-          <div class="gp-hero-sub">“${lbl.quote}”</div>
-          <div class="gp-stats">
-            <div class="gp-stat"><b>${activeGoals}</b>${lbl.active}</div>
-            <div class="gp-stat"><b>${doneGoals}</b>${lbl.done}</div>
-            <div class="gp-stat"><b>${earnedCount}/6</b>${lbl.achTitle}</div>
+      </div>
+      <div class="gx-ring" style="--p:${progPct}">
+        <div class="gx-ring-in"><b>${progPct}%</b><small>${lbl.ring}</small></div>
+      </div>
+    </section>
+
+    <div class="gx-stats">
+      <div class="gx-stat"><div class="gx-stat-ic">🎯</div><div class="gx-stat-txt"><b>${goals.length}</b><span>${lbl.total}</span></div></div>
+      <div class="gx-stat c-amber"><div class="gx-stat-ic">🔥</div><div class="gx-stat-txt"><b>${activeGoals}</b><span>${lbl.active}</span></div></div>
+      <div class="gx-stat c-green"><div class="gx-stat-ic">🏆</div><div class="gx-stat-txt"><b>${doneGoals}</b><span>${lbl.done}</span></div></div>
+      <div class="gx-stat c-rose"><div class="gx-stat-ic">⏰</div><div class="gx-stat-txt"><b>${soonGoals.length}</b><span>${lbl.soon}</span></div></div>
+    </div>
+
+    <div class="gx-grid">
+      <section class="gx-card">
+        <div class="gx-card-head">
+          <div><h3>${lbl.listT}</h3><p>${lbl.listSub}</p></div>
+          <div class="gx-tabs">
+            ${tab('all',lbl.all,goals.length)}
+            ${tab('active',lbl.active,activeGoals)}
+            ${tab('done',lbl.doneTab,doneGoals)}
           </div>
         </div>
-      </section>
-
-      <section class="gp-card">
-        <div class="gp-add">
+        <div class="gx-add">
           <input type="text" id="new-goal-inp" placeholder="${lbl.addPh}" onkeydown="if(event.key==='Enter')addStudentGoal()" maxlength="200">
           <input type="date" id="new-goal-deadline" title="${t('goal_deadline_label')}">
           <button type="button" class="btn btn-primary" onclick="addStudentGoal()">+ ${lbl.addBtn}</button>
         </div>
-        <div class="gp-tabs">
-          ${tab('all',lbl.all,goals.length)}
-          ${tab('active',lbl.active,activeGoals)}
-          ${tab('done',lbl.doneTab,doneGoals)}
-        </div>
-        <div class="gp-list">${listHtml}
+        <div class="gx-list">${listHtml}
         </div>
       </section>
+
+      <div class="gx-col">
+        <section class="gx-card">
+          <div class="gx-card-head"><div><h3>⏰ ${lbl.dlT}</h3><p>${lbl.dlSub}</p></div></div>
+          <div class="gx-dl">${dlHtml}
+          </div>
+        </section>
+        <section class="gx-card">
+          <div class="gx-card-head"><div><h3>✨ ${lbl.ideasT}</h3><p>${lbl.ideasSub}</p></div></div>
+          <div class="gx-ideas">${ideasHtml}</div>
+        </section>
+      </div>
     </div>
 
-    <aside class="gp-side">
-      <section class="gp-card">
-        <div class="gp-card-head">
-          <div><h3>🏆 ${lbl.achTitle}</h3><p>${earnedCount}/6 ${lbl.achSub}</p></div>
-          <span class="gp-pill">${earnedCount}/6</span>
-        </div>
-        <div class="gp-ach-grid">${achHtml}
-        </div>
-      </section>
-      <section class="gp-card gp-quote">
-        <span class="gp-quote-ic">✨</span>
-        <div><div style="font-style:normal;font-weight:700;color:var(--text);margin-bottom:2px">${lbl.motTitle}</div>${lbl.quote}</div>
-      </section>
-    </aside>
+    <section class="gx-card">
+      <div class="gx-card-head">
+        <div><h3>🏆 ${lbl.achT}</h3><p>${lbl.achSub}</p></div>
+        <span class="gx-pill">${earnedCount} / 6</span>
+      </div>
+      <div class="gx-ach-grid">${achHtml}
+      </div>
+    </section>
   </div>`;
 }
 

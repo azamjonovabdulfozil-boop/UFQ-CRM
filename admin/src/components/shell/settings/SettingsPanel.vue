@@ -1,65 +1,82 @@
 <template>
       <div id="panel-settings" class="panel">
-        <div class="sett-page">
-          <!-- Bo'limlarga tez o'tish -->
-          <nav class="sett-jump" aria-label="Sozlamalar bo'limlari">
-            <button v-for="s in sections" :key="s.id" type="button" class="sett-jump-btn" @click="jump(s.id)">
-              <span :data-t="s.t">{{ s.label }}</span>
+        <div class="sett-shell">
+          <!-- Chap: sozlamalar menyusi -->
+          <nav class="sett-nav" aria-label="Sozlamalar">
+            <div class="sett-nav-cap" data-t="settings">Sozlamalar</div>
+            <button
+              v-for="s in sections"
+              :key="s.id"
+              type="button"
+              class="sett-nav-item"
+              :class="{ active: tab === s.id }"
+              @click="open(s.id)"
+            >
+              <span class="sett-nav-ic" v-html="s.icon"></span>
+              <span class="sett-nav-txt">
+                <b :data-t="s.t">{{ s.label }}</b>
+                <small :data-t="'sett_nav_' + s.id">{{ s.sub }}</small>
+              </span>
             </button>
           </nav>
 
-          <section class="sett-section" id="sett-sec-look">
-            <header class="sett-sec-head">
-              <h2 data-t="sett_sec_look">Ko'rinish</h2>
-              <p data-t="sett_sec_look_sub">Mavzu, asosiy rang va matn o'lchami — faqat sizning qurilmangizda</p>
-            </header>
-            <AppearanceCard />
-          </section>
+          <!-- O'ng: tanlangan bo'lim. Hamma kartalar DOM'da qoladi (v-show) —
+               core skriptlar ularni id bo'yicha topadi. -->
+          <div class="sett-content">
+            <section v-show="tab === 'look'" class="sett-pane">
+              <header class="sett-pane-head">
+                <h2 data-t="sett_sec_look">Ko'rinish</h2>
+                <p data-t="sett_sec_look_sub">Mavzu, asosiy rang va matn o'lchami — faqat sizning qurilmangizda</p>
+              </header>
+              <AppearanceCard />
+            </section>
 
-          <section class="sett-section" id="sett-sec-brand">
-            <header class="sett-sec-head">
-              <h2 data-t="sett_sec_brand">Brending</h2>
-              <p data-t="sett_sec_brand_sub">CRM nomi va logotipi — hamma foydalanuvchilarga ko'rinadi</p>
-            </header>
-            <div class="sett-grid">
+            <section v-show="tab === 'brand'" class="sett-pane">
+              <header class="sett-pane-head">
+                <h2 data-t="sett_sec_brand">Brending</h2>
+                <p data-t="sett_sec_brand_sub">CRM nomi va logotipi — hamma foydalanuvchilarga ko'rinadi</p>
+              </header>
               <CrmNameCard />
               <LogoCard />
-            </div>
-          </section>
+            </section>
 
-          <section class="sett-section" id="sett-sec-access">
-            <header class="sett-sec-head">
-              <h2 data-t="sett_sec_access">Hisoblar va xavfsizlik</h2>
-              <p data-t="sett_sec_access_sub">Kirish loginlari, parollar va bloklangan qurilmalar</p>
-            </header>
-            <div class="sett-grid sett-grid-3">
+            <section v-show="tab === 'access'" class="sett-pane">
+              <header class="sett-pane-head">
+                <h2 data-t="sett_sec_access">Hisoblar</h2>
+                <p data-t="sett_sec_access_sub">Admin, mentor va talabalarning kirish loginlari va parollari</p>
+              </header>
               <AdminCredsCard />
               <MentorCredsCard />
               <StudentCredsCard />
-            </div>
-            <div class="sett-stack">
+            </section>
+
+            <section v-show="tab === 'devices'" class="sett-pane">
+              <header class="sett-pane-head">
+                <h2 data-t="sett_sec_devices">Xavfsizlik</h2>
+                <p data-t="sett_sec_devices_sub">Parol ko'p marta xato kiritilgani uchun bloklangan qurilmalar</p>
+              </header>
               <BlockedDevicesCard />
-            </div>
-          </section>
+            </section>
 
-          <section class="sett-section" id="sett-sec-data">
-            <header class="sett-sec-head">
-              <h2 data-t="sett_sec_data">Ma'lumotlar</h2>
-              <p data-t="sett_sec_data_sub">Zaxira nusxa olish va tozalash</p>
-            </header>
-            <DataCard />
-          </section>
+            <section v-show="tab === 'data'" class="sett-pane">
+              <header class="sett-pane-head">
+                <h2 data-t="sett_sec_data">Ma'lumotlar</h2>
+                <p data-t="sett_sec_data_sub">Zaxira nusxa olish va tozalash</p>
+              </header>
+              <DataCard />
+            </section>
 
-          <section class="sett-section" id="sett-sec-menu">
-            <header class="sett-sec-head">
-              <h2 data-t="sett_sec_menu">Menyu bo'limlari</h2>
-              <p data-t="sett_sec_menu_sub">Chap menyuda qaysi bo'limlar ko'rinishini tanlang</p>
-            </header>
-            <NavVisibilityCard />
-          </section>
+            <section v-show="tab === 'menu'" class="sett-pane">
+              <header class="sett-pane-head">
+                <h2 data-t="sett_sec_menu">Menyu bo'limlari</h2>
+                <p data-t="sett_sec_menu_sub">Chap menyuda qaysi bo'limlar ko'rinishini tanlang</p>
+              </header>
+              <NavVisibilityCard />
+            </section>
 
-          <!-- Talaba uchun eski karta — core skriptlar uni topishi uchun DOM'da qoladi -->
-          <div hidden><StudentMotivationCard /></div>
+            <!-- Talaba uchun eski karta — core skriptlar uni topishi uchun DOM'da qoladi -->
+            <div hidden><StudentMotivationCard /></div>
+          </div>
         </div>
       </div>
 </template>
@@ -75,16 +92,16 @@ import StudentCredsCard from "./StudentCredsCard.vue";
 import BlockedDevicesCard from "./BlockedDevicesCard.vue";
 import StudentMotivationCard from "./StudentMotivationCard.vue";
 import NavVisibilityCard from "./NavVisibilityCard.vue";
+import { SETT_ICONS, useSettingsTab } from "./settingsNav.js";
 
 const sections = [
-  { id: "sett-sec-look", t: "sett_sec_look", label: "Ko'rinish" },
-  { id: "sett-sec-brand", t: "sett_sec_brand", label: "Brending" },
-  { id: "sett-sec-access", t: "sett_sec_access", label: "Hisoblar va xavfsizlik" },
-  { id: "sett-sec-data", t: "sett_sec_data", label: "Ma'lumotlar" },
-  { id: "sett-sec-menu", t: "sett_sec_menu", label: "Menyu bo'limlari" },
+  { id: "look", t: "sett_sec_look", label: "Ko'rinish", sub: "Mavzu, rang, matn", icon: SETT_ICONS.look },
+  { id: "brand", t: "sett_sec_brand", label: "Brending", sub: "Nom va logotip", icon: SETT_ICONS.brand },
+  { id: "access", t: "sett_sec_access", label: "Hisoblar", sub: "Login va parollar", icon: SETT_ICONS.access },
+  { id: "devices", t: "sett_sec_devices", label: "Xavfsizlik", sub: "Bloklangan qurilmalar", icon: SETT_ICONS.devices },
+  { id: "data", t: "sett_sec_data", label: "Ma'lumotlar", sub: "Zaxira va tozalash", icon: SETT_ICONS.data },
+  { id: "menu", t: "sett_sec_menu", label: "Menyu bo'limlari", sub: "Menyuni sozlash", icon: SETT_ICONS.menu },
 ];
 
-function jump(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+const { tab, open } = useSettingsTab(sections.map((s) => s.id));
 </script>
