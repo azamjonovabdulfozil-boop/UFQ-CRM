@@ -6,6 +6,7 @@
           <ThemeCard />
           <FontCard />
           <AccentCard />
+          <NavVisibilityCard />
           <DataCard />
           <!-- ADMIN SELF CREDENTIALS CARD - faqat admin ko'radi -->
           <AdminCredsCard />
@@ -26,6 +27,7 @@ import LogoCard from "./LogoCard.vue";
 import ThemeCard from "./ThemeCard.vue";
 import FontCard from "./FontCard.vue";
 import AccentCard from "./AccentCard.vue";
+import NavVisibilityCard from "./NavVisibilityCard.vue";
 import DataCard from "./DataCard.vue";
 import AdminCredsCard from "./AdminCredsCard.vue";
 import MentorCredsCard from "./MentorCredsCard.vue";
