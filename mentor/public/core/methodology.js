@@ -52,6 +52,8 @@
           return {};
         })
         .then(function (d) {
+          if (r.status === 404 && /^\/api\/methodology(\?|$)/.test(path))
+            throw new Error("Server hali yangilanmagan: «Metodologiya» bo'limi serverda yo'q. Render'dagi deploy tugashini kuting yoki lokal serverni qayta ishga tushiring (backend papkasida npm install, keyin start-all.sh).");
           if (!r.ok || !d.ok) throw new Error((d && d.error) || "Server xatosi (" + r.status + ")");
           return d;
         });

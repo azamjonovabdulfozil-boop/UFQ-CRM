@@ -58,6 +58,18 @@ const stripTags = (h) => squash(decodeEntities(String(h).replace(/<br\s*\/?>/gi,
 
 /* ─── Fayldan qatorlar ───────────────────────────────────────────────────── */
 
+// pdf.js Promise.withResolvers'dan foydalanadi (Node 22+). Eski Node uchun.
+if (typeof Promise.withResolvers !== "function") {
+  Promise.withResolvers = function () {
+    let resolve, reject;
+    const promise = new Promise((a, b) => {
+      resolve = a;
+      reject = b;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 /** PDF → [{t, page}] — har bir sahifa matni qatorlarga bo'linadi. */
 async function pdfLines(buf) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");

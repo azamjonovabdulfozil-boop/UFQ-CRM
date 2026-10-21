@@ -114,7 +114,11 @@ export async function safeFetch(rawUrl, { maxBytes = 12 * 1024 * 1024, timeoutMs
       r = await fetch(check.url.href, {
         signal: ctl.signal,
         redirect: "manual", // har qadamni O'ZIMIZ tekshiramiz
-        headers: { Accept: "image/*", "User-Agent": "EduManage-ImageProxy/1.0" },
+        // Ba'zi saytlar noma'lum botlarni bloklaydi — oddiy brauzer kabi so'raymiz
+        headers: {
+          Accept: "image/avif,image/webp,image/png,image/*;q=0.8,*/*;q=0.5",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        },
       });
     } catch (e) {
       clearTimeout(timer);

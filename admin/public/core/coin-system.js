@@ -322,6 +322,32 @@
     } catch (e) {}
   }
 
+  // Server proxy orqali ololmagan rasmlar (masalan, tashqi sayt serverni
+  // bloklaydi) — 24 soat qayta so'ralmaydi: rasm asl havoladan ko'rinadi,
+  // konsol esa har ochilishda 502 xatolar bilan to'lmaydi.
+  var BG_FAIL_KEY = "cs_bg_fail_v1";
+  var BG_FAIL_TTL = 24 * 60 * 60 * 1000;
+  var _bgFail = {};
+  try {
+    _bgFail = JSON.parse(Storage.prototype.getItem.call(localStorage, BG_FAIL_KEY) || "{}") || {};
+  } catch (e) {}
+  function _failedRecently(src) {
+    return _bgFail[src] && Date.now() - _bgFail[src] < BG_FAIL_TTL;
+  }
+  function _rememberFail(src) {
+    if (/^data:/i.test(src)) return;
+    _bgFail[src] = Date.now();
+    try {
+      var keys = Object.keys(_bgFail).slice(-300);
+      var keep = {};
+      keys.forEach(function (k) {
+        if (Date.now() - _bgFail[k] < BG_FAIL_TTL) keep[k] = _bgFail[k];
+      });
+      _bgFail = keep;
+      Storage.prototype.setItem.call(localStorage, BG_FAIL_KEY, JSON.stringify(keep));
+    } catch (e) {}
+  }
+
   function _bgPump() {
     var wait = _bgPausedUntil - Date.now();
     if (wait > 0) {
@@ -351,6 +377,7 @@
           _bgCache[job.src] = out || job.src;
           if (!out || out === job.src) {
             if (!failed) _rememberSkip(job.src);
+            else _rememberFail(job.src);
           } else _applyBgToDom(job.src);
           _bgPump();
         });
@@ -377,7 +404,7 @@
         if (_bgCache[src] !== src) el.src = _bgCache[src];
         continue;
       }
-      if (_bgSkip[src]) {
+      if (_bgSkip[src] || _failedRecently(src)) {
         _bgCache[src] = src;
         continue;
       }

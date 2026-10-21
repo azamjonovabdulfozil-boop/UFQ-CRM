@@ -718,7 +718,10 @@ app.get("/api/img-proxy", requireAuth, imgProxyLimiter, async (req, res) => {
     out = null;
   }
   if (!out) {
-    out = await safeFetch(url, { maxBytes: 12 * 1024 * 1024, timeoutMs: 10000 });
+    out = await safeFetch(url, { maxBytes: 12 * 1024 * 1024, timeoutMs: 15000 });
+    // Tarmoq uzilishi / vaqt tugashi — bir marta qayta urinamiz
+    if (!out.ok && out.status === 502 && /Vaqt|Ulanib/.test(out.error || ""))
+      out = await safeFetch(url, { maxBytes: 12 * 1024 * 1024, timeoutMs: 15000 });
     if (!out.ok) {
       if (out.status === 400)
         await audit("proxy.blocked", { req, actor: req.user, meta: { url: safeLog(url, 200), reason: out.error }, severity: "warn" });
