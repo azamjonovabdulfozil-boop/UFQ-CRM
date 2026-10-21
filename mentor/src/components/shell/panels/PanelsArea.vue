@@ -6,6 +6,7 @@
       <GroupsPanel />
 
       <MentorPanels />
+      <MentorMethodPanel />
 
       <StudentPanels />
 
@@ -34,6 +35,7 @@ import DashboardPanel from "./DashboardPanel.vue";
 import CoursesPanel from "./CoursesPanel.vue";
 import GroupsPanel from "./GroupsPanel.vue";
 import MentorPanels from "./MentorPanels.vue";
+import MentorMethodPanel from "./MentorMethodPanel.vue";
 import StudentPanels from "./StudentPanels.vue";
 import MentorsPanel from "./MentorsPanel.vue";
 import StudentsPanel from "./StudentsPanel.vue";

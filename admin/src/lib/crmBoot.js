@@ -52,6 +52,8 @@ export const SCRIPT_GROUPS = [
   ["crm-ai.js"],
   // 📚 Darsliklar (admin) va davomatdagi «📘 Dars metodi» (mentor)
   ["textbooks.js"],
+  // 🧭 Metodologiya — admin yuklaydi, mentor bo'lim → dars bo'yicha ko'radi
+  ["methodology.js"],
   // Sozlamalar → «Bo'limlar»: kerak bo'lmagan bo'limni menyudan yashirish (go() ni o'raydi)
   ["nav-visibility.js"],
   ["live-sync.js", "responsive-ui.js"],

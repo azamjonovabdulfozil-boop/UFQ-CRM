@@ -19,6 +19,14 @@
     </button>
     <button
       class="nav-btn"
+      id="nav-mentor-method"
+      onclick="go('mentor-method', this)"
+      style="display: none"
+    >
+      <span class="nav-ic">🧭</span><span>Metodologiya</span>
+    </button>
+    <button
+      class="nav-btn"
       id="nav-mentors-my"
       onclick="go('mentors-my', this)"
       style="display: none"

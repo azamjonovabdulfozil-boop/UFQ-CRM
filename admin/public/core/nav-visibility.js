@@ -22,6 +22,7 @@
       ["nav-debtors", "debtors"],
       ["nav-admin-ai", "admin-ai"],
       ["nav-textbooks", "textbooks"],
+      ["nav-methodology", "methodology"],
       ["nav-certificates", "certificates"],
       ["nav-finance", "finance"],
       ["nav-coin-shop", "coin-shop"],
@@ -29,6 +30,7 @@
     mentor: [
       ["nav-mentor-dash", "mentor-dash"],
       ["nav-mentor-groups", "mentor-groups"],
+      ["nav-mentor-method", "mentor-method"],
       ["nav-mentors-my", "mentors-my"],
       ["nav-mentor-chat", "mentor-chat"],
       ["nav-mentor-ai", "mentor-ai"],

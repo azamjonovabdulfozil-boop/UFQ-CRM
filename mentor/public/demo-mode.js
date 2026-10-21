@@ -283,12 +283,20 @@
     return typeof url === 'string' && url.indexOf('/api/') !== -1;
   };
 
+  var DEMO_METHODOLOGY = {"id": "demo-methodology-1", "title": "AI kursi metodologiyasi", "course": "", "fileName": "ai-metodologiya.pdf", "kind": "pdf", "size": 482000, "status": "ready", "error": "", "method": "headings", "pages": 24, "introText": "", "sections": [{"title": "Kompyuter savodxonligi", "introText": "Bu bo'limda talabalar kompyuter bilan ishlashning asoslarini o'rganadi.", "lessons": [{"n": 1, "title": "Kompyuter qismlari", "pages": "2", "text": "Maqsad: talaba kompyuterning asosiy qismlarini biladi.\nDars rejasi:\n- Kirish va savol-javob — 10 daqiqa\n- Protsessor, xotira, disk haqida tushuntirish — 25 daqiqa\n- Amaliyot: qismlarni rasmda belgilash — 40 daqiqa\nMisol: kompyuter qopqog'ini ochib, protsessor va operativ xotirani ko'rsating.\nUyga vazifa: uydagi kompyuterning xususiyatlarini yozib kelish."}, {"n": 2, "title": "Fayl va papkalar", "pages": "3", "text": "Maqsad: papka yaratish, nomlash va fayllarni tartiblash.\n- Papka yaratish va nomini o'zgartirish\n- Faylni ko'chirish va nusxalash\nMisol: «Darslar» papkasida har bir kun uchun alohida papka yarating.\nUyga vazifa: ish stolini tartibga keltirish."}, {"n": 3, "title": "Klaviatura bilan ishlash", "pages": "4", "text": "Maqsad: o'n barmoq usulida yozishni boshlash.\n- Asosiy qator: F va J tugmalari\n- Tezkor tugmalar: Ctrl+C, Ctrl+V, Ctrl+Z\nMisol: 2 daqiqada 60 so'zlik matnni yozish mashqi."}]}, {"title": "Dizaynerlik", "introText": "", "lessons": [{"n": 1, "title": "Rang nazariyasi", "pages": "2", "text": "Maqsad: rang doirasi va kontrastni tushunish.\n- Asosiy va qo'shimcha ranglar\n- Issiq va sovuq ranglar\nMisol: bitta plakat uchun 3 xil rang palitrasini tanlang."}, {"n": 2, "title": "Figma bilan tanishuv", "pages": "3", "text": "Maqsad: Figma interfeysi bilan ishlash.\n- Frame, shakl va matn qo'shish\n- Komponent tushunchasi\nMisol: telefon ilovasi uchun kirish oynasini chizing."}]}, {"title": "Sun'iy intellekt asoslari", "introText": "", "lessons": [{"n": 1, "title": "AI nima?", "pages": "2", "text": "Maqsad: sun'iy intellekt tushunchasini oddiy misollar bilan tushuntirish.\nMisol: telefon kamerasidagi yuzni tanish funksiyasini ko'rsating."}, {"n": 2, "title": "Prompt yozish", "pages": "3", "text": "Maqsad: AI'ga aniq topshiriq berishni o'rganish.\n- Rol, vazifa va format\nMisol: «Menga 5 ta savoldan iborat test tuz» promptini yaxshilang."}]}]};
+  var DEMO_METHODOLOGY_META = {"id": "demo-methodology-1", "title": "AI kursi metodologiyasi", "course": "", "fileName": "ai-metodologiya.pdf", "kind": "pdf", "size": 482000, "status": "ready", "error": "", "method": "headings", "sectionsCount": 3, "lessonsCount": 7};
+
   /**
    * Har bir `/api/` yo'li uchun demo javobi — ilova kutgan SHAKLDA.
    * Shakl noto'g'ri bo'lsa ilova xato beradi, shuning uchun yo'llar
    * birma-bir yozilgan.
    */
   function demoPayload(url) {
+    // Metodologiya — namunaviy hujjat (demo)
+    if (url.indexOf('/api/methodology') !== -1) {
+      if (/\/api\/methodology\/[^/?]+/.test(url)) return { ok: true, item: DEMO_METHODOLOGY };
+      return { ok: true, items: [DEMO_METHODOLOGY_META] };
+    }
     if (url.indexOf('/api/users') !== -1) {
       return { ok: true, mentors: DEMO_MENTOR_USERS, students: DEMO_STUDENT_USERS };
     }

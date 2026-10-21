@@ -566,13 +566,13 @@ function loadUI(){
     // Rolga qarab to'g'ri tabni yuklash
     const role=(()=>{try{return JSON.parse(localStorage.getItem('edumanage_auth_v10')||'{}').role||'';}catch(e){return '';}})();
     if(role==='Mentor'){
-      const ok=['mentor-dash','mentor-groups','mentors-my','mentor-chat','mentor-ai','tests-mentor','grades-mentor','mentor-videos','settings'];
+      const ok=['mentor-dash','mentor-groups','mentors-my','mentor-chat','mentor-ai','tests-mentor','grades-mentor','mentor-videos','mentor-method','settings'];
       currentTab=ok.includes(savedTab)?savedTab:'mentor-dash';
     } else if(role==='Talaba'){
       const ok=['student-my','student-schedule','student-rating','student-grades','student-tests','student-chat','student-ai','student-videos','student-goals','student-coin-shop','settings'];
       currentTab=ok.includes(savedTab)?savedTab:'student-my';
     } else {
-      const ok=['dashboard','courses','groups','mentors','students','finance','settings','coin-shop'];
+      const ok=['dashboard','courses','groups','mentors','students','finance','settings','coin-shop','methodology'];
       currentTab=ok.includes(savedTab)?savedTab:'dashboard';
     }
   }catch(e){}

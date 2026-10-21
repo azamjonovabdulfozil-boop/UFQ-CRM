@@ -36,6 +36,7 @@ import { geminiTts, geminiTtsConfigured, pcmToWav } from "./geminiTts.js";
 // Mentor va talaba AI si: rolga mos ko'rsatma, tarix, so'kinish nazorati.
 import { initAiPortal, HAQORAT_MARK } from "./aiPortal.js";
 import { initTextbooks } from "./textbooks.js";
+import { initMethodology } from "./methodology.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -1684,6 +1685,8 @@ const aiPortal = initAiPortal({
 
 // 📚 Darsliklar — admin PDF yuklaydi, AI darslarga ajratadi, mentor davomatda ko'radi
 initTextbooks({ app, getDb, ROLES, requireAuth, requireRole, writeLimiter, audit, fail });
+// 🧭 Metodologiya — admin yuklaydi (PDF/Word/Excel), mentor bo'lim → dars bo'yicha ko'radi
+initMethodology({ app, getDb, ROLES, requireAuth, requireRole, writeLimiter, audit, fail });
 
 // 🎤 Ovozli xabarni o'zbekcha matnga o'girish. Sinovda Gemini transkripsiya
 // modeli o'zbekchani so'zma-so'z aniq yozdi. Matn javobga ham qaytariladi —

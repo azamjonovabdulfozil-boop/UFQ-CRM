@@ -692,6 +692,10 @@ function execDelCourse(id) {
 function updateTopbar(tab) {
   const L = LANG;
   const titles = {
+    methodology:
+      L === "ru" ? "🧭 Методология" : L === "en" ? "🧭 Methodology" : "🧭 Metodologiya",
+    "mentor-method":
+      L === "ru" ? "🧭 Методология" : L === "en" ? "🧭 Methodology" : "🧭 Metodologiya",
     dashboard: t("dashboard_title"),
     courses: t("courses_title"),
     groups: t("groups_title"),
@@ -798,6 +802,10 @@ function updateTopbar(tab) {
           : "🛍️ Coin Shop",
   };
   const subs = {
+    methodology:
+      L === "ru" ? "Загрузка · Разделы · Уроки" : L === "en" ? "Upload · Sections · Lessons" : "Yuklash · Bo'limlar · Darslar",
+    "mentor-method":
+      L === "ru" ? "Что пройти сегодня · Разделы · Уроки" : L === "en" ? "What to teach today · Sections · Lessons" : "Bugun nima o'tiladi · Bo'limlar · Darslar",
     dashboard: t("dashboard_sub"),
     courses: t("courses_sub"),
     groups: t("groups_sub"),
@@ -934,6 +942,8 @@ function go(tab, el) {
   currentTab = tab;
   saveUI();
   updateTopbar(tab);
+  if (tab === "methodology" && typeof renderMethodology === "function") renderMethodology();
+  if (tab === "mentor-method" && typeof renderMentorMethod === "function") renderMentorMethod();
   if (tab === "dashboard") renderDashboard();
   if (tab === "debtors" && typeof renderDebtors === "function") {
     // Telegram bog'lanishlari serverda — har kirishda yangilab olamiz.
@@ -956,6 +966,7 @@ function go(tab, el) {
           "nav-debtors",
           "nav-finance",
           "nav-certificates",
+          "nav-methodology",
           "nav-admin-chats",
         ].forEach(function (id) {
           var el = document.getElementById(id);
@@ -972,11 +983,13 @@ function go(tab, el) {
           "nav-debtors",
           "nav-finance",
           "nav-certificates",
+          "nav-methodology",
           "nav-admin-chats",
           "nav-mentor-dash",
           "nav-mentor-groups",
           "nav-mentors-my",
           "nav-mentor-chat",
+          "nav-mentor-method",
           "nav-tests-mentor",
           "nav-grades-mentor",
           "nav-tests",
@@ -1136,6 +1149,7 @@ function initApp() {
       "nav-mentors-my",
       "nav-mentor-chat",
       "nav-mentor-ai",
+      "nav-mentor-method",
       "nav-mentor-students-ai",
       "nav-admin-chats",
       "nav-tests-mentor",

@@ -267,10 +267,10 @@ function showApp() {
 // ── Mentor view ───────────────────────────────────────────────────────────────
 function setupMentorView() {
   const cu = getCurrentUser();
-  ['nav-dashboard', 'nav-courses', 'nav-groups', 'nav-mentors', 'nav-students', 'nav-debtors', 'nav-admin-ai', 'nav-finance', 'nav-certificates', 'nav-coin-shop', 'nav-student-coin-shop'].forEach(id => {
+  ['nav-methodology', 'nav-dashboard', 'nav-courses', 'nav-groups', 'nav-mentors', 'nav-students', 'nav-debtors', 'nav-admin-ai', 'nav-finance', 'nav-certificates', 'nav-coin-shop', 'nav-student-coin-shop'].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = 'none';
   });
-  ['nav-mentor-dash', 'nav-mentor-groups', 'nav-mentors-my', 'nav-mentor-chat', 'nav-mentor-ai', 'nav-mentor-students-ai', 'nav-tests-mentor', 'nav-grades-mentor', 'nav-mentor-videos', 'nav-settings'].forEach(id => {
+  ['nav-mentor-dash', 'nav-mentor-groups', 'nav-mentor-method', 'nav-mentors-my', 'nav-mentor-chat', 'nav-mentor-ai', 'nav-mentor-students-ai', 'nav-tests-mentor', 'nav-grades-mentor', 'nav-mentor-videos', 'nav-settings'].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = 'flex';
   });
   const btnReset = document.getElementById('btn-reset');
@@ -283,7 +283,7 @@ function setupMentorView() {
   if (uRole) uRole.textContent = 'Mentor';
   const av = document.querySelector('.u-av');
   if (av) av.textContent = (cu.name || 'M').substring(0, 2).toUpperCase();
-  const mentorTabs=['mentor-dash','mentor-groups','mentors-my','mentor-chat','mentor-ai','tests-mentor','grades-mentor','mentor-videos','settings','tests','grades'];
+  const mentorTabs=['mentor-dash','mentor-groups','mentors-my','mentor-chat','mentor-ai','tests-mentor','grades-mentor','mentor-videos','mentor-method','settings','tests','grades'];
   const tab = (mentorTabs.indexOf(currentTab)>=0 ? currentTab : 'mentor-dash');
   const navEl = document.getElementById('nav-' + tab) || document.getElementById('nav-mentor-dash');
   go(tab, navEl);
@@ -295,7 +295,7 @@ function setupMentorView() {
 // ── Talaba view ───────────────────────────────────────────────────────────────
 function setupStudentView() {
   const cu = getCurrentUser();
-  ['nav-courses', 'nav-groups', 'nav-mentors', 'nav-students', 'nav-debtors', 'nav-admin-ai', 'nav-finance', 'nav-certificates', 'nav-settings',
+  ['nav-methodology', 'nav-mentor-method', 'nav-courses', 'nav-groups', 'nav-mentors', 'nav-students', 'nav-debtors', 'nav-admin-ai', 'nav-finance', 'nav-certificates', 'nav-settings',
    'nav-dashboard', 'nav-mentor-dash', 'nav-mentor-groups', 'nav-mentors-my', 'nav-mentor-chat', 'nav-tests-mentor',
    'nav-grades-mentor', 'nav-tests', 'nav-grades'].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = 'none';
