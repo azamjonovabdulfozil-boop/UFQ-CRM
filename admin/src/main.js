@@ -40,6 +40,13 @@ function resolveBackend() {
   return { api: base, sse: base }
 }
 
+// Super Admin oddiy CRM panelini ochmoqchi (?crm=1) — router /dashboard ga
+// yo'naltirganda query yo'qoladi, shuning uchun belgini oldindan saqlaymiz.
+try {
+  if (new URLSearchParams(window.location.search).get('crm') === '1')
+    sessionStorage.setItem('edu_super_crm', '1')
+} catch (e) {}
+
 const backend = resolveBackend()
 // core/*.js skriptlari shu global'larni o'qiydi
 window.__API_BASE__ = backend.api

@@ -146,6 +146,19 @@ export const CONFIG = {
   bootstrapAdminUser: (process.env.BOOTSTRAP_ADMIN_USER || "admin").trim(),
   bootstrapAdminPassword: (process.env.BOOTSTRAP_ADMIN_PASSWORD || "").trim(),
 
+  // ── Hisoblarni ENV orqali o'rnatish (parol kodda ham, gitda ham yo'q) ──
+  // Parol faqat ENV qiymati O'ZGARGANDA qo'llanadi (barmoq izi bazada
+  // saqlanadi) — panelda o'zgartirilgan parol har restartda qaytib
+  // ketmaydi. Namunaviy parolni almashtirish: ENV ga yangisini yozing.
+  adminLogin: (process.env.ADMIN_LOGIN || "").trim(),
+  adminPassword: (process.env.ADMIN_PASSWORD || "").trim(),
+  superAdminLogin: (process.env.SUPER_ADMIN_LOGIN || "").trim(),
+  superAdminPassword: (process.env.SUPER_ADMIN_PASSWORD || "").trim(),
+  // Super Admin sessiyasi tezroq tugaydi (harakatsizlik, soniya)
+  superIdleTimeoutSec: int(process.env.SUPER_ADMIN_IDLE_TIMEOUT, 2 * 3600),
+  // Parolni tiklash havolasi qancha yashaydi (soniya)
+  resetTokenTtlSec: int(process.env.PASSWORD_RESET_TTL, 30 * 60),
+
   // ── Audit ──────────────────────────────────────────────────────────────
   auditRetentionDays: int(process.env.AUDIT_RETENTION_DAYS, 180),
 
@@ -178,6 +191,12 @@ export function auditEnvironment() {
 
   if (CONFIG.bootstrapAdminPassword && CONFIG.bootstrapAdminPassword.length < CONFIG.passwordMinLength)
     problems.push("BOOTSTRAP_ADMIN_PASSWORD juda qisqa.");
+  if (CONFIG.superAdminPassword && CONFIG.superAdminPassword.length < 10)
+    problems.push("SUPER_ADMIN_PASSWORD juda qisqa — kamida 10 belgi.");
+  if (CONFIG.superAdminLogin && CONFIG.adminLogin && CONFIG.superAdminLogin.toLowerCase() === CONFIG.adminLogin.toLowerCase())
+    problems.push("ADMIN_LOGIN va SUPER_ADMIN_LOGIN bir xil bo'lmasligi kerak.");
+  if (IS_PROD && /^(admin123|password|12345)/i.test(CONFIG.adminPassword))
+    warnings.push("ADMIN_PASSWORD namunaviy qiymatda — ishlab chiqarishda almashtiring.");
 
   if (problems.length) {
     console.error("\n🛑 XAVFSIZLIK: server ishga tushmadi\n" + problems.map((p) => "   • " + p).join("\n") + "\n");

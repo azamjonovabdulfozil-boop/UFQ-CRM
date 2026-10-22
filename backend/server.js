@@ -37,6 +37,23 @@ import { geminiTts, geminiTtsConfigured, pcmToWav } from "./geminiTts.js";
 import { initAiPortal, HAQORAT_MARK } from "./aiPortal.js";
 import { initTextbooks } from "./textbooks.js";
 import { initMethodology } from "./methodology.js";
+// 👑 Super Admin: monitoring, analitika, modullar, jurnal, hisobotlar, zaxira
+import { metricsMiddleware } from "./superadmin/metrics.js";
+import {
+  summarizeCrmChange,
+  isAuditableSettingWrite,
+  recordLessonMarks,
+  ensureLessonMarkIndexes,
+} from "./superadmin/changes.js";
+import {
+  initSettings,
+  getSettings,
+  sectionPolicy,
+  stripSections,
+  protectSections,
+  createModuleApiGuard,
+} from "./superadmin/settings.js";
+import { createSuperRouter } from "./superadmin/router.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -77,6 +94,9 @@ const {
   escapeHtml,
   byteLength,
   safeLog,
+  resolveUser,
+  requireSuperAdmin,
+  rateLimit,
 } = await import("./security/index.js");
 
 const requireAdmin = [requireAuth, requireRole(ROLES.ADMIN)];
@@ -103,6 +123,8 @@ const app = express();
 // ⚠️ Xavfsizlik middleware'lari ENG BOSHIDA — sarlavhalar, CORS oq ro'yxati,
 // cookie o'qish. Marshrutlar ulardan keyin ro'yxatdan o'tadi.
 const security = installSecurity(app);
+// So'rov vaqti va xatolarini xotirada sanaydi (Super Admin → Monitoring)
+app.use(metricsMiddleware);
 // 🔧 BUG FIX: video/PDF fayllar base64 shaklida ~33% kattaroq bo'ladi,
 // shuning uchun limitni oshirdik (video-file-upload va test-pdf-upload
 // funksiyalari uchun kerak). Katta video fayllar uchun baribir YouTube
@@ -113,6 +135,8 @@ app.use(bodyErrorHandler);
 // Tozalash (NoSQL injection), so'rov limiti, CSRF Origin tekshiruvi,
 // va /api/auth/* marshrutlari
 security.afterBodyParser(app);
+// Super Admin o'chirgan modullarning API'lari oddiy admin uchun yopiq (403)
+app.use(createModuleApiGuard({ resolveUser, audit }));
 
 // ─── Static fayl cache headers (tezlik uchun) ────────────────────────────────
 // ⚠️ BUG FIX: core/*.js va portal CSS fayllari nomi o'zgarmaydi (hash yo'q),
@@ -374,7 +398,9 @@ app.get("/api/data", requireAuth, async (req, res) => {
     const doc = await readCrmData();
     if (doc) {
       const { _id, _type, _migratedAt, ...data } = doc;
-      res.json({ ok: true, data });
+      // Super Admin yopgan bo'limlar (masalan Moliya) oddiy adminga berilmaydi
+      const pol = await sectionPolicy(req.user);
+      res.json({ ok: true, data: stripSections(data, pol.readBlocked) });
     } else {
       res.json({ ok: false, data: null });
     }
@@ -414,32 +440,42 @@ const BACKUP_COL = "crm_data_backups";
 const BACKUP_KEEP = 40;
 const BACKUP_MIN_GAP_MS = 10 * 60 * 1000; // har 10 daqiqada bir nusxa yetarli
 
-async function snapshotCrmData(prev, reason) {
-  if (!prev || dataWeight(prev) === 0) return;
+// Super Admin qo'lda olgan nusxalar ("manual") avtomatik nusxalar bilan
+// almashib ketmaydi — ular alohida sanaladi.
+const BACKUP_KEEP_MANUAL = 20;
+const MANUAL_REASONS = ["manual", "pre-restore"];
+
+/** @returns {Promise<ObjectId|null>} yaratilgan nusxa id si */
+async function snapshotCrmData(prev, reason, opts = {}) {
+  if (!prev || dataWeight(prev) === 0) return null;
   try {
     const col = getDb().collection(BACKUP_COL);
-    if (reason !== "shrink") {
-      const last = await col.findOne({}, { sort: { createdAt: -1 } });
+    if (reason !== "shrink" && !opts.force) {
+      const last = await col.findOne({ reason: { $nin: MANUAL_REASONS } }, { sort: { createdAt: -1 } });
       if (last && Date.now() - new Date(last.createdAt).getTime() < BACKUP_MIN_GAP_MS)
-        return;
+        return null;
     }
     const { _id, ...body } = prev;
-    await col.insertOne({
+    const ins = await col.insertOne({
       createdAt: new Date(),
       reason: reason || "auto",
       weight: dataWeight(prev),
+      createdBy: opts.by || null,
       data: body,
     });
-    // Faqat oxirgi BACKUP_KEEP ta nusxa qoladi
-    const old = await col
-      .find({}, { projection: { _id: 1 } })
-      .sort({ createdAt: -1 })
-      .skip(BACKUP_KEEP)
-      .toArray();
-    if (old.length)
-      await col.deleteMany({ _id: { $in: old.map((d) => d._id) } });
+    // Avtomatik nusxalardan oxirgi BACKUP_KEEP tasi, qo'lda olinganlardan
+    // oxirgi BACKUP_KEEP_MANUAL tasi qoladi
+    const prune = async (filter, keep) => {
+      const old = await col.find(filter, { projection: { _id: 1 } }).sort({ createdAt: -1 }).skip(keep).toArray();
+      if (old.length) await col.deleteMany({ _id: { $in: old.map((d) => d._id) } });
+    };
+    await prune({ reason: { $nin: MANUAL_REASONS } }, BACKUP_KEEP);
+    await prune({ reason: { $in: MANUAL_REASONS } }, BACKUP_KEEP_MANUAL);
+    return ins.insertedId;
   } catch (e) {
     console.warn("⚠️ crm_data zaxira nusxasi saqlanmadi:", e.message);
+    audit("backup.failed", { meta: { reason, message: e.message }, severity: "critical" }).catch(() => {});
+    return null;
   }
 }
 
@@ -460,7 +496,14 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
     // mentor moliya/sertifikatdan tashqarini o'zgartira oladi. Ruxsat
     // etilmagan bo'limlar SERVERDAGI nusxadan tiklanadi — ya'ni bitta
     // so'rov bilan butun bazani qayta yozib bo'lmaydi.
-    const { data: clean, rejected } = applyCrmWritePolicy(req.user.role, raw, prev || {});
+    const { data: clean0, rejected } = applyCrmWritePolicy(req.user.role, raw, prev || {});
+    // Super Admin yopgan modullarning bo'limlari serverdagi nusxadan tiklanadi
+    const pol = await sectionPolicy(req.user);
+    const { data: clean, rejected: modRejected } = protectSections(clean0, prev || {}, pol.writeBlocked);
+    if (modRejected.length) {
+      rejected.push(...modRejected);
+      await audit("module.write_denied", { req, actor: req.user, meta: { sections: modRejected }, severity: "warn" });
+    }
     if (rejected.length)
       await audit("data.write.partial_denied", {
         req,
@@ -496,6 +539,19 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
         { $set: { ...clean, _type: "main", _updatedAt: new Date() } },
         { upsert: true },
       );
+    // Kim nimani o'zgartirdi — Super Admin faoliyat tarixi uchun qisqa xulosa
+    // (nomlar, id'lar va maydon NOMLARI; qiymatlar — telefon va h.k. — yozilmaydi)
+    try {
+      const change = summarizeCrmChange(prev, clean);
+      if (change)
+        audit("data.change", {
+          req,
+          actor: req.user,
+          meta: { summary: change.summary, sections: change.sections, ids: change.ids.slice(0, 50) },
+        });
+      // Dars birinchi marta qachon belgilangani ("o'z vaqtida" ko'rsatkichi uchun)
+      if ("attendance" in clean) recordLessonMarks(getDb(), prev?.attendance, clean.attendance, req.user).catch(() => {});
+    } catch {}
     // CRM ma'lumoti ayni shu kalit ostida KV'ga ham yoziladi — mijozlar
     // o'zgarishni shu nom orqali taniydi.
     broadcast(["edumanage_crm_v8"], originOf(req));
@@ -857,6 +913,13 @@ app.get("/api/kv", requireAuth, async (req, res) => {
     const wanted = want.length && !want.includes("*") ? new Set(want) : null;
     const data = {};
     for (const doc of all) if (!wanted || wanted.has(doc.key)) data[doc.key] = doc.value;
+    // Super Admin yopgan bo'limlar KV dagi CRM nusxasidan ham olib tashlanadi
+    const pol = await sectionPolicy(req.user);
+    if (pol.readBlocked.size && typeof data[CRM_KV_KEY] === "string") {
+      try {
+        data[CRM_KV_KEY] = JSON.stringify(stripSections(JSON.parse(data[CRM_KV_KEY]), pol.readBlocked));
+      } catch {}
+    }
     // Hisob ma'lumotlari va sozlamalar talaba/mentor javobiga tushmaydi
     res.json({ ok: true, data: filterKvForRole(req.user.role, data), rev: revision });
   } catch (e) {
@@ -923,15 +986,35 @@ app.post("/api/kv", requireAuth, blockUntilPasswordChanged, writeLimiter, async 
     if (value != null && byteLength(value) > SEC.maxKvValueBytes)
       return res.status(413).json({ ok: false, code: "payload-too-large", error: "Qiymat juda katta" });
 
+    // Super Admin yopgan modul kalitlari (masalan Coin Shop) va CRM bo'limlari
+    const pol = await sectionPolicy(req.user);
+    if (pol.kvBlocked.has(key)) {
+      await audit("module.write_denied", { req, actor: req.user, meta: { key }, severity: "warn" });
+      return res.status(403).json({ ok: false, code: "module-disabled", error: "Bu bo'lim Super Admin tomonidan o'chirilgan" });
+    }
+
     // CRM obyekti KV orqali ham kelishi mumkin — maydon siyosati shu yerda ham
     let outValue = value;
+    if (key === "edumanage_crm_v8" && pol.writeBlocked.size && value != null) {
+      try {
+        const cur = await getDb().collection("kv").findOne({ key });
+        const { data: guarded } = protectSections(
+          JSON.parse(String(value)),
+          cur ? JSON.parse(String(cur.value)) : {},
+          pol.writeBlocked,
+        );
+        outValue = JSON.stringify(guarded);
+      } catch (e) {
+        return res.status(400).json({ ok: false, error: "CRM ma'lumoti JSON formatida emas" });
+      }
+    }
     if (key === "edumanage_crm_v8" && req.user.role !== ROLES.ADMIN && value != null) {
       try {
         const cur = await getDb().collection("kv").findOne({ key });
         const currentObj = cur ? JSON.parse(String(cur.value)) : {};
         const { data: filtered, rejected } = applyCrmWritePolicy(
           req.user.role,
-          JSON.parse(String(value)),
+          JSON.parse(String(outValue)),
           currentObj,
         );
         outValue = JSON.stringify(filtered);
@@ -964,6 +1047,8 @@ app.post("/api/kv", requireAuth, blockUntilPasswordChanged, writeLimiter, async 
           { upsert: true },
         );
     }
+    if (isAuditableSettingWrite(key, req.user?.sub))
+      audit("settings.change", { req, actor: req.user, meta: { setting: key, removed: outValue == null } });
     broadcast([key], originOf(req));
     res.json({ ok: true });
   } catch (e) {
@@ -981,9 +1066,12 @@ app.post("/api/kv/bulk", requireAuth, blockUntilPasswordChanged, writeLimiter, a
 
     // Har bir kalit alohida tekshiriladi — bittasi ham ruxsatsiz bo'lsa,
     // BUTUN so'rov rad etiladi (qisman yozuv ma'lumotni buzishi mumkin).
+    const pol = await sectionPolicy(req.user);
     for (const p of pairs) {
       const k = safeKvKey(p?.key);
       if (!k) return res.status(400).json({ ok: false, error: "Kalit yaroqsiz: " + safeLog(p?.key, 60) });
+      if (pol.kvBlocked.has(k))
+        return res.status(403).json({ ok: false, code: "module-disabled", error: "Bu bo'lim Super Admin tomonidan o'chirilgan" });
       const perm = canWriteKvKey(req.user.role, k, req.user);
       if (!perm.ok) {
         await audit("kv.bulk.denied", { req, actor: req.user, meta: { key: k }, severity: "warn" });
@@ -992,6 +1080,16 @@ app.post("/api/kv/bulk", requireAuth, blockUntilPasswordChanged, writeLimiter, a
       if (p.value != null && byteLength(p.value) > SEC.maxKvValueBytes)
         return res.status(413).json({ ok: false, code: "payload-too-large", error: "Qiymat juda katta: " + k });
       p.value = scrubPortalUsersKv(k, p.value);
+      if (k === "edumanage_crm_v8" && pol.writeBlocked.size && p.value != null) {
+        try {
+          const cur = await getDb().collection("kv").findOne({ key: k });
+          p.value = JSON.stringify(
+            protectSections(JSON.parse(String(p.value)), cur ? JSON.parse(String(cur.value)) : {}, pol.writeBlocked).data,
+          );
+        } catch (e) {
+          return res.status(400).json({ ok: false, error: "CRM ma'lumoti JSON formatida emas" });
+        }
+      }
       if (k === "edumanage_crm_v8" && req.user.role !== ROLES.ADMIN) {
         try {
           const cur = await getDb().collection("kv").findOne({ key: k });
@@ -1119,6 +1217,25 @@ app.get("/api/db/stats", requireAdmin, async (req, res) => {
 // Mentor/admin bitta katakni belgilaganda chaqiriladi. Bot ichida debounce bor:
 // ketma-ket belgilashlar Telegramda BITTA xabarga birlashadi va o'sha xabar
 // tahrirlanadi.
+// Super Admin → Sozlamalar → Bildirishnomalar: kanal o'chirilgan bo'lsa xabar ketmaydi
+async function notifyToggle(req, res, next) {
+  try {
+    const n = (await getSettings()).notifications;
+    if (req.path.startsWith("/api/telegram/attendance") && n.telegramAttendance === false)
+      return res.json({ ok: true, skipped: "disabled-by-super-admin" });
+    if (req.path.startsWith("/api/notify/") && n.debtorMessages === false)
+      return res.status(409).json({
+        ok: false,
+        code: "notifications-disabled",
+        error: "Qarzdorlarga xabar yuborish Super Admin tomonidan o'chirilgan",
+      });
+  } catch {}
+  next();
+}
+app.use(["/api/telegram/attendance", "/api/notify/parents", "/api/notify/sms", "/api/notify/bot"], (req, res, next) =>
+  req.method === "POST" ? notifyToggle(req, res, next) : next(),
+);
+
 app.post("/api/telegram/attendance", requireStaff, expensiveLimiter, async (req, res) => {
   const { groupId, year, month, lesson } = req.body || {};
   if (
@@ -2524,6 +2641,58 @@ app.use((err, _req, res, next) => {
 
 const PORT = parseInt(process.env.PORT || "3000");
 
+// ─── 👑 SUPER ADMIN API ──────────────────────────────────────────────────────
+initSettings(getDb);
+{
+  const sec = await import("./security/index.js");
+  const acc = await import("./security/accounts.js");
+  const cry = await import("./security/crypto.js");
+  const totp = await import("./security/totp.js");
+  const sess = await import("./security/sessions.js");
+  const san = await import("./security/sanitize.js");
+  const cache = await import("./security/cache.js");
+  app.use(
+    createSuperRouter({
+      getDb,
+      audit,
+      requireAuth,
+      requireSuperAdmin,
+      rateLimit,
+      broadcast: (keys) => broadcast(keys, null),
+      snapshotCrmData,
+      dataWeight,
+      BACKUP_COL,
+      CRM_KV_KEY,
+      sseCount: () => sseClients.size,
+      sec: {
+        CONFIG: SEC,
+        ACCOUNTS_COL: acc.COL,
+        findById: acc.findById,
+        publicView: acc.publicView,
+        upsertAccount: acc.upsertAccount,
+        setStatus: acc.setStatus,
+        bumpTokenVersion: acc.bumpTokenVersion,
+        setPasswordInternal: acc.setPasswordInternal,
+        verifyPassword: cry.verifyPassword,
+        randomToken: cry.randomToken,
+        sha256: cry.sha256,
+        newTotpSecret: totp.newTotpSecret,
+        verifyTotp: totp.verifyTotp,
+        encryptSecret: totp.encryptSecret,
+        decryptSecret: totp.decryptSecret,
+        otpauthUri: totp.otpauthUri,
+        listSessions: sess.listSessions,
+        revokeAllForAccount: sess.revokeAllForAccount,
+        revokeSessionById: sess.revokeSessionById,
+        invalidateAccount: cache.invalidateAccount,
+        safeUsername: san.safeUsername,
+        safeObjectIdHex: san.safeObjectIdHex,
+        _unused: sec,
+      },
+    }),
+  );
+}
+
 // ── Static fayllar yo'llari ─────────────────────────────────────────────────
 const adminPublic = join(__dirname, "..", "admin", "public");
 const mentorPublic = join(__dirname, "..", "mentor", "public");
@@ -2536,6 +2705,18 @@ const studentDist = join(__dirname, "..", "student", "dist");
 // Vite build qilinsa dist/ papkasi ishlatiladi.
 // dist/ papkasida public/ ichidagi fayllar ham bo'ladi (Vite avtomatik ko'chiradi).
 // Agar dist/ yo'q bo'lsa — public/ dan ishlaydi.
+
+// ── 👑 Super Admin paneli — admin portali ichidagi alohida sahifa ─────────────
+// Vercel'da: <admin-domen>/super-admin/ ; backend orqali: /admin/super-admin/
+// Sahifaning o'zi hech qanday ma'lumot bermaydi — barcha ma'lumot API dan,
+// API esa har so'rovda Super Admin rolini tekshiradi.
+const superIndex = join(adminDist, "super-admin", "index.html");
+app.get(["/super-admin", "/super-admin/*"], (req, res) => res.redirect(302, "/admin/super-admin/"));
+app.get(["/admin/super-admin", "/admin/super-admin/"], (_req, res) => {
+  existsSync(superIndex)
+    ? res.sendFile(superIndex)
+    : res.status(503).send("Super Admin paneli build qilinmagan (cd admin && npm run build)");
+});
 
 const portals = [
   { prefix: "/admin", dist: adminDist, pub: adminPublic },
@@ -2706,6 +2887,8 @@ async function start() {
   if (mongoOk) {
     try {
       await initSecurityStore(getDb);
+      initSettings(getDb);
+      await ensureLessonMarkIndexes(getDb());
     } catch (e) {
       console.error("🛑 Xavfsizlik qatlami ishga tushmadi:", e.message);
       if (SEC.isProd) process.exit(1);

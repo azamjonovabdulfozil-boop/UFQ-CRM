@@ -1823,9 +1823,17 @@ window.__crmBoot = function () {
     return showLogin();
   }
 
+  // Bir martalik tiklash havolasi (?reset=...) — avval yangi parol o'rnatiladi
+  if (typeof resetTokenFromUrl === "function" && resetTokenFromUrl()) return showResetPanel();
+
   window.CRMAuth.restore()
     .then((user) => {
       if (!user) return showLogin();
+      // 👑 Super Admin — o'zining alohida paneliga (?crm=1 bilan CRM'ni ochishi mumkin)
+      if (user.role === "superadmin" && typeof superWantsCrm === "function" && !superWantsCrm()) {
+        location.replace(superAdminUrl());
+        return;
+      }
       if (user.mustChangePassword && typeof promptPasswordChange === "function")
         return promptPasswordChange();
       // Sessiya tayyor — endi CRM ma'lumotini serverdan yuklaymiz.

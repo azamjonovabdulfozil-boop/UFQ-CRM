@@ -211,9 +211,12 @@
   }
 
   /** Kirish. @returns {Promise<{ok:boolean, user?:object, error?:string, code?:string}>} */
-  function login(username, password) {
+  function login(username, password, otp) {
     state.noSession = false; // yangi urinish — eski "sessiya yo'q" holati bekor
-    return postJson("/api/auth/login", { username: username, password: password })
+    var body = { username: username, password: password };
+    // 2 bosqichli tasdiqlash yoqilgan hisoblar uchun (Super Admin)
+    if (otp) body.otp = String(otp).replace(/\s+/g, "");
+    return postJson("/api/auth/login", body)
       .then(function (r) {
         return r.json().then(function (d) {
           return { status: r.status, d: d };
@@ -315,6 +318,19 @@
     );
   }
 
+  /** Bir martalik havola (?reset=...) orqali yangi parol o'rnatish. */
+  function resetPassword(token, newPassword) {
+    return postJson("/api/auth/reset-password", { token: token, newPassword: newPassword })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return { ok: false, error: "Server javobi noto'g'ri" };
+        });
+      })
+      .catch(function () {
+        return { ok: false, error: "Serverga ulanib bo'lmadi" };
+      });
+  }
+
   /** O'z login va/yoki parolini yangilash — joriy parol so'ralmaydi. */
   function updateCredentials(username, newPassword) {
     return getToken()
@@ -409,6 +425,7 @@
   window.CRMAuth = {
     login: login,
     logout: logout,
+    resetPassword: resetPassword,
     refresh: refresh,
     getToken: getToken,
     /** Xotiradagi yaroqli token (sinxron). backend-storage.js shuni ishlatadi. */

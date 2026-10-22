@@ -124,7 +124,9 @@
 
   function sections() {
     return (SECTIONS[role()] || []).filter(function (it) {
-      return !!document.getElementById(it[0]);
+      var el = document.getElementById(it[0]);
+      // Super Admin o'chirgan bo'lim bu ro'yxatda ham ko'rinmaydi
+      return !!el && !el.classList.contains("nav-super-hidden");
     });
   }
 

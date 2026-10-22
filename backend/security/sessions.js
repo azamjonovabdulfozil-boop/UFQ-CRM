@@ -137,7 +137,9 @@ export async function rotateSession(rawToken, req) {
 
   // Uzoq harakatsizlik — sessiya o'ladi
   const idleMs = now.getTime() - new Date(sess.lastUsedAt || sess.createdAt).getTime();
-  if (idleMs > CONFIG.idleTimeoutSec * 1000) {
+  // Super Admin sessiyasi qisqaroq harakatsizlikdan keyin yopiladi
+  const idleLimit = sess.role === "superadmin" ? Math.min(CONFIG.idleTimeoutSec, CONFIG.superIdleTimeoutSec) : CONFIG.idleTimeoutSec;
+  if (idleMs > idleLimit * 1000) {
     await col.updateOne({ _id: sess._id }, { $set: { revokedAt: now, revokeReason: "idle" } });
     return { ok: false, code: "session-idle", error: "Uzoq vaqt harakatsizlik — qaytadan kiring" };
   }
@@ -196,6 +198,17 @@ export async function revokeAllForAccount(accountId, reason = "revoke-all") {
     .collection(COL)
     .updateMany({ accountId: String(accountId), revokedAt: null }, { $set: { revokedAt: new Date(), revokeReason: reason } });
   return r.modifiedCount;
+}
+
+/** Bitta sessiyani (oilasi bilan) id bo'yicha bekor qilish — Super Admin uchun. */
+export async function revokeSessionById(accountId, sessionId, reason = "super-revoke") {
+  if (typeof sessionId !== "string" || !/^[a-f0-9]{24}$/i.test(sessionId)) return false;
+  const { ObjectId } = await import("mongodb");
+  const col = db().collection(COL);
+  const sess = await col.findOne({ _id: new ObjectId(sessionId), accountId: String(accountId) });
+  if (!sess) return false;
+  await col.updateMany({ family: sess.family, revokedAt: null }, { $set: { revokedAt: new Date(), revokeReason: reason } });
+  return true;
 }
 
 /** Foydalanuvchining faol qurilmalari ro'yxati. */

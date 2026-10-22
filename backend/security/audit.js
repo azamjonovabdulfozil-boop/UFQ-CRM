@@ -30,6 +30,8 @@ export async function ensureAuditIndexes() {
     await col.createIndex({ event: 1, at: -1 });
     await col.createIndex({ actorId: 1, at: -1 });
     await col.createIndex({ ip: 1, at: -1 });
+    await col.createIndex({ actorRole: 1, at: -1 });
+    await col.createIndex({ severity: 1, at: -1 });
     ready = true;
   } catch (e) {
     console.warn("⚠️  Audit indekslari yaratilmadi:", e.message);
@@ -68,7 +70,7 @@ export async function audit(event, info = {}) {
     severity,
     actorId: actor?.sub || actor?.id || null,
     actorName: actor?.username || actor?.name || null,
-    actorRole: actor?.role || null,
+    actorRole: actor?.accountRole || actor?.role || null,
     ip: req ? clientIp(req) : null,
     ua: req ? safeLog(req.get("user-agent"), 200) : null,
     method: req?.method || null,

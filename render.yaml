@@ -62,6 +62,24 @@ services:
       - key: BOOTSTRAP_ADMIN_PASSWORD
         sync: false
 
+      # ─── ADMIN VA SUPER ADMIN HISOBLARI ────────────────────────────────
+      # Parollar kodda ham, gitda ham yo'q — faqat shu yerda (Render →
+      # Environment). Parol QIYMATI O'ZGARGANDA serverning keyingi ishga
+      # tushishida bir marta qo'llanadi; panelda o'zgartirilgan parol
+      # restartda qaytib ketmaydi. Namunaviy parolni almashtirish yoki Super
+      # Admin hisobini tiklash uchun — shu qiymatni yangisiga o'zgartiring.
+      - key: ADMIN_LOGIN
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SUPER_ADMIN_LOGIN
+        value: Abdulfozil
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      # Super Admin sessiyasi necha soniya harakatsizlikdan keyin yopiladi
+      - key: SUPER_ADMIN_IDLE_TIMEOUT
+        value: "7200"
+
       # Eski (xeshlanmagan) parollar bilan kirishga ruxsat. Barcha foydalanuvchi
       # bir marta kirib bo'lgach 0 ga o'zgartiring — o'shanda parollar
       # to'liq scrypt'ga ko'chgan bo'ladi.

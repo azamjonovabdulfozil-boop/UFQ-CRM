@@ -18,12 +18,26 @@ import { initAccounts, ensureAccountIndexes } from "./accounts.js";
 import { initSessions, ensureSessionIndexes } from "./sessions.js";
 import { initDevices, ensureDeviceIndexes, deviceId } from "./devices.js";
 import { bootstrapSecurity } from "./bootstrap.js";
-import { createAuthRouter } from "./routes.js";
+import { createAuthRouter, initRoutesDb } from "./routes.js";
 
 export * from "./middleware.js";
 export * from "./policy.js";
 export { CONFIG } from "./config.js";
-export { ROLES, publicView, toLegacyRole, fromLegacyRole } from "./accounts.js";
+export {
+  ROLES,
+  SUPERADMIN_ROLE,
+  isAdminLike,
+  publicView,
+  toLegacyRole,
+  fromLegacyRole,
+  findById,
+  setStatus,
+  bumpTokenVersion,
+  COL as ACCOUNTS_COL,
+} from "./accounts.js";
+export { listSessions, revokeAllForAccount, revokeSessionById, SESSION_COLLECTION } from "./sessions.js";
+export { invalidateAccount } from "./cache.js";
+export { recentEvents, AUDIT_COLLECTION } from "./audit.js";
 export { audit } from "./audit.js";
 export { rateLimit, expensiveLimiter, ttsLimiter, imgProxyLimiter, writeLimiter, publicLookupLimiter, clientIp, deviceKey } from "./rateLimit.js";
 export { deviceId, checkDeviceBlock, listBlockedDevices, unblockDevice } from "./devices.js";
@@ -121,6 +135,7 @@ export async function initSecurityStore(getDb) {
   initAccounts(getDb);
   initSessions(getDb);
   initDevices(getDb);
+  initRoutesDb(getDb);
 
   await ensureAuditIndexes();
   await ensureAccountIndexes();

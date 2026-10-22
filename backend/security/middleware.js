@@ -11,7 +11,7 @@
  */
 import { verifyToken, randomToken, timingSafeStr } from "./crypto.js";
 import { CONFIG } from "./config.js";
-import { findByIdCached, ROLES } from "./accounts.js";
+import { findByIdCached, ROLES, SUPERADMIN_ROLE } from "./accounts.js";
 import { audit } from "./audit.js";
 
 // ─── Cookie o'qish/yozish (tashqi kutubxonasiz) ───────────────────────────────
@@ -138,6 +138,7 @@ export async function resolveUser(req) {
   if ((acc.tokenVersion || 1) !== p.tv)
     return { ok: false, code: "token-stale", error: "Sessiya bekor qilingan — qaytadan kiring" };
 
+  const isSuper = acc.role === SUPERADMIN_ROLE;
   return {
     ok: true,
     user: {
@@ -145,7 +146,13 @@ export async function resolveUser(req) {
       id: String(acc._id),
       username: acc.username,
       name: acc.name,
-      role: acc.role,
+      // Super Admin mavjud admin marshrutlarida admin sifatida ishlaydi;
+      // Super Admin API'lari esa `isSuper` ni talab qiladi.
+      role: isSuper ? ROLES.ADMIN : acc.role,
+      accountRole: acc.role,
+      isSuper,
+      // Oddiy admin uchun Super Admin bergan shaxsiy cheklovlar (modullar)
+      adminRestrictions: !isSuper && acc.role === ROLES.ADMIN ? acc.restrictions || null : null,
       mentorName: acc.mentorName || null,
       studentId: acc.studentId ?? null,
       studentName: acc.studentName || null,
@@ -199,6 +206,26 @@ export function requireRole(...roles) {
 }
 
 export const requireAdmin = [requireAuth, requireRole(ROLES.ADMIN)];
+
+/**
+ * Faqat Super Admin. Oddiy admin token bilan kelsa ham — 403 va jurnalga
+ * yoziladi. Tekshiruv HAR SO'ROVDA bazadagi hisob holatidan (rol) qilinadi,
+ * tokendagi yozuvga ishonilmaydi.
+ */
+export function requireSuper(req, res, next) {
+  if (!req.user) return res.status(401).json({ ok: false, code: "no-token", error: "Avtorizatsiya talab qilinadi" });
+  if (!req.user.isSuper) {
+    audit("authz.super_denied", {
+      req,
+      actor: req.user,
+      meta: { path: String(req.originalUrl || "").split("?")[0].slice(0, 120) },
+      severity: "warn",
+    });
+    return res.status(403).json({ ok: false, code: "forbidden", error: "Bu bo'lim faqat Super Admin uchun" });
+  }
+  next();
+}
+export const requireSuperAdmin = [requireAuth, requireSuper];
 export const requireStaff = [requireAuth, requireRole(ROLES.ADMIN, ROLES.MENTOR)];
 
 /**

@@ -43,7 +43,7 @@
     </div>
     <!-- RIGHT -->
     <div class="ls-right">
-      <div class="ls-form">
+      <div class="ls-form" id="login-form-panel">
         <div class="ls-title">Xush kelibsiz 👋</div>
         <div class="ls-sub">Hisobingizga kiring</div>
         <div class="login-err" id="login-err">Login yoki parol noto'g'ri!</div>
@@ -80,6 +80,22 @@
             >👁</button>
           </div>
         </div>
+        <!-- 2 bosqichli tasdiqlash (faqat yoqilgan hisoblar uchun ko'rinadi) -->
+        <div class="login-fg" id="login-otp-wrap" style="display: none">
+          <label>Tasdiqlash kodi (Authenticator)</label>
+          <div class="ls-inp-wrap">
+            <span class="ls-ico">🛡️</span>
+            <input
+              type="text"
+              id="login-otp"
+              placeholder="6 xonali kod"
+              inputmode="numeric"
+              maxlength="7"
+              autocomplete="one-time-code"
+              onkeydown="if (event.key === 'Enter') doLogin();"
+            />
+          </div>
+        </div>
         <button class="login-btn" onclick="doLogin()">
           <span>Kirish</span>
           <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
@@ -93,6 +109,34 @@
           </svg>
         </button>
         <div class="login-hint"></div>
+      </div>
+      <!-- Bir martalik havola (?reset=...) orqali yangi parol o'rnatish -->
+      <div class="ls-form" id="reset-panel" style="display: none">
+        <div class="ls-title">Yangi parol 🔐</div>
+        <div class="ls-sub">Bir martalik havola orqali parol o'rnatish</div>
+        <div class="login-err" id="reset-err"></div>
+        <div class="login-fg">
+          <label>Yangi parol</label>
+          <div class="ls-inp-wrap">
+            <span class="ls-ico">🔑</span>
+            <input type="password" id="reset-pass" placeholder="kamida 8 belgi" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="login-fg">
+          <label>Parolni takrorlang</label>
+          <div class="ls-inp-wrap">
+            <span class="ls-ico">🔑</span>
+            <input
+              type="password"
+              id="reset-pass2"
+              placeholder="••••••••"
+              autocomplete="new-password"
+              onkeydown="if (event.key === 'Enter') doResetPassword();"
+            />
+          </div>
+        </div>
+        <button class="login-btn" id="reset-btn" onclick="doResetPassword()"><span>Parolni saqlash</span></button>
+        <div class="login-hint" id="reset-hint">Havola faqat bir marta ishlaydi. Eski parol ko'rsatilmaydi.</div>
       </div>
     </div>
   </div>

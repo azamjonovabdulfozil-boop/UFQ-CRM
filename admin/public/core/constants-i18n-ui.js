@@ -546,6 +546,8 @@ function refreshBrandingFromBackend(){
           const slm=document.getElementById('sidebar-crm-name');if(slm)slm.textContent=name;
           const llm=document.getElementById('login-crm-name');if(llm)llm.textContent=name;
           document.title=name+' CRM';
+          // Standart rang/mavzu (Super Admin) o'zgargan bo'lsa — darhol qo'llanadi
+          try{applyUISettings();}catch(e){}
         }
       }
     }).catch(function(){});
@@ -587,9 +589,12 @@ function applyUISettings(){
   const body=document.body;
   body.classList.remove('theme-light','theme-dark','theme-snow','theme-black');
   if(_uiSettings.theme==='snow')_uiSettings.theme='light'; // «Qor» mavzusi olib tashlandi
-  if(_uiSettings.theme==='light')body.classList.add('theme-light');
-  else if(_uiSettings.theme==='dark')body.classList.add('theme-dark');
-  else if(_uiSettings.theme==='black')body.classList.add('theme-dark','theme-black');
+  // Super Admin belgilagan standart mavzu/rang — foydalanuvchi o'zi tanlamagan bo'lsa
+  const _effTheme=(_uiSettings.themeChosen||(_uiSettings.theme&&_uiSettings.theme!=='auto'))?_uiSettings.theme:(_brandSettings.defaultTheme||_uiSettings.theme||'auto');
+  const _effAccent=(_uiSettings.accentChosen||(_uiSettings.accent&&_uiSettings.accent!=='blue'))?_uiSettings.accent:(_brandSettings.defaultAccent||_uiSettings.accent||'blue');
+  if(_effTheme==='light')body.classList.add('theme-light');
+  else if(_effTheme==='dark')body.classList.add('theme-dark');
+  else if(_effTheme==='black')body.classList.add('theme-dark','theme-black');
 
   // FIX #6: Remove all font size classes and re-apply properly
   body.classList.remove('fs-sm','fs-md','fs-lg','fs-xl');
@@ -601,7 +606,7 @@ function applyUISettings(){
   document.documentElement.style.fontSize = fsMap[fs]||'14px';
 
   body.classList.remove('accent-teal','accent-purple','accent-orange','accent-rose','accent-green');
-  if(_uiSettings.accent&&_uiSettings.accent!=='blue')body.classList.add('accent-'+_uiSettings.accent);
+  if(_effAccent&&_effAccent!=='blue')body.classList.add('accent-'+_effAccent);
 
   const name=_brandSettings.crmName||'EduManage';
   document.getElementById('sidebar-crm-name').textContent=name;
@@ -1094,7 +1099,7 @@ function handleLogoUpload(input){
   reader.readAsDataURL(file);
 }
 function removeLogo(){_brandSettings.crmLogo=null;saveBranding();applyLogo();renderSettingsPanel();toast('🗑 Logotip o\'chirildi');}
-function setTheme(th){_uiSettings.theme=th;saveUI();applyUISettings();renderSettingsPanel();}
+function setTheme(th){_uiSettings.theme=th;_uiSettings.themeChosen=true;saveUI();applyUISettings();renderSettingsPanel();}
 
 // FIX #6: Font size change must instantly affect everything
 function setFontSize(s){
@@ -1106,5 +1111,5 @@ function setFontSize(s){
   if(currentTab) updateTopbar(currentTab);
   toast('🔤 Shrift o\'zgartirildi');
 }
-function setAccent(color,el){_uiSettings.accent=color;saveUI();applyUISettings();renderSettingsPanel();toast('🌈 Rang o\'zgartirildi!');}
+function setAccent(color,el){_uiSettings.accent=color;_uiSettings.accentChosen=true;saveUI();applyUISettings();renderSettingsPanel();toast('🌈 Rang o\'zgartirildi!');}
 

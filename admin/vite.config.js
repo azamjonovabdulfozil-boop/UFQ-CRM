@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import vue from "@vitejs/plugin-vue";
+import { resolve } from "path";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -46,6 +47,13 @@ export default defineConfig(({ mode }) => {
       outDir: "dist",
       assetsDir: "assets",
       emptyOutDir: true,
+      // Ikki sahifa: oddiy admin paneli va alohida Super Admin paneli
+      rollupOptions: {
+        input: {
+          main: resolve(__dirname, "index.html"),
+          superAdmin: resolve(__dirname, "super-admin/index.html"),
+        },
+      },
     },
   };
 });

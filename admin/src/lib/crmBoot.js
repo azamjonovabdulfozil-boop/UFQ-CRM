@@ -54,6 +54,8 @@ export const SCRIPT_GROUPS = [
   ["methodology.js"],
   // Sozlamalar → «Bo'limlar»: kerak bo'lmagan bo'limni menyudan yashirish (go() ni o'raydi)
   ["nav-visibility.js"],
+  // Super Admin → «Menyu boshqaruvi»: o'chirilgan modullar menyudan yo'qoladi (go() ni o'raydi)
+  ["modules-guard.js"],
   ["live-sync.js", "responsive-ui.js"],
 ];
 

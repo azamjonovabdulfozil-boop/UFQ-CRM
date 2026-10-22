@@ -19,7 +19,8 @@
  *   GET  /api/admin/audit           — xavfsizlik jurnali
  */
 import { Router } from "express";
-import { issueToken } from "./crypto.js";
+import { issueToken, sha256 } from "./crypto.js";
+import { decryptSecret, verifyTotp } from "./totp.js";
 import { CONFIG } from "./config.js";
 import {
   authenticate,
@@ -34,7 +35,10 @@ import {
   findByUsername,
   renameAccount,
   bumpTokenVersion,
+  setPasswordInternal,
   ROLES,
+  SUPERADMIN_ROLE,
+  COL as ACCOUNTS_COL,
 } from "./accounts.js";
 import { createSession, rotateSession, revokeSession, revokeAllForAccount, listSessions } from "./sessions.js";
 import {
@@ -55,6 +59,38 @@ import {
 } from "./devices.js";
 import { audit, recentEvents } from "./audit.js";
 import { safeUsername, safeString, safeObjectIdHex } from "./sanitize.js";
+
+let _getDbForRoutes = null;
+/** routes.js ga baza kerak (OTP qadami, tiklash tokeni) — index.js ulaydi. */
+export function initRoutesDb(getDb) {
+  _getDbForRoutes = getDb;
+}
+
+/** Hisobning 2 bosqichli tasdig'i yoqilganmi va kod to'g'rimi. */
+async function checkSecondFactor(acc, otp) {
+  if (!acc?.totp?.enabled) return { ok: true, skipped: true };
+  if (otp == null || otp === "")
+    return { ok: false, code: "otp-required", error: "Tasdiqlash kodini kiriting (Authenticator ilovasidan)" };
+  const secret = decryptSecret(acc.totp.secretEnc);
+  if (!secret)
+    return { ok: false, code: "otp-invalid", error: "Tasdiqlash sozlamasi buzilgan — tiklash havolasidan foydalaning" };
+  const step = verifyTotp(secret, otp, acc.totp.lastStep ?? null);
+  if (step == null) return { ok: false, code: "otp-invalid", error: "Tasdiqlash kodi noto'g'ri yoki eskirgan" };
+  if (_getDbForRoutes)
+    await _getDbForRoutes().collection(ACCOUNTS_COL).updateOne({ _id: acc._id }, { $set: { "totp.lastStep": step } });
+  return { ok: true };
+}
+
+/** Oddiy admin Super Admin hisobiga tegishi mumkin emas. */
+async function guardSuperTarget(req, res, id) {
+  const target = await findById(id);
+  if (target && target.role === SUPERADMIN_ROLE && !req.user.isSuper) {
+    await audit("authz.super_target_denied", { req, actor: req.user, target: { id }, severity: "critical" });
+    res.status(403).json({ ok: false, code: "forbidden", error: "Bu hisob himoyalangan" });
+    return false;
+  }
+  return true;
+}
 
 /** Access token — hisobning joriy holatidan quriladi. */
 async function mintAccess(account) {
@@ -137,6 +173,30 @@ export function createAuthRouter() {
       }
 
       const acc = out.account;
+
+      // ── Ikkinchi bosqich (TOTP) — yoqilgan hisoblar uchun ──────────────
+      const second = await checkSecondFactor(acc, req.body?.otp);
+      if (!second.ok) {
+        if (second.code === "otp-invalid") {
+          const note = await noteDeviceFailure(did, req, username);
+          await audit("auth.login.otp_failed", {
+            req,
+            actor: { sub: String(acc._id), username: acc.username, role: acc.role },
+            severity: "warn",
+          });
+          if (note.blocked) {
+            res.setHeader("Retry-After", String(note.retryAfter));
+            return res.status(429).json({
+              ok: false,
+              code: "device-blocked",
+              error: "Juda ko'p xato urinish — qurilma vaqtincha bloklandi.",
+              retryAfter: note.retryAfter,
+            });
+          }
+        }
+        return res.status(401).json({ ok: false, code: second.code, error: second.error });
+      }
+
       const { token: refresh } = await createSession(acc, req);
       const csrf = setRefreshCookie(req, res, refresh);
       const access = await mintAccess(acc);
@@ -149,7 +209,7 @@ export function createAuthRouter() {
       await audit("auth.login.success", {
         req,
         actor: { sub: String(acc._id), username: acc.username, role: acc.role },
-        meta: { legacyUpgraded: !!out.upgraded },
+        meta: { legacyUpgraded: !!out.upgraded, secondFactor: !second.skipped },
       });
 
       res.json({
@@ -210,6 +270,43 @@ export function createAuthRouter() {
     clearAuthCookies(req, res);
     await audit("auth.logout", { req, actor: req.user || null });
     res.json({ ok: true });
+  });
+
+  // ── Parolni bir martalik havola orqali tiklash ──────────────────────────
+  // Havolani Super Admin yaratadi (Administratorlar → Parolni tiklash) yoki
+  // server konsolidagi skript (Super Admin uchun). Eski parol hech qachon
+  // ko'rsatilmaydi; token bazada faqat SHA-256 xeshi ko'rinishida turadi,
+  // bir marta ishlaydi va qisqa muddatda eskiradi.
+  r.post("/auth/reset-password", authLimiter, async (req, res) => {
+    try {
+      const token = safeString(req.body?.token, 200);
+      const pw = req.body?.newPassword ?? req.body?.password;
+      if (!token || typeof pw !== "string")
+        return res.status(400).json({ ok: false, error: "token va yangi parol kerak" });
+      const col = _getDbForRoutes().collection(ACCOUNTS_COL);
+      const acc = await col.findOne({ "resetToken.hash": sha256(token) });
+      if (!acc || !acc.resetToken || new Date(acc.resetToken.expiresAt).getTime() < Date.now()) {
+        await audit("auth.password.reset_invalid", { req, severity: "warn" });
+        return res.status(400).json({ ok: false, code: "reset-invalid", error: "Havola yaroqsiz yoki muddati tugagan" });
+      }
+      if (acc.status === "disabled")
+        return res.status(403).json({ ok: false, code: "account-disabled", error: "Hisob faol emas" });
+      const out = await setPasswordInternal(String(acc._id), pw, req, "auth.password.reset_completed", {
+        sub: String(acc._id),
+        username: acc.username,
+        role: acc.role,
+      });
+      if (!out.ok) return res.status(400).json(out);
+      const unset = { resetToken: "" };
+      // Super Admin uchun konsol skripti 2FA ni ham o'chirishni so'rashi mumkin
+      if (acc.resetToken.disable2fa) unset.totp = "";
+      await col.updateOne({ _id: acc._id }, { $unset: unset });
+      await revokeAllForAccount(String(acc._id), "password-reset");
+      res.json({ ok: true, username: acc.username });
+    } catch (e) {
+      console.error("reset xatosi:", e);
+      res.status(500).json({ ok: false, error: "Tiklashda xatolik" });
+    }
   });
 
   // ── Joriy foydalanuvchi ─────────────────────────────────────────────────
@@ -276,7 +373,9 @@ export function createAuthRouter() {
 
   r.get("/admin/accounts", admin, async (req, res) => {
     const role = safeString(req.query?.role, 20);
-    res.json({ ok: true, accounts: await listAccounts({ role }) });
+    const all = await listAccounts({ role });
+    // Oddiy admin Super Admin hisobini ko'rmaydi ham
+    res.json({ ok: true, accounts: req.user.isSuper ? all : all.filter((a) => !a.isSuper) });
   });
 
   r.post("/admin/accounts", admin, async (req, res) => {
@@ -308,6 +407,7 @@ export function createAuthRouter() {
     if (!id || typeof password !== "string")
       return res.status(400).json({ ok: false, error: "id va password kerak" });
 
+    if (!(await guardSuperTarget(req, res, id))) return;
     const out = await adminResetPassword(id, password, req, req.user);
     if (!out.ok) return res.status(400).json(out);
     await revokeAllForAccount(id, "admin-password-reset");
@@ -320,6 +420,7 @@ export function createAuthRouter() {
     if (!id) return res.status(400).json({ ok: false, error: "id kerak" });
     if (id === req.user.sub && status === "disabled")
       return res.status(400).json({ ok: false, error: "O'z hisobingizni bloklab bo'lmaydi" });
+    if (!(await guardSuperTarget(req, res, id))) return;
 
     const out = await setStatus(id, status);
     if (!out.ok) return res.status(404).json(out);
@@ -332,6 +433,7 @@ export function createAuthRouter() {
     const id = safeObjectIdHex(req.body?.id);
     if (!id) return res.status(400).json({ ok: false, error: "id kerak" });
     if (id === req.user.sub) return res.status(400).json({ ok: false, error: "O'z hisobingizni o'chirib bo'lmaydi" });
+    if (!(await guardSuperTarget(req, res, id))) return;
 
     const out = await deleteAccount(id);
     if (!out.ok) return res.status(400).json(out);

@@ -28,6 +28,15 @@ export const COL = "accounts";
 
 /** Portal rollari ↔ ichki rol nomlari. */
 export const ROLES = { ADMIN: "admin", MENTOR: "mentor", STUDENT: "student" };
+/**
+ * Super Admin — alohida rol. Bazada `role: "superadmin"` bo'lib turadi, lekin
+ * so'rovda (`req.user`) u admin huquqlarini ham oladi (`role: "admin"`,
+ * `isSuper: true`) — mavjud admin tekshiruvlari buzilmaydi, Super Admin
+ * API'lari esa faqat `isSuper` ni tekshiradi. ROLES ichiga QO'SHILMAGAN:
+ * oddiy marshrutlar bu rolni bilmasligi kerak.
+ */
+export const SUPERADMIN_ROLE = "superadmin";
+export const isAdminLike = (role) => role === ROLES.ADMIN || role === SUPERADMIN_ROLE;
 const LEGACY_ROLE_TO_ROLE = {
   "Super Admin": ROLES.ADMIN,
   Admin: ROLES.ADMIN,
@@ -37,6 +46,9 @@ const LEGACY_ROLE_TO_ROLE = {
 };
 const ROLE_TO_LEGACY = {
   [ROLES.ADMIN]: "Super Admin",
+  // Portal kodi "Super Admin" ni admin deb biladi (tarixiy nom). Super Admin
+  // ham admin portalini ocha oladi — farqi `role`/`isSuper` da.
+  [SUPERADMIN_ROLE]: "Super Admin",
   [ROLES.MENTOR]: "Mentor",
   [ROLES.STUDENT]: "Talaba",
 };
@@ -55,6 +67,7 @@ export async function ensureAccountIndexes() {
   await col.createIndex({ role: 1 });
   await col.createIndex({ studentId: 1 }, { sparse: true });
   await col.createIndex({ mentorName: 1 }, { sparse: true });
+  await col.createIndex({ "resetToken.hash": 1 }, { sparse: true });
 }
 
 /** Tashqariga chiqadigan xavfsiz ko'rinish — parol/xesh hech qachon yo'q. */
@@ -70,6 +83,8 @@ export function publicView(acc) {
     studentId: acc.studentId ?? null,
     studentName: acc.studentName || null,
     status: acc.status || "active",
+    isSuper: acc.role === SUPERADMIN_ROLE,
+    twoFactor: !!(acc.totp && acc.totp.enabled),
     mustChangePassword: !!acc.mustChangePassword,
     passwordIsLegacy: !!acc.legacyPassword,
     lastLoginAt: acc.lastLoginAt || null,
@@ -114,8 +129,22 @@ export async function findByIdCached(id) {
 export async function upsertAccount(p) {
   const username = safeUsername(p.username);
   if (!username) return { ok: false, error: "Login yaroqsiz (3–64 belgi: a-z 0-9 . _ - @ +)" };
-  const role = Object.values(ROLES).includes(p.role) ? p.role : fromLegacyRole(p.role);
+  // Super Admin rolini faqat server ichidagi bootstrap beradi (allowSuper)
+  const role =
+    p.role === SUPERADMIN_ROLE && p.allowSuper === true
+      ? SUPERADMIN_ROLE
+      : Object.values(ROLES).includes(p.role)
+        ? p.role
+        : fromLegacyRole(p.role);
   if (!role) return { ok: false, error: "Rol noto'g'ri" };
+
+  // Mavjud Super Admin hisobini oddiy yo'l bilan (admin panelidan) qayta
+  // yozib, rolini tushirib yuborish yoki parolini almashtirish mumkin emas.
+  const existing = await db().collection(COL).findOne({ username }, { projection: { role: 1 } });
+  if (existing && existing.role === SUPERADMIN_ROLE && p.allowSuper !== true)
+    return { ok: false, code: "protected-account", error: "Bu hisob himoyalangan" };
+  if (existing && existing.role !== SUPERADMIN_ROLE && existing.role !== role && role !== SUPERADMIN_ROLE && p.allowRoleChange !== true && isAdminLike(existing.role) !== isAdminLike(role))
+    return { ok: false, code: "role-conflict", error: "Bu login boshqa rol uchun band" };
 
   const now = new Date();
   const set = {
@@ -224,8 +253,9 @@ export async function setStatus(id, status) {
 export async function deleteAccount(id) {
   const acc = await findById(id);
   if (!acc) return { ok: false, error: "Hisob topilmadi" };
+  if (acc.role === SUPERADMIN_ROLE) return { ok: false, code: "protected-account", error: "Super Admin hisobini o'chirib bo'lmaydi" };
   if (acc.role === ROLES.ADMIN) {
-    const admins = await db().collection(COL).countDocuments({ role: ROLES.ADMIN, status: { $ne: "disabled" } });
+    const admins = await db().collection(COL).countDocuments({ role: { $in: [ROLES.ADMIN, SUPERADMIN_ROLE] }, status: { $ne: "disabled" } });
     if (admins <= 1) return { ok: false, error: "Oxirgi admin hisobini o'chirib bo'lmaydi" };
   }
   await db().collection(COL).deleteOne({ _id: acc._id });
@@ -470,4 +500,11 @@ export async function bumpTokenVersion(accountId) {
 
 export async function countAdmins() {
   return db().collection(COL).countDocuments({ role: ROLES.ADMIN, status: { $ne: "disabled" } });
+}
+
+/** Faqat server ichida: hisobga parolni o'rnatish (bootstrap / tiklash havolasi). */
+export async function setPasswordInternal(accountId, newPassword, req, event, actor = null) {
+  const acc = await findById(accountId);
+  if (!acc) return { ok: false, error: "Hisob topilmadi" };
+  return applyNewPassword(acc, newPassword, req, event, actor, false);
 }

@@ -24,6 +24,11 @@ const cspApp = (nonce) => [
   // Inline skript FAQAT nonce bilan ishlaydi — XSS orqali qo'shilgan
   // <script> teg nonce ni bilmagani uchun brauzer uni ishga tushirmaydi.
   `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com`,
+  // Portal belgilashida yuzlab onclick="..." atributlari bor. Nonce bo'lgani
+  // uchun script-src dagi 'unsafe-inline' e'tiborsiz qolardi va BARCHA tugmalar
+  // ishlamay qolardi (backend orqali ochilganda). script-src-attr faqat
+  // atributdagi handlerlarga tegishli — <script> teglari baribir nonce talab qiladi.
+  "script-src-attr 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",

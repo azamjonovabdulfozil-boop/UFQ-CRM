@@ -151,17 +151,44 @@ function isAdminRole() { var r = _crmRole(); return r === 'super admin' || r ===
 // paroli ko'rinardi. Endi login/parol serverga yuboriladi, server esa qisqa
 // umrli imzolangan token qaytaradi. Rollar ham serverda tekshiriladi —
 // localStorage'ni tahrirlab admin bo'lib olish endi ishlamaydi.
+// ── Super Admin paneli manzili ───────────────────────────────────────────────
+// Backend orqali: /admin/super-admin/ ; Vercel'da (admin domeni ildizida): /super-admin/
+function superAdminUrl() {
+  return (/^\/admin(\/|$)/.test(location.pathname) ? '/admin' : '') + '/super-admin/';
+}
+// Super Admin oddiy CRM panelini ham ochishi mumkin (?crm=1) — tahrirlash uchun
+function superWantsCrm() {
+  try {
+    if (new URLSearchParams(location.search).get('crm') === '1') sessionStorage.setItem('edu_super_crm', '1');
+    return sessionStorage.getItem('edu_super_crm') === '1';
+  } catch (e) { return false; }
+}
+
 async function doLogin() {
   const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-err');
+  const otpWrap = document.getElementById('login-otp-wrap');
+  const otpEl = document.getElementById('login-otp');
+  const otp = otpWrap && otpWrap.style.display !== 'none' && otpEl ? otpEl.value.trim() : '';
 
-  const btn = document.querySelector('.login-btn');
+  const btn = document.querySelector('#login-form-panel .login-btn') || document.querySelector('.login-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Tekshirilmoqda...'; }
 
-  const out = await window.CRMAuth.login(user, pass);
+  const out = await window.CRMAuth.login(user, pass, otp);
 
   if (btn) { btn.disabled = false; btn.textContent = 'Kirish'; }
+
+  // Parol to'g'ri, lekin hisobda 2 bosqichli tasdiqlash yoqilgan — kod so'raladi
+  if (!out.ok && (out.code === 'otp-required' || out.code === 'otp-invalid')) {
+    if (otpWrap) otpWrap.style.display = '';
+    errEl.textContent = out.code === 'otp-required'
+      ? '🛡️ Authenticator ilovasidagi 6 xonali kodni kiriting'
+      : (out.error || "Tasdiqlash kodi noto'g'ri");
+    errEl.style.display = 'block';
+    if (otpEl) { otpEl.value = ''; otpEl.focus(); }
+    return;
+  }
 
   if (!out.ok) {
     // Qurilma bloklangan bo'lsa — sababi va qolgan vaqti aniq yozilsin.
@@ -188,8 +215,17 @@ async function doLogin() {
     return;
   }
   errEl.style.display = 'none';
+  if (otpWrap) otpWrap.style.display = 'none';
+  if (otpEl) otpEl.value = '';
 
   const found = out.user;
+  // 👑 Super Admin — o'zining alohida paneliga
+  if (found.role === 'superadmin' && !superWantsCrm()) {
+    const lp1 = document.getElementById('login-pass');
+    if (lp1) lp1.value = '';
+    location.href = superAdminUrl();
+    return;
+  }
   const isMentor = found.legacyRole === 'Mentor';
   const isStudent = found.legacyRole === 'Talaba';
 
@@ -246,6 +282,56 @@ async function promptPasswordChange() {
   if (typeof window.__CRM_HYDRATE__ === "function") window.__CRM_HYDRATE__();
   showApp();
 }
+
+// ── Bir martalik havola orqali yangi parol (?reset=TOKEN) ──────────────────────
+function resetTokenFromUrl() {
+  try {
+    const t = new URLSearchParams(location.search).get('reset');
+    return t && /^[A-Za-z0-9_-]{20,200}$/.test(t) ? t : null;
+  } catch (e) { return null; }
+}
+function showResetPanel() {
+  const lp = document.getElementById('login-form-panel');
+  const rp = document.getElementById('reset-panel');
+  if (lp) lp.style.display = 'none';
+  if (rp) rp.style.display = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('crm-app').style.display = 'none';
+  setTimeout(() => { const i = document.getElementById('reset-pass'); if (i) i.focus(); }, 100);
+}
+async function doResetPassword() {
+  const token = resetTokenFromUrl();
+  const p1 = document.getElementById('reset-pass').value;
+  const p2 = document.getElementById('reset-pass2').value;
+  const err = document.getElementById('reset-err');
+  const show = (m, ok) => {
+    err.textContent = m;
+    err.style.display = 'block';
+    err.style.whiteSpace = 'pre-line';
+    err.style.color = ok ? 'var(--teal, #0d9488)' : '';
+  };
+  if (!token) return show("Havola yaroqsiz");
+  if (p1.length < 8) return show("Parol kamida 8 belgi bo'lsin");
+  if (p1 !== p2) return show("Parollar bir xil emas");
+  const btn = document.getElementById('reset-btn');
+  if (btn) btn.disabled = true;
+  const r = await window.CRMAuth.resetPassword(token, p1);
+  if (btn) btn.disabled = false;
+  if (!r || !r.ok) return show((r && r.error) || "Parol o'rnatilmadi");
+  show("✅ Parol o'rnatildi (" + (r.username || '') + "). Endi yangi parol bilan kiring.", true);
+  document.getElementById('reset-pass').value = '';
+  document.getElementById('reset-pass2').value = '';
+  setTimeout(() => {
+    history.replaceState(null, '', location.pathname);
+    const lp = document.getElementById('login-form-panel');
+    const rp = document.getElementById('reset-panel');
+    if (rp) rp.style.display = 'none';
+    if (lp) lp.style.display = '';
+    const u = document.getElementById('login-user');
+    if (u) { u.value = r.username || ''; document.getElementById('login-pass').focus(); }
+  }, 1800);
+}
+window.doResetPassword = doResetPassword;
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 async function doLogout() {
