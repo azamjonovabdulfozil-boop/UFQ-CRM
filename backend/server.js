@@ -37,6 +37,13 @@ import { geminiTts, geminiTtsConfigured, pcmToWav } from "./geminiTts.js";
 import { initAiPortal, HAQORAT_MARK } from "./aiPortal.js";
 import { initTextbooks } from "./textbooks.js";
 import { initMethodology } from "./methodology.js";
+// 📊 Super Admin analitikasi: so'rov metrikalari, monitoring, faoliyat jurnali
+import {
+  metricsMiddleware,
+  summarizeCrmChange,
+  isAuditableSettingWrite,
+  createAnalyticsRouter,
+} from "./analytics.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -103,6 +110,8 @@ const app = express();
 // ⚠️ Xavfsizlik middleware'lari ENG BOSHIDA — sarlavhalar, CORS oq ro'yxati,
 // cookie o'qish. Marshrutlar ulardan keyin ro'yxatdan o'tadi.
 const security = installSecurity(app);
+// So'rov vaqti va xatolarini xotirada sanaydi (Super Admin → Monitoring)
+app.use(metricsMiddleware);
 // 🔧 BUG FIX: video/PDF fayllar base64 shaklida ~33% kattaroq bo'ladi,
 // shuning uchun limitni oshirdik (video-file-upload va test-pdf-upload
 // funksiyalari uchun kerak). Katta video fayllar uchun baribir YouTube
@@ -496,6 +505,13 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
         { $set: { ...clean, _type: "main", _updatedAt: new Date() } },
         { upsert: true },
       );
+    // Kim nimani o'zgartirdi — Super Admin faoliyat jurnali uchun qisqa
+    // xulosa (ism/nomlar va soni; telefon, parol kabi maydonlar yozilmaydi).
+    try {
+      const change = summarizeCrmChange(prev, clean);
+      if (change)
+        audit("data.change", { req, actor: req.user, meta: { summary: change.summary, sections: change.sections } });
+    } catch {}
     // CRM ma'lumoti ayni shu kalit ostida KV'ga ham yoziladi — mijozlar
     // o'zgarishni shu nom orqali taniydi.
     broadcast(["edumanage_crm_v8"], originOf(req));
@@ -964,6 +980,8 @@ app.post("/api/kv", requireAuth, blockUntilPasswordChanged, writeLimiter, async 
           { upsert: true },
         );
     }
+    if (isAuditableSettingWrite(key, req.user?.sub))
+      audit("settings.change", { req, actor: req.user, meta: { setting: key, removed: outValue == null } });
     broadcast([key], originOf(req));
     res.json({ ok: true });
   } catch (e) {
@@ -1739,6 +1757,15 @@ const aiPortal = initAiPortal({
 initTextbooks({ app, getDb, ROLES, requireAuth, requireRole, writeLimiter, audit, fail });
 // 🧭 Metodologiya — admin yuklaydi (PDF/Word/Excel), mentor bo'lim → dars bo'yicha ko'radi
 initMethodology({ app, getDb, ROLES, requireAuth, requireRole, writeLimiter, audit, fail });
+// 📊 Super Admin: monitoring, faoliyat jurnali, eksport auditi (faqat admin)
+app.use(
+  createAnalyticsRouter({
+    getDb,
+    requireAdmin,
+    audit,
+    collections: ["accounts", "auth_sessions", "kv", "crm_data_backups", "security_audit", "blobs"],
+  }),
+);
 
 // 🎤 Ovozli xabarni o'zbekcha matnga o'girish. Sinovda Gemini transkripsiya
 // modeli o'zbekchani so'zma-so'z aniq yozdi. Matn javobga ham qaytariladi —

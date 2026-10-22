@@ -50,6 +50,8 @@ export const SCRIPT_GROUPS = [
   ["dash-analytics.js"],
   // AI yordamchi (admin/mentor/talaba) — admin uchun CRM hisobotini quradi
   ["crm-ai.js"],
+  // 📈 Super Admin: analitika markazi, monitoring, jurnal, hisobotlar
+  ["super-analytics.js"],
   // 🧭 Metodologiya — admin yuklaydi, mentor bo'lim → dars bo'yicha ko'radi
   ["methodology.js"],
   // Sozlamalar → «Bo'limlar»: kerak bo'lmagan bo'limni menyudan yashirish (go() ni o'raydi)

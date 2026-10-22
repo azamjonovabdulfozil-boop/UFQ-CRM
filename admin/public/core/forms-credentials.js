@@ -693,6 +693,7 @@ function execDelCourse(id) {
 function updateTopbar(tab) {
   const L = LANG;
   const titles = {
+    analytics: L === "ru" ? "📈 Аналитика" : L === "en" ? "📈 Analytics" : "📈 Analitika markazi",
     methodology:
       L === "ru" ? "🧭 Методология" : L === "en" ? "🧭 Methodology" : "🧭 Metodologiya",
     "mentor-method":
@@ -801,6 +802,7 @@ function updateTopbar(tab) {
           : "🛍️ Coin Shop",
   };
   const subs = {
+    analytics: L === "ru" ? "Статистика · Рейтинг · Мониторинг" : L === "en" ? "Statistics · Ranking · Monitoring" : "Statistika · Reyting · Monitoring · Hisobotlar",
     methodology:
       L === "ru" ? "Загрузка · Разделы · Уроки" : L === "en" ? "Upload · Sections · Lessons" : "Yuklash · Bo'limlar · Darslar",
     "mentor-method":
@@ -941,6 +943,8 @@ function go(tab, el) {
   currentTab = tab;
   saveUI();
   updateTopbar(tab);
+  if (tab === "analytics" && typeof renderSuperAnalytics === "function") renderSuperAnalytics();
+  else if (typeof stopSuperAnalytics === "function") stopSuperAnalytics();
   if (tab === "methodology" && typeof renderMethodology === "function") renderMethodology();
   if (tab === "mentor-method" && typeof renderMentorMethod === "function") renderMentorMethod();
   if (tab === "dashboard") renderDashboard();

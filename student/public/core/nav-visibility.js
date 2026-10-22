@@ -15,6 +15,7 @@
   var SECTIONS = {
     admin: [
       ["nav-dashboard", "dashboard"],
+      ["nav-analytics", "analytics"],
       ["nav-courses", "courses"],
       ["nav-groups", "groups"],
       ["nav-mentors", "mentors"],
