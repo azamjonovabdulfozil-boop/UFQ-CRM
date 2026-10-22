@@ -1,8 +1,6 @@
 <template>
       <DashboardPanel />
 
-      <AnalyticsPanel />
-
       <CoursesPanel />
 
       <GroupsPanel />
@@ -40,7 +38,6 @@
 
 <script setup>
 import DashboardPanel from "./DashboardPanel.vue";
-import AnalyticsPanel from "./AnalyticsPanel.vue";
 import CoursesPanel from "./CoursesPanel.vue";
 import GroupsPanel from "./GroupsPanel.vue";
 import MentorPanels from "./MentorPanels.vue";

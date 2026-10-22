@@ -2,9 +2,6 @@
     <button class="nav-btn" id="nav-dashboard" onclick="go('dashboard', this)">
       <span class="nav-ic">📊</span><span data-t="dashboard">Dashboard</span>
     </button>
-    <button class="nav-btn" id="nav-analytics" onclick="go('analytics', this)">
-      <span class="nav-ic">📈</span><span>Analitika markazi</span>
-    </button>
     <button class="nav-btn" id="nav-courses" onclick="go('courses', this)">
       <span class="nav-ic">📚</span><span data-t="courses">Kurslar</span>
       <span class="nav-count" id="nc-courses">0</span>
