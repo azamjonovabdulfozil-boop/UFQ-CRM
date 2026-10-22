@@ -172,15 +172,18 @@ export function createAuthRouter() {
     try {
       const raw = req.cookies?.[CONFIG.cookieName] || (CONFIG.crossSite ? req.body?.refreshToken : null);
       const out = await rotateSession(raw, req);
+      // Sessiya yo'q yoki tugagan — bu xato emas, oddiy holat (foydalanuvchi
+      // hali kirmagan yoki muddati o'tgan). 401 qaytarilsa brauzer konsolida
+      // har safar qizil xato chiqardi; mijoz faqat `ok` ga qaraydi.
       if (!out.ok) {
         clearAuthCookies(req, res);
-        return res.status(401).json({ ok: false, code: out.code, error: out.error });
+        return res.json({ ok: false, noSession: true, code: out.code, error: out.error });
       }
 
       const acc = await findById(out.session.accountId);
       if (!acc || acc.status === "disabled") {
         clearAuthCookies(req, res);
-        return res.status(401).json({ ok: false, code: "account-disabled", error: "Hisob faol emas" });
+        return res.json({ ok: false, noSession: true, code: "account-disabled", error: "Hisob faol emas" });
       }
 
       const csrf = setRefreshCookie(req, res, out.token);

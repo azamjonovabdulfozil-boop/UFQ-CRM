@@ -255,6 +255,14 @@
   function refresh(force) {
     if (state.refreshing) return state.refreshing;
     if (state.noSession && !force) return Promise.resolve(false);
+    // Sessiya belgisi (cookie) yo'q — demak sessiya ham yo'q. Serverga
+    // bormaymiz: ilgari sahifa ochilganda ba'zi modullar restore() dan OLDIN
+    // token so'rab, konsolda `POST /api/auth/refresh 401` chiqarardi.
+    if (!hasSessionHint()) {
+      state.noSession = true;
+      state.attempted = true;
+      return Promise.resolve(false);
+    }
 
     var body = {};
     var rt = readFallbackRt();
