@@ -21,7 +21,6 @@
       ["nav-students", "students"],
       ["nav-debtors", "debtors"],
       ["nav-admin-ai", "admin-ai"],
-      ["nav-textbooks", "textbooks"],
       ["nav-methodology", "methodology"],
       ["nav-certificates", "certificates"],
       ["nav-finance", "finance"],

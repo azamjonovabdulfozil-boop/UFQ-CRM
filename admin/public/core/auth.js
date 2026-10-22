@@ -111,19 +111,24 @@ async function _postUsers(body) {
     return { ok: false, error: "Serverga ulanib bo'lmadi" };
   }
 }
-const _noPass = (arr) => arr.map(({ pass, password, prevLogin, ...u }) => u);
+// Ro'yxatda parol bo'lmasligi shart. Yangi parol faqat `newPassword` maydonida,
+// faqat admin hozir o'zgartirgan bitta yozuvda serverga ketadi.
+const _noPass = (arr) => arr.map(({ pass, password, newPassword, hashed, prevLogin, ...u }) => u);
+// Brauzerdagi (va KV dagi) eski ro'yxatda 20-oktyabrgacha saqlangan parollar
+// qolib ketgan. Ular qaytib serverga yuborilmasin — o'qishda tozalanadi.
+const _readUsers = (key) => { try { const a = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(a) ? a.map(({ pass, password, newPassword, hashed, ...u }) => u) : []; } catch (e) { return []; } };
 
 function saveMentorUsers(arr, removedLogins) {
   localStorage.setItem(MENTOR_USERS_KEY, JSON.stringify(_noPass(arr)));
   return _postUsers({ mentors: arr, removedMentorLogins: removedLogins || [] });
 }
-function getMentorUsers() { try { return JSON.parse(localStorage.getItem(MENTOR_USERS_KEY) || '[]'); } catch (e) { return []; } }
+function getMentorUsers() { return _readUsers(MENTOR_USERS_KEY); }
 
 function saveStudentUsers(arr, removedLogins) {
   localStorage.setItem(STUDENT_USERS_KEY, JSON.stringify(_noPass(arr)));
   return _postUsers({ students: arr, removedStudentLogins: removedLogins || [] });
 }
-function getStudentUsers() { try { return JSON.parse(localStorage.getItem(STUDENT_USERS_KEY) || '[]'); } catch (e) { return []; } }
+function getStudentUsers() { return _readUsers(STUDENT_USERS_KEY); }
 
 // ── Auth checks ───────────────────────────────────────────────────────────────
 function checkAuth() { try { return !!_authRead().loggedIn; } catch (e) { return false; } }

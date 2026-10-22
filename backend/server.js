@@ -327,7 +327,7 @@ app.post("/api/users/save", requireAdmin, writeLimiter, async (req, res) => {
     // ⚠️ Parol `users` kolleksiyasiga ENDI YOZILMAYDI. U faqat `accounts` da,
     // scrypt xeshi ko'rinishida yashaydi (quyidagi syncPortalAccounts).
     const profileOnly = (u, role) => {
-      const { pass, password, passwordHash, prevLogin, ...rest } = u || {};
+      const { pass, password, passwordHash, newPassword, hashed, prevLogin, ...rest } = u || {};
       return { ...rest, _role: role };
     };
 
@@ -887,9 +887,29 @@ async function kvCrmHasData() {
   }
 }
 
+// Mentor/talaba ro'yxati KV'da faqat ko'rsatish uchun turadi — unda parol
+// bo'lmasligi shart. Eski brauzerlar parollar bilan yozib yuborsa ham tozalanadi.
+const PORTAL_USER_KV_KEYS = new Set(["edumanage_mentor_users_v8", "edumanage_student_users_v9"]);
+function scrubPortalUsersKv(key, value) {
+  if (!PORTAL_USER_KV_KEYS.has(key) || value == null) return value;
+  try {
+    const arr = JSON.parse(String(value));
+    if (!Array.isArray(arr)) return value;
+    return JSON.stringify(
+      arr.map((u) => {
+        if (!u || typeof u !== "object") return u;
+        const { pass, password, passwordHash, newPassword, hashed, ...rest } = u;
+        return rest;
+      }),
+    );
+  } catch {
+    return value;
+  }
+}
+
 app.post("/api/kv", requireAuth, blockUntilPasswordChanged, writeLimiter, async (req, res) => {
   try {
-    const value = req.body?.value;
+    const value = scrubPortalUsersKv(String(req.body?.key || ""), req.body?.value);
     const key = safeKvKey(req.body?.key);
     if (!key)
       return res.status(400).json({ ok: false, error: "key kerak (harf/raqam/._:- , 200 belgigacha)" });
@@ -971,6 +991,7 @@ app.post("/api/kv/bulk", requireAuth, blockUntilPasswordChanged, writeLimiter, a
       }
       if (p.value != null && byteLength(p.value) > SEC.maxKvValueBytes)
         return res.status(413).json({ ok: false, code: "payload-too-large", error: "Qiymat juda katta: " + k });
+      p.value = scrubPortalUsersKv(k, p.value);
       if (k === "edumanage_crm_v8" && req.user.role !== ROLES.ADMIN) {
         try {
           const cur = await getDb().collection("kv").findOne({ key: k });

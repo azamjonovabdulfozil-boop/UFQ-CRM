@@ -132,6 +132,32 @@ export async function bootstrapSecurity(getDb) {
     await db.collection("kv").deleteOne({ key: ADMIN_CRED_KEY });
   } catch {}
 
+  // KV dagi mentor/talaba ro'yxatlarida eski parollar qolib ketgan — admin
+  // brauzeri shu ro'yxatni yuklab, yangi talaba qo'shganda hammaning parolini
+  // eskisiga qaytarib yuborardi. Ro'yxatdan parol maydonlari olib tashlanadi.
+  for (const key of ["edumanage_mentor_users_v8", "edumanage_student_users_v9"]) {
+    try {
+      const doc = await db.collection("kv").findOne({ key });
+      if (!doc?.value) continue;
+      const arr = JSON.parse(String(doc.value));
+      if (!Array.isArray(arr)) continue;
+      let dirty = false;
+      const clean = arr.map((u) => {
+        if (!u || typeof u !== "object") return u;
+        const { pass, password, passwordHash, newPassword, hashed, ...rest } = u;
+        if (pass !== undefined || password !== undefined || passwordHash !== undefined || newPassword !== undefined)
+          dirty = true;
+        return rest;
+      });
+      if (dirty) {
+        await db.collection("kv").updateOne({ key }, { $set: { value: JSON.stringify(clean), _updatedAt: new Date() } });
+        report.scrubbed++;
+      }
+    } catch (e) {
+      console.warn("⚠️  KV ro'yxati tozalanmadi:", key, e.message);
+    }
+  }
+
   if (report.migrated || report.scrubbed || report.adminCreated) {
     console.log(
       `🔐  Xavfsizlik ko'chirishi: ${report.migrated} hisob ko'chirildi, ` +

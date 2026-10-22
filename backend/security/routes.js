@@ -375,9 +375,16 @@ export async function syncPortalAccounts(list, role, actor, req) {
       results.push({ login: u?.login, ok: false, error: "Login yaroqsiz" });
       continue;
     }
+    // Parol FAQAT `newPassword` maydonidan olinadi — admin aynan shu safar
+    // kiritgan yangi parol. Ilgari `pass` olinardi: brauzerdagi eski ro'yxatda
+    // (KV) eski parollar qolib ketgan va admin yangi talaba qo'shganda butun
+    // ro'yxat shu ESKI parollar bilan qayta yuborilib, hammaning paroli
+    // eskisiga qaytib qolardi — admin parolni qayta o'rnatmaguncha mentor/
+    // talaba kira olmasdi.
+    const newPass = typeof u.newPassword === "string" ? u.newPassword : "";
+    const hasPass = !!newPass;
     // Login almashtirilgan, yangi parol berilmagan — eski hisob (paroli bilan)
     // yangi loginga ko'chiriladi
-    const hasPass = typeof u.pass === "string" && !!u.pass;
     if (!hasPass && u.prevLogin) {
       const prev = safeUsername(u.prevLogin);
       if (prev && prev !== username && !(await findByUsername(username))) {
@@ -392,18 +399,9 @@ export async function syncPortalAccounts(list, role, actor, req) {
       mentorName: u.mentorName || null,
       studentId: u.studentId ?? null,
       studentName: u.studentName || null,
-      // Parol berilgan bo'lsa o'rnatiladi; bo'lmasa mavjud parol saqlanadi.
-      // Ochiq parol darhol scrypt bilan xeshlanadi (`password` yo'li — siyosat
-      // faqat uzunlik, sozlamalar kartochkasi ham kamida 5 belgi so'raydi).
-      // Talaba modali parolni oldindan sha256 qilib yuboradi — 64 belgili hex
-      // bo'lsa `legacyPassword` yo'li ishlatiladi. Ilgari ochiq parol ham
-      // legacy yo'lidan ketardi va ALLOW_LEGACY_PASSWORDS=0 bo'lsa yangi
-      // mentor/talaba umuman kira olmasdi.
-      ...(typeof u.pass === "string" && u.pass
-        ? /^[a-f0-9]{64}$/i.test(u.pass)
-          ? { legacyPassword: u.pass }
-          : { password: u.pass }
-        : {}),
+      // Yangi parol berilgan bo'lsa darhol scrypt bilan o'rnatiladi; bo'lmasa
+      // mavjud parol o'zgarmay qoladi.
+      ...(hasPass ? { password: newPass } : {}),
     });
     results.push({ login: username, ok: out.ok, error: out.error });
   }

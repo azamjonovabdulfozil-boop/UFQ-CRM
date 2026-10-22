@@ -154,6 +154,15 @@ export async function upsertAccount(p) {
     set.mustChangePassword = CONFIG.selfPasswordChangeRoles.includes(role);
   }
 
+  // Yangi parol berildi — oldingi xato urinishlar va blok ham tozalanadi,
+  // aks holda foydalanuvchi to'g'ri parol bilan ham kira olmay turardi.
+  if (p.password || p.legacyPassword) {
+    set.failedAttempts = 0;
+    set.lockedUntil = null;
+  }
+  const onInsert = { createdAt: now, tokenVersion: 1, passwordHistory: [] };
+  if (!("failedAttempts" in set)) Object.assign(onInsert, { failedAttempts: 0, lockedUntil: null });
+
   invalidateAccount(null, username);
   const r = await db()
     .collection(COL)
@@ -161,13 +170,7 @@ export async function upsertAccount(p) {
       { username },
       {
         $set: set,
-        $setOnInsert: {
-          createdAt: now,
-          tokenVersion: 1,
-          failedAttempts: 0,
-          lockedUntil: null,
-          passwordHistory: [],
-        },
+        $setOnInsert: onInsert,
       },
       { upsert: true, returnDocument: "after" },
     );

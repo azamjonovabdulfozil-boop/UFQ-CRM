@@ -499,25 +499,24 @@ async function saveModal() {
       D.students.push(d);
       studentId = d.id;
     }
-    // ---- Login/parolni saqlash: parol hech qachon ochiq matnda saqlanmaydi (SHA-256 hash) ----
+    // ---- Login/parolni saqlash ----
+    // Parol serverga ochiq holda (HTTPS orqali) `newPassword` maydonida ketadi
+    // va o'sha yerda scrypt bilan xeshlanadi. Ilgari brauzerda sha256 qilinardi:
+    // HTTPS bo'lmagan manzilda bu xesh noto'g'ri chiqib, talaba kira olmasdi.
     let credToShow = null;
+    let credErr = "";
     try {
+      // Ro'yxat serverdan yangilanadi — eskirgan nusxa boshqa talabalarni
+      // ro'yxatdan tushirib yubormasin.
+      await _freshPortalUsers();
       const existingCred = getStudentUsers().find(
         (u) => String(u.studentId) === String(studentId),
       );
-      // Parol serverdan kelmaydi — bo'sh qoldirilsa eski parol serverda qoladi
-      let passHash = null;
-      if (passVal) {
-        passHash = await sha256Hex(passVal);
-        credToShow = { login: loginVal, pass: passVal };
-      }
       const loginChanged =
         !!existingCred && String(existingCred.login).toLowerCase() !== loginVal;
       const nameChanged = !!existingCred && existingCred.name !== fullName;
-      // Yangi parol, login yoki ism o'zgargan bo'lsa saqlaymiz. Ilgari faqat
-      // yangi parol berilgandagina saqlanardi — loginni o'zgartirish jimgina
-      // e'tiborsiz qolardi.
-      if (passHash || loginChanged || nameChanged) {
+      // Yangi hisob, yangi parol, login yoki ism o'zgargan bo'lsa saqlaymiz.
+      if (passVal || loginChanged || nameChanged) {
         const filtered = getStudentUsers().filter(
           (u) => String(u.studentId) !== String(studentId),
         );
@@ -528,18 +527,18 @@ async function saveModal() {
           studentId: studentId,
           studentName: fullName,
         };
-        if (passHash) {
-          entry.pass = passHash;
-          entry.hashed = true;
-        } else if (loginChanged) entry.prevLogin = existingCred.login;
+        if (passVal) entry.newPassword = passVal;
+        else if (loginChanged) entry.prevLogin = existingCred.login;
         filtered.push(entry);
         const oldLogin = loginChanged ? [existingCred.login] : [];
-        saveStudentUsers(filtered, oldLogin).then((r) => {
-          if (!r.ok) toast("⚠️ Login saqlanmadi: " + r.error);
-          renderStudentCredsList();
-        });
+        const r = await saveStudentUsers(filtered, oldLogin);
+        if (!r.ok) credErr = r.error || "xatolik";
+        else if (passVal) credToShow = { login: loginVal, pass: passVal };
+        renderStudentCredsList();
       }
-    } catch (e) {}
+    } catch (e) {
+      credErr = (e && e.message) || "xatolik";
+    }
     renderStudents();
     renderGroups();
     renderCourses();
@@ -548,7 +547,9 @@ async function saveModal() {
     updateCounts();
     if (document.getElementById("panel-dashboard").classList.contains("active"))
       renderDashboard();
-    toast(isEdit ? "✅ Yangilandi!" : "✅ Qo'shildi!");
+    // Login saqlanmagan bo'lsa — "saqlandi" deb aldamaymiz
+    if (credErr) toast("⚠️ Talaba saqlandi, lekin login/parol saqlanmadi: " + credErr);
+    else toast(isEdit ? "✅ Yangilandi!" : "✅ Qo'shildi!");
     if (credToShow) showCredentialsAlert(fullName, credToShow.login, credToShow.pass);
     return;
   }
@@ -705,8 +706,6 @@ function updateTopbar(tab) {
       L === "ru" ? "Должники" : L === "en" ? "Debtors" : "Qarzdorlar",
     "admin-ai":
       L === "ru" ? "🤖 AI Ассистент" : L === "en" ? "🤖 AI Assistant" : "🤖 AI Yordamchi",
-    textbooks:
-      L === "ru" ? "📚 Учебники" : L === "en" ? "📚 Textbooks" : "📚 Darsliklar",
     finance: t("finance_title"),
     certificates:
       L === "ru" ? "🎖 Сертификаты" : L === "en" ? "🎖 Certificates" : "🎖 Sertifikatlar",
@@ -951,7 +950,6 @@ function go(tab, el) {
     renderDebtors();
   }
   if (tab === "admin-ai" && typeof renderAdminAI === "function") renderAdminAI();
-  if (tab === "textbooks" && typeof renderTextbooks === "function") renderTextbooks();
   if (tab === "finance") renderFinance();
   if (tab === "settings") {
     setTimeout(() => {
@@ -1376,7 +1374,7 @@ async function saveMentorCredentials() {
     mentorId: sel.value,
     mentorName: mentorName,
   };
-  if (pass) entry.pass = pass;
+  if (pass) entry.newPassword = pass;
   const oldLogin = mine && String(mine.login).toLowerCase() !== login ? [mine.login] : [];
   // Login almashsa-yu yangi parol berilmasa — server eski parolni yangi loginga ko'chiradi
   if (oldLogin.length && !pass) entry.prevLogin = mine.login;
@@ -1518,7 +1516,7 @@ async function saveStudentCredentials() {
     studentId: sel.value,
     studentName: studentName,
   };
-  if (pass) entry.pass = pass;
+  if (pass) entry.newPassword = pass;
   const oldLogin = mine && String(mine.login).toLowerCase() !== login ? [mine.login] : [];
   // Login almashsa-yu yangi parol berilmasa — server eski parolni yangi loginga ko'chiradi
   if (oldLogin.length && !pass) entry.prevLogin = mine.login;

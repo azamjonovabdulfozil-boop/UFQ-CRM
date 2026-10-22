@@ -15,7 +15,6 @@
 
       <DebtorsPanel />
 
-      <TextbooksPanel />
       <MethodologyPanel />
 
       <CertificatesPanel />
@@ -46,7 +45,6 @@ import StudentPanels from "./StudentPanels.vue";
 import MentorsPanel from "./MentorsPanel.vue";
 import StudentsPanel from "./StudentsPanel.vue";
 import DebtorsPanel from "./DebtorsPanel.vue";
-import TextbooksPanel from "./TextbooksPanel.vue";
 import MethodologyPanel from "./MethodologyPanel.vue";
 import CertificatesPanel from "./CertificatesPanel.vue";
 import StudentCertificatesPanel from "./StudentCertificatesPanel.vue";
