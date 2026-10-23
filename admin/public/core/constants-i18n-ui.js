@@ -55,7 +55,7 @@ const TRANSLATIONS = {
   uz: {
     menu:'Menyu', dashboard:'Dashboard', courses:'Kurslar', groups:'Guruhlar',
     mentors:'Mentorlar', students:'Talabalar', finance:'Moliya', settings:'Sozlamalar',
-    super_admin:'Super Admin', logout:'Chiqish',
+    super_admin:'Administrator', logout:'Chiqish',
     add_course:'+ Kurs qo\'shish', add_group:'+ Guruh qo\'shish',
     add_mentor:'+ Mentor qo\'shish', add_student:'+ Talaba qo\'shish',
     search_course:'Kurs qidirish...', search_group:'Guruh qidirish...',
@@ -140,7 +140,7 @@ const TRANSLATIONS = {
   ru: {
     menu:'Меню', dashboard:'Главная', courses:'Курсы', groups:'Группы',
     mentors:'Менторы', students:'Студенты', finance:'Финансы', settings:'Настройки',
-    super_admin:'Супер Админ', logout:'Выйти',
+    super_admin:'Администратор', logout:'Выйти',
     add_course:'+ Добавить курс', add_group:'+ Добавить группу',
     add_mentor:'+ Добавить ментора', add_student:'+ Добавить студента',
     search_course:'Поиск курса...', search_group:'Поиск группы...',
@@ -222,7 +222,7 @@ const TRANSLATIONS = {
   en: {
     menu:'Menu', dashboard:'Dashboard', courses:'Courses', groups:'Groups',
     mentors:'Mentors', students:'Students', finance:'Finance', settings:'Settings',
-    super_admin:'Super Admin', logout:'Logout',
+    super_admin:'Administrator', logout:'Logout',
     add_course:'+ Add Course', add_group:'+ Add Group',
     add_mentor:'+ Add Mentor', add_student:'+ Add Student',
     search_course:'Search course...', search_group:'Search group...',

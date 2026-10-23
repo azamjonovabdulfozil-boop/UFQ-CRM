@@ -7,8 +7,8 @@
 // bo'limlariga yozuv rad etiladi. Holat /api/modules/me dan olinadi va
 // har daqiqada hamda oyna fokusga qaytganda yangilanadi.
 //
-// Super Admin bu panelni ochsa (?crm=1) — hech narsa cheklanmaydi va
-// menyuda «Super Admin paneli» tugmasi chiqadi.
+// Super Admin bu panelni ochsa (?crm=1) — hech narsa cheklanmaydi.
+// «Super Admin paneli» tugmasi menyuda ko'rsatilmaydi (maxfiy bo'lim).
 // ================================================
 (function () {
   "use strict";
@@ -23,7 +23,7 @@
     st.id = "modules-guard-style";
     st.textContent =
       "#sidebar .nav-btn." + HID + "{display:none!important}" +
-      "#nav-super-link{background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(59,130,246,.12));color:var(--accent-text);font-weight:700;margin-bottom:6px}";
+      "#nav-super-link{display:none!important}";
     document.head.appendChild(st);
   }
 
@@ -56,26 +56,12 @@
     }
   }
 
+  // «Super Admin paneli» tugmasi admin menyusida HECH QACHON ko'rsatilmaydi —
+  // Super Admin paneli maxfiy joy, unga faqat to'g'ridan-to'g'ri manzil orqali
+  // kiriladi. Eski versiyadan qolgan tugma bo'lsa — olib tashlanadi.
   function superLink() {
-    var nav = document.querySelector("#sidebar nav") || document.querySelector("#sidebar");
     var ex = document.getElementById("nav-super-link");
-    if (!state.isSuper) {
-      if (ex) ex.remove();
-      return;
-    }
-    if (ex || !nav) return;
-    var b = document.createElement("button");
-    b.className = "nav-btn";
-    b.id = "nav-super-link";
-    b.type = "button";
-    b.innerHTML = '<span class="nav-ic">👑</span><span>Super Admin paneli</span>';
-    b.addEventListener("click", function () {
-      try { sessionStorage.removeItem("edu_super_crm"); } catch (e) {}
-      location.href = typeof superAdminUrl === "function" ? superAdminUrl() : "/super-admin/";
-    });
-    var first = nav.querySelector(".nav-btn");
-    if (first && first.parentNode) first.parentNode.insertBefore(b, first);
-    else nav.insertBefore(b, nav.firstChild);
+    if (ex) ex.remove();
   }
 
   function enforceCurrent() {
@@ -117,7 +103,7 @@
       if (tab !== "settings" && isBlocked(tab)) {
         var m = moduleOfTab(tab);
         if (typeof toast === "function")
-          toast("🔒 «" + (m ? m.label : tab) + "» bo'limi Super Admin tomonidan o'chirilgan");
+          toast("🔒 «" + (m ? m.label : tab) + "» bo'limi o'chirilgan");
         var fb = firstAllowed();
         if (fb === tab) fb = "settings";
         return orig.call(this, fb, document.getElementById("nav-" + fb));

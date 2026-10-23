@@ -8,7 +8,7 @@
           <div class="u-av">AD</div>
           <div>
             <div class="u-name">Admin</div>
-            <div class="u-role" data-t="super_admin">Super Admin</div>
+            <div class="u-role" data-t="super_admin">Administrator</div>
           </div>
         </div>
         <button class="logout-btn" onclick="doLogout()" data-t="logout">
