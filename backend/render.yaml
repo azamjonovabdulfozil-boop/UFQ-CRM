@@ -10,6 +10,10 @@ services:
         value: 10000
       - key: NODE_ENV
         value: production
+      # Saytlar analitikasi: saytlarga beriladigan tracking kodi shu manzilga
+      # ulanadi (backend'ning ommaviy manzili). Domen o'zgarsa — shu yerda yangilang.
+      - key: WA_PUBLIC_URL
+        value: https://ufq-crm-fxh5.onrender.com
       - key: MONGODB_URI
         sync: false
       # Davomat boti — ota-onalar guruhiga hisobot va qarzdorlik xabarnomasi
