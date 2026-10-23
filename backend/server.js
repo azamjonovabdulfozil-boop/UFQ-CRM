@@ -54,6 +54,7 @@ import {
   createModuleApiGuard,
 } from "./superadmin/settings.js";
 import { createSuperRouter } from "./superadmin/router.js";
+import { createSuperAiRouter } from "./superadmin/ai.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -2689,6 +2690,19 @@ initSettings(getDb);
         safeObjectIdHex: san.safeObjectIdHex,
         _unused: sec,
       },
+    }),
+  );
+  // 🤖 Super Admin AI yordamchisi — Super Admin API'larini shu foydalanuvchi nomidan chaqiradi
+  app.use(
+    createSuperAiRouter({
+      getDb,
+      audit,
+      requireSuperAdmin,
+      rateLimit,
+      broadcast: (keys) => broadcast(keys, null),
+      snapshotCrmData,
+      CRM_KV_KEY,
+      port: PORT,
     }),
   );
 }

@@ -5,7 +5,7 @@
           <nav class="sett-nav" aria-label="Sozlamalar">
             <div class="sett-nav-cap" data-t="settings">Sozlamalar</div>
             <button
-              v-for="s in sections"
+              v-for="s in visibleSections"
               :key="s.id"
               type="button"
               class="sett-nav-item"
@@ -29,7 +29,7 @@
               <AppearanceCard />
             </section>
 
-            <section v-show="tab === 'menu'" class="sett-pane">
+            <section v-show="tab === 'menu' && settingsMenuAllowed" class="sett-pane">
               <header class="sett-pane-head">
                 <h2 data-t="sett_sec_menu">Menyu bo'limlari</h2>
                 <p data-t="sett_sec_menu_sub">Chap menyuda qaysi bo'limlar ko'rinishini tanlang</p>
@@ -63,7 +63,8 @@ import AdminCredsCard from "./AdminCredsCard.vue";
 import MentorCredsCard from "./MentorCredsCard.vue";
 import StudentCredsCard from "./StudentCredsCard.vue";
 import StudentMotivationCard from "./StudentMotivationCard.vue";
-import { SETT_ICONS, useSettingsTab } from "./settingsNav.js";
+import { computed, watch } from "vue";
+import { SETT_ICONS, useSettingsTab, settingsMenuAllowed } from "./settingsNav.js";
 
 const sections = [
   { id: "look", t: "sett_sec_look", label: "Ko'rinish", sub: "Mavzu, rang, matn", icon: SETT_ICONS.look },
@@ -71,4 +72,14 @@ const sections = [
 ];
 
 const { tab, open } = useSettingsTab(sections.map((s) => s.id));
+
+// «Menyu bo'limlari» Super Admin tomonidan yopilgan bo'lsa — umuman ko'rinmaydi
+const visibleSections = computed(() => sections.filter((s) => s.id !== "menu" || settingsMenuAllowed.value));
+watch(
+  settingsMenuAllowed,
+  (ok) => {
+    if (!ok && tab.value === "menu") open(sections[0].id);
+  },
+  { immediate: true },
+);
 </script>

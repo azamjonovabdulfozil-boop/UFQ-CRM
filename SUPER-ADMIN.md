@@ -58,3 +58,28 @@ cd backend
 npm test                               # analitika, eksport, TOTP (bazasiz)
 SA_ADMIN_PASS=... SA_SUPER_PASS=... npm run test:integration   # ishlab turgan serverga
 ```
+
+---
+
+## 🤖 AI yordamchi (Super Admin → «AI yordamchi»)
+
+Super Admin oddiy tilda yozadi — AI o'zi bajaradi:
+
+- **Ma'lumot:** «qarzdor o'quvchilarni ko'rsat», «FE-1 guruhi davomati qanday?»
+- **Hisobot:** «oxirgi 30 kunlik davomat hisobotini Excel qil» → chatda «Yuklab olish» tugmasi chiqadi (xlsx / pdf / csv)
+- **O'zgartirish:** o'quvchi, guruh, mentor, kurs, moliya yozuvini qo'shish / tahrirlash / o'chirish;
+  adminlarni boshqarish, modullar va «Menyu bo'limlari», tizim sozlamalari, zaxira nusxa olish
+
+Xavfsizlik: AI Super Admin API'larini **shu foydalanuvchi huquqi bilan** chaqiradi (barcha tekshiruvlar va
+faoliyat jurnali o'z kuchida). O'chirish, adminni bloklash, sessiyalarni yopish — faqat chatda «ha» deb
+tasdiqlangandan keyin. Parol/2FA va zaxiradan tiklash AI ga berilmagan.
+
+Dvigatel: asosiy — Claude (`ANTHROPIC_API_KEY`, model `claude-opus-5-5`). Claude ishlamasa (kredit tugagan,
+xizmat band) — avtomatik **Lovable AI** (`LOVABLE_API_KEY`), so'ng **Gemini** (`GEMINI_API_KEY`).
+Sinov (haqiqiy bazaga tegmaydi): `cd backend && npm run test:ai`.
+
+## «Menyu bo'limlari» ni boshqarish (Super Admin → «Menyu boshqaruvi»)
+
+Pastdagi «Sozlamalardagi «Menyu bo'limlari»» jadvalida Admin / Mentor / Talaba uchun kalit bor.
+O'chirilsa — o'sha rol Sozlamalarida «Menyu bo'limlari» umuman chiqmaydi va u oldin yashirgan bo'limlar
+yana ko'rinadi. Ochiq panellar o'zgarishni bir daqiqa ichida (yoki oyna faollashganda) oladi.

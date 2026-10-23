@@ -6,6 +6,7 @@ export const NAV = [
   { path: "/analytics", name: "CRM analitikasi", icon: "chart", comp: () => import("./pages/Analytics.vue") },
   { path: "/teachers", name: "Eng yaxshi o'qituvchilar", icon: "trophy", comp: () => import("./pages/Teachers.vue") },
   { path: "/insights", name: "Aqlli tavsiyalar", icon: "spark", comp: () => import("./pages/Insights.vue") },
+  { path: "/ai", name: "AI yordamchi", icon: "spark", comp: () => import("./pages/AiAssistant.vue") },
   { path: "/data", name: "Markaziy ma'lumotlar", icon: "db", comp: () => import("./pages/DataCenter.vue") },
   { group: "Boshqaruv" },
   { path: "/admins", name: "Administratorlar", icon: "users", comp: () => import("./pages/Admins.vue") },

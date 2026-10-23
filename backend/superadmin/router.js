@@ -26,6 +26,7 @@ import {
   getSettings,
   saveSettings,
   effectiveModules,
+  settingsMenuAllowed,
   defaultSettings,
 } from "./settings.js";
 import { buildReport, REPORTS, reportFileName } from "./reports.js";
@@ -42,7 +43,8 @@ export const CATEGORIES = [
   ["Chiqish", /^auth\.logout$/],
   ["Kirish xatosi", /^auth\.(login\.(failed|unknown_user|locked|disabled|device_blocked|otp_failed)|session\.reuse_detected)/],
   ["Parol", /^(auth\.(password|username)|bootstrap\.password|super\.admin\.reset_link)/],
-  ["Ma'lumot o'zgarishi", /^(data\.|kv\.crm|super\.data\.)/],
+  ["Ma'lumot o'zgarishi", /^(data\.|kv\.crm|super\.data\.|super\.ai\.action)/],
+  ["AI yordamchi", /^super\.ai\.chat$/],
   ["Sozlama", /^(settings\.|super\.(settings|modules|branding)|module\.)/],
   ["Ruxsatlar", /^(super\.admin\.|admin\.|authz\.|bootstrap\.(role|account))/],
   ["Eksport", /^(report\.|super\.export|backup\.download)/],
@@ -87,6 +89,8 @@ const EVENT_TEXT = {
   "super.admin.reset_link": "Parolni tiklash havolasi yaratildi",
   "super.admin.sessions_revoked": "Administrator sessiyalari bekor qilindi",
   "super.data.edit": "Super Admin yozuvni tahrirladi",
+  "super.ai.chat": "Super Admin AI yordamchisidan foydalandi",
+  "super.ai.action": "Super Admin AI orqali amal bajardi",
   "super.data.view_sensitive": "Shaxsiy ma'lumotlar ochildi",
   "backup.create": "Zaxira nusxa yaratildi",
   "backup.failed": "Zaxira nusxa yaratilmadi",
@@ -989,13 +993,30 @@ export function createSuperRouter(deps) {
         state: s.modules[m.key] || { menu: true, api: true },
       })),
       locked: [{ key: "settings", label: "Sozlamalar", reason: "Bu bo'lim har doim ochiq — aks holda admin tizimni boshqara olmay qoladi" }],
+      settingsMenu: s.settingsMenu,
     });
   });
 
   r.post("/api/super/modules", S, async (req, res) => {
-    const before = (await getSettings()).modules;
+    const prevAll = await getSettings();
+    const before = prevAll.modules;
     const out = await saveSettings("modules", req.body?.modules || {}, req.user);
     if (!out.ok) return res.status(400).json(out);
+    // Sozlamalar → «Menyu bo'limlari» (admin / mentor / talaba)
+    let sm = prevAll.settingsMenu;
+    if (req.body?.settingsMenu && typeof req.body.settingsMenu === "object") {
+      const o2 = await saveSettings("settingsMenu", req.body.settingsMenu, req.user);
+      if (o2.ok) {
+        if (JSON.stringify(o2.value) !== JSON.stringify(sm))
+          await audit("super.modules.update", {
+            req,
+            actor: req.user,
+            meta: { settingsMenu: Object.entries(o2.value).map(([k, v]) => `${k}: ${v ? "ochiq" : "yopiq"}`).join(", ") },
+            severity: "warn",
+          });
+        sm = o2.value;
+      }
+    }
     const changed = Object.keys(out.value).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(out.value[k]));
     await audit("super.modules.update", {
       req,
@@ -1005,7 +1026,7 @@ export function createSuperRouter(deps) {
     });
     // Ochiq admin panellar menyuni darhol yangilaydi
     broadcast(["__modules__"]);
-    res.json({ ok: true, modules: out.value });
+    res.json({ ok: true, modules: out.value, settingsMenu: sm });
   });
 
   // ═══════════════════════ SOZLAMALAR ══════════════════════════════════════
@@ -1364,6 +1385,7 @@ export function createSuperRouter(deps) {
       ok: true,
       restricted: req.user.role === "admin" && !req.user.isSuper,
       isSuper: !!req.user.isSuper,
+      settingsMenu: await settingsMenuAllowed(req.user),
       modules: MODULES.map((m) => ({ key: m.key, nav: m.nav, tabs: m.tabs, label: m.label, ...eff[m.key] })),
     });
   });

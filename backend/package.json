@@ -9,9 +9,11 @@
     "dev": "node --watch server.js",
     "build": "bash build.sh",
     "test": "node tests/calc.test.mjs && node tests/pager.test.mjs",
-    "test:integration": "node tests/superadmin.itest.mjs"
+    "test:integration": "node tests/superadmin.itest.mjs",
+    "test:ai": "node --env-file=.env tests/superai.itest.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.2.0",
     "express": "^4.18.2",
     "mammoth": "^1.8.0",
     "mongodb": "^6.3.0",

@@ -95,6 +95,9 @@ const MODULE_KEYS = new Set(MODULES.map((m) => m.key));
 const DEFAULTS = {
   modules: Object.fromEntries(MODULES.map((m) => [m.key, { menu: true, api: true }])),
   general: { timezone: DEFAULT_TZ },
+  // Sozlamalar → «Menyu bo'limlari» kartasi har bir rol uchun ochiq/yopiq.
+  // false bo'lsa o'sha rol sozlamalarida bu bo'lim umuman chiqmaydi.
+  settingsMenu: { admin: true, mentor: true, student: true },
   notifications: {
     telegramAttendance: true, // davomat hisoboti ota-onalar guruhiga
     debtorMessages: true, // qarzdorlarga Telegram/SMS xabar
@@ -133,7 +136,7 @@ export async function getSettings() {
   try {
     const docs = await _getDb()
       .collection(SETTINGS_COL)
-      .find({ _id: { $in: ["modules", "general", "notifications", "ranking"] } })
+      .find({ _id: { $in: ["modules", "general", "notifications", "ranking", "settingsMenu"] } })
       .toArray();
     for (const d of docs) out[d._id] = merge(DEFAULTS[d._id], d.value);
   } catch (e) {
@@ -157,6 +160,12 @@ function validate(section, value) {
       out[k] = { menu: x?.menu !== false && api, api };
     }
     return { ok: true, value: merge(DEFAULTS.modules, out) };
+  }
+  if (section === "settingsMenu") {
+    return {
+      ok: true,
+      value: { admin: v.admin !== false, mentor: v.mentor !== false, student: v.student !== false },
+    };
   }
   if (section === "general") {
     const tz = String(v.timezone || DEFAULT_TZ);
@@ -224,6 +233,14 @@ export async function effectiveModules(user) {
     all[m.key] = { menu: api && g.menu !== false && o.menu !== false, api };
   }
   return all;
+}
+
+/** Foydalanuvchi roli uchun Sozlamalar → «Menyu bo'limlari» ochiqmi. Super Admin uchun har doim ochiq. */
+export async function settingsMenuAllowed(user) {
+  if (!user || user.isSuper) return true;
+  const s = await getSettings();
+  const key = user.role === "mentor" ? "mentor" : user.role === "student" ? "student" : "admin";
+  return s.settingsMenu?.[key] !== false;
 }
 
 /** CRM bo'limlari bo'yicha cheklov: { readBlocked:Set, writeBlocked:Set, modules:[...] } */

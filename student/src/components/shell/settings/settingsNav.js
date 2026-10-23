@@ -15,6 +15,15 @@ export const SETT_ICONS = {
 
 const KEY = "edumanage_settings_tab";
 
+// Super Admin «Menyu bo'limlari» ni shu rol uchun yopsa — false bo'ladi
+// (core/nav-visibility.js /api/modules/me dan olib, shu yerga yozadi).
+export const settingsMenuAllowed = ref(true);
+if (typeof window !== "undefined") {
+  window.__setSettingsMenuAllowed = (v) => {
+    settingsMenuAllowed.value = v !== false;
+  };
+}
+
 export function useSettingsTab(ids) {
   let saved = null;
   try {

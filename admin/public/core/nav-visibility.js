@@ -55,6 +55,11 @@
 
   var HIDDEN_CLASS = "nav-user-hidden";
 
+  // Super Admin → «Menyu boshqaruvi»: shu rol uchun «Menyu bo'limlari»
+  // yopilgan bo'lsa (false) — sozlamalarda bu bo'lim chiqmaydi va
+  // foydalanuvchining oldin yashirgan bo'limlari hisobga olinmaydi.
+  var menuAllowed = true;
+
   function injectStyles() {
     if (document.getElementById("nav-visibility-style")) return;
     var st = document.createElement("style");
@@ -108,6 +113,7 @@
   }
 
   function getHidden() {
+    if (!menuAllowed) return [];
     var s = ui();
     var list = s && s[settingsKey()];
     return Array.isArray(list) ? list.slice() : [];
@@ -292,6 +298,57 @@
   }
   window.__navVisClick = onListClick;
 
+  function setMenuAllowed(v) {
+    v = v !== false;
+    var changed = v !== menuAllowed;
+    menuAllowed = v;
+    if (typeof window.__setSettingsMenuAllowed === "function") window.__setSettingsMenuAllowed(v);
+    if (changed) {
+      applyHidden();
+      try { renderCard(); } catch (e) {}
+    }
+  }
+
+  var _loading = false;
+  function loadPolicy() {
+    if (_loading) return;
+    try {
+      if (window.CRMAuth && !window.CRMAuth.isLoggedIn()) return;
+    } catch (e) { return; }
+    _loading = true;
+    fetch("/api/modules/me", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok && "settingsMenu" in d) setMenuAllowed(d.settingsMenu);
+      })
+      .catch(function () {})
+      .then(function () { _loading = false; });
+  }
+
+  function wrapShowApp() {
+    var orig = window.showApp;
+    if (typeof orig !== "function" || orig.__navVisPol) return;
+    var wrapped = function () {
+      var r = orig.apply(this, arguments);
+      setTimeout(loadPolicy, 0);
+      return r;
+    };
+    wrapped.__navVisPol = true;
+    window.showApp = wrapped;
+  }
+
+  wrapShowApp();
+  loadPolicy();
+  if (!window.__NAV_VIS_POLICY_TIMER__) {
+    window.__NAV_VIS_POLICY_TIMER__ = setInterval(function () {
+      if (typeof window.__navVisLoadPolicy === "function") window.__navVisLoadPolicy();
+    }, 60000);
+    window.addEventListener("focus", function () {
+      if (typeof window.__navVisLoadPolicy === "function") window.__navVisLoadPolicy();
+    });
+  }
+  window.__navVisLoadPolicy = loadPolicy;
+  window.setNavMenuAllowed = setMenuAllowed;
   window.applyNavVisibility = applyHidden;
   window.renderNavVisibilityCard = renderCard;
 })();
