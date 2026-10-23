@@ -19,7 +19,7 @@ export const SCRIPT_GROUPS = [
   // Group 0.2: modal oynalar (crmAlert/crmConfirm/crmPrompt) — brauzerning
   // alert/confirm/prompt oynalari o'rniga. Boshqa skriptlar undan foydalanadi,
   // shuning uchun eng boshida yuklanadi.
-  ["ui-dialog.js"],
+  ["ui-dialog.js", "pager.js"],
   // Group 0.5: sessiya qatlami — backend-storage.js dan OLDIN bo'lishi SHART.
   // U window.fetch ni o'rab, har bir /api/ so'roviga token qo'shadi; keyingi
   // o'ramalar (backend-storage) uning ustiga qo'yiladi.

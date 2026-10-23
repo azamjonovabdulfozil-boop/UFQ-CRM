@@ -843,9 +843,11 @@ function renderCertTemplates() {
       "Sertifikat blankasini rasm (PNG yoki JPG) qilib yuklang — so'ng ism, kurs, raqam, " +
       "o'qish davri, sana va QR kodni rasm ustida kerakli joyga sudrab qo'yasiz. " +
       "Sertifikat yaratilganda ma'lumot aynan o'sha joylarga tushadi.</div></div>";
+    Pager.clear("cert-tpl", box);
     return;
   }
 
+  list = Pager.slice("cert-tpl", list, { render: renderCertTemplates }).items;
   box.innerHTML = list
     .map(function (t) {
       var used = certAll().filter(function (c) {
@@ -871,6 +873,7 @@ function renderCertTemplates() {
       );
     })
     .join("");
+  Pager.mount("cert-tpl", box);
 
   // Har bir shablon namunaviy ma'lumot bilan ko'rsatiladi
   list.forEach(function (t) {
@@ -2438,9 +2441,14 @@ function renderCertificates() {
         : "\"+ Sertifikat yaratish\" tugmasini bosing — ma'lumotlarni to'ldirasiz, ular " +
           "shablon rasmidagi o'z joyiga tushadi va sertifikat talabaning panelida paydo bo'ladi.") +
       "</div></div>";
+    Pager.clear("certs", box);
     return;
   }
 
+  list = Pager.slice("certs", list, {
+    sig: q + "|" + tplFilter,
+    render: renderCertificates,
+  }).items;
   box.innerHTML = list
     .map(function (c) {
       var tpl = c.templateId ? certTplById(c.templateId) : null;
@@ -2471,6 +2479,7 @@ function renderCertificates() {
       );
     })
     .join("");
+  Pager.mount("certs", box);
 }
 
 /** Filtr ro'yxatini yuklangan shablonlar bilan to'ldiradi. */
@@ -3113,6 +3122,9 @@ function renderStudentCertificates() {
     return;
   }
 
+  var _total = list.length;
+  list = Pager.slice("my-certs", list, { render: renderStudentCertificates }).items;
+
   box.innerHTML =
     '<div class="cert-hero">' +
     '<div class="cert-hero-ic">🎖</div>' +
@@ -3121,7 +3133,7 @@ function renderStudentCertificates() {
     '<div class="cert-hero-s">Har bir sertifikatda QR kod bor — uni skaner qilgan har qanday odam ' +
     "hujjatning haqiqiyligini bir soniyada tekshira oladi. Yuklab olib chop etsangiz ham QR ishlaydi.</div>" +
     "</div>" +
-    '<div class="cert-hero-n"><b>' + list.length + "</b><span>TA SERTIFIKAT</span></div>" +
+    '<div class="cert-hero-n"><b>' + _total + "</b><span>TA SERTIFIKAT</span></div>" +
     "</div>" +
     '<div class="cert-grid">' +
     list
@@ -3150,7 +3162,8 @@ function renderStudentCertificates() {
         );
       })
       .join("") +
-    "</div>";
+    "</div>" +
+    Pager.html("my-certs");
 
   list.forEach(function (c) {
     certPaint("cert-mini-" + c.id, c);

@@ -478,7 +478,8 @@ function renderTestsPanel() {
     return true;
   });
 
-  const testsListHtml = visibleTests.length ? visibleTests.map(t => {
+  const _testsPg = Pager.slice('tests', visibleTests, { sig: String(gFilterVal), render: renderTestsPanel });
+  const testsListHtml = visibleTests.length ? _testsPg.items.map(t => {
     const grp = t.groupId ? D.groups.find(g => g.id === t.groupId) : null;
     const qCount = (t.questions || []).length;
     const resultCount = D.testResults[t.id] ? Object.keys(D.testResults[t.id]).length : 0;
@@ -510,6 +511,7 @@ function renderTestsPanel() {
         <button class="btn btn-primary" onclick="openCreateTestModal()">${L==='ru'?'➕ Создать тест':L==='en'?'➕ Create test':L==='ru'?'➕ Создать тест':L==='en'?'➕ Create test':'➕ Yangi test yaratish'}</button>
       </div>
       <div class="tests-list">${testsListHtml}</div>
+      ${visibleTests.length ? Pager.html('tests') : ''}
     </div>
     <div id="test-modal-overlay" class="overlay" onclick="if(event.target===this)closeTestModal()">
       <div class="modal" id="test-modal" style="max-width:700px;max-height:90vh;overflow-y:auto">
@@ -960,7 +962,9 @@ function openTestResults(testId) {
   if (!resultEntries.length) {
     document.getElementById('test-results-body').innerHTML = `<div class="empty"><div class="empty-ic">📊</div><div class="empty-txt">Hali hech kim test topshirmagan</div></div>`;
   } else {
-    const rows = resultEntries.map((e, i) => {
+    const _resPg = Pager.slice('test-results', resultEntries, { sig: String(testId), render: () => openTestResults(testId) });
+    const rows = _resPg.items.map((e, _i) => {
+      const i = _resPg.start + _i;
       const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
       const sc = e.result.score;
       const clr = sc>=85?'var(--teal-text)':sc>=70?'var(--accent-text)':sc>=55?'var(--amber-text)':'var(--orange-text)';
@@ -979,7 +983,8 @@ function openTestResults(testId) {
         <div style="background:var(--accent-light);border-radius:var(--r-md);padding:10px 18px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--accent-text)">${avg}%</div><div style="font-size:11px;color:var(--text3)">O'rtacha</div></div>
         <div style="background:var(--purple-light);border-radius:var(--r-md);padding:10px 18px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--purple-text)">${(t.questions||[]).length}</div><div style="font-size:11px;color:var(--text3)">Savollar</div></div>
       </div>
-      ${rows}`;
+      ${rows}
+      ${Pager.html('test-results')}`;
   }
   document.getElementById('test-results-overlay').classList.add('open');
 }
@@ -1944,9 +1949,11 @@ function renderMentorGroupsList(){
 
   if(!items.length){
     grid.innerHTML=`<div class="empty"><div class="empty-ic">👥</div><div class="empty-txt">${L==='ru'?'Групп не найдено':L==='en'?'No groups found':'Guruh topilmadi'}</div></div>`;
+    Pager.clear('mentor-groups',grid);
     return;
   }
 
+  items=Pager.slice('mentor-groups',items,{sig:(_mgQuery||'')+'|'+(_mgStatus||''),render:renderMentorGroupsList}).items;
   grid.innerHTML=items.map(g=>{
     const gStudents=(D.students||[]).filter(s=>s.groupId===g.id);
     const gActive=gStudents.filter(s=>s.status==='Aktiv').length;
@@ -1987,6 +1994,7 @@ function renderMentorGroupsList(){
       </div>
     </div>`;
   }).join('');
+  Pager.mount('mentor-groups',grid);
 }
 window.renderMentorGroups=renderMentorGroups;
 window.renderMentorGroupsList=renderMentorGroupsList;

@@ -730,7 +730,7 @@
       '<div class="mt-list-h"><h3>Yuklangan metodologiyalar (' + list.length + ")</h3></div>" +
       (list.length
         ? '<div class="mt-list">' +
-          list
+          Pager.slice("methodology", list, { render: _mtRepaint }).items
             .map(function (x) {
               var k = KIND[x.kind] || KIND.txt;
               var id = esc(x.id);
@@ -748,7 +748,8 @@
               );
             })
             .join("") +
-          "</div>"
+          "</div>" +
+          Pager.html("methodology")
         : '<div class="mt-card"><div class="mt-empty"><div class="mt-empty-ic">🧭</div><b>Hali metodologiya yo\'q</b>Yuqoridagi formadan birinchi faylni yuklang.</div></div>') +
       "</div>";
     var drop = document.getElementById("mt-drop");
@@ -772,6 +773,19 @@
     }
     if (_file) window.mtPickFile(_file);
     schedulePoll();
+  }
+
+  // Sahifa almashganda formaga yozilgan nom va kurs yo'qolmasin
+  function _mtRepaint() {
+    var t = document.getElementById("mt-title");
+    var c = document.getElementById("mt-course");
+    var tv = t ? t.value : "";
+    var cv = c ? c.value : "";
+    renderMethodology();
+    t = document.getElementById("mt-title");
+    c = document.getElementById("mt-course");
+    if (t) t.value = tv;
+    if (c) c.value = cv;
   }
 
   function refreshAdmin() {

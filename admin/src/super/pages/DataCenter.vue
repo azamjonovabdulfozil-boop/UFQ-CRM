@@ -86,7 +86,7 @@
             </template>
             <template v-if="detail.data.extra?.members">
               <div class="section-t">Guruh a'zolari (davr: {{ periodLabel }})</div>
-              <DataTable :columns="[{ key: 'name', label: 'O\'quvchi' }, { key: 'status', label: 'Holat' }, { key: 'att', label: 'Davomat', align: 'r', fmt: (v) => fmt.pct(v?.pct) }, { key: 'avgGrade', label: 'Baho', align: 'r', fmt: (v) => fmt.n(v) }]" :rows="detail.data.extra.members" :per-page="10" />
+              <DataTable :columns="[{ key: 'name', label: 'O\'quvchi' }, { key: 'status', label: 'Holat' }, { key: 'att', label: 'Davomat', align: 'r', fmt: (v) => fmt.pct(v?.pct) }, { key: 'avgGrade', label: 'Baho', align: 'r', fmt: (v) => fmt.n(v) }]" :rows="detail.data.extra.members" />
             </template>
             <template v-if="detail.data.extra?.stats && entity === 'mentors'">
               <div class="note">Reyting balli: <b>{{ fmt.n(detail.data.extra.stats.score) }}</b> · o'tilgan darslar: <b>{{ detail.data.extra.stats.lessons.held }}</b> · davomat: <b>{{ fmt.pct(detail.data.extra.stats.att.pct) }}</b> — <router-link to="/teachers">reyting sahifasi</router-link></div>
@@ -199,7 +199,7 @@ const state = ref("");
 const sort = ref("");
 const dir = ref("desc");
 const page = ref(1);
-const limit = 25;
+const limit = 10;
 function setEntity(k) {
   entity.value = k;
   q.value = status.value = groupId.value = mentorId.value = state.value = sort.value = "";

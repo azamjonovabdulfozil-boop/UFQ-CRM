@@ -387,6 +387,7 @@ async function resetData() {
     body: JSON.stringify({ ...empty, _hasUserData: true, force: true }),
   }).catch(() => {});
   groupPage = 1;
+  if (window.Pager) Pager.reset("groups");
   updateCounts();
   updateGroupFilters();
   updateStudentCourseFilter();
@@ -716,8 +717,14 @@ function renderFinanceList() {
   const container = document.getElementById("fin-transactions");
   if (!txs.length) {
     container.innerHTML = `<div class="empty"><div class="empty-ic">💰</div><div class="empty-txt">Bu oyda tranzaksiya yo'q</div></div>`;
+    Pager.clear("finance", container);
     return;
   }
+  // 10 tadan sahifalash — oy yoki tur filtri o'zgarsa 1-sahifaga qaytadi
+  txs = Pager.slice("finance", txs, {
+    sig: [_finMonth, _finYear, filterType].join("|"),
+    render: renderFinanceList,
+  }).items;
   const typeIcon = { income: "💚", expense: "🔴", salary: "🎓" };
   const typeClass = {
     income: "fin-tx-income",
@@ -763,6 +770,7 @@ function renderFinanceList() {
       )
       .join("")}
   `;
+  Pager.mount("finance", container);
 }
 
 // FIX #5: Update filter select options with translated text

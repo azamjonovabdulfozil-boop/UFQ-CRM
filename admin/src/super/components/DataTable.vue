@@ -32,26 +32,20 @@
         </tbody>
       </table>
     </div>
-    <div v-if="totalRows > perPage" class="pager">
-      <span>{{ (curPage - 1) * perPage + 1 }}–{{ Math.min(curPage * perPage, totalRows) }} / {{ totalRows }}</span>
-      <div class="row">
-        <button class="btn sm" :disabled="curPage <= 1" @click="go(curPage - 1)"><Icon name="left" :size="14" /> Oldingi</button>
-        <span>{{ curPage }} / {{ pages }}</span>
-        <button class="btn sm" :disabled="curPage >= pages" @click="go(curPage + 1)">Keyingi <Icon name="right" :size="14" /></button>
-      </div>
-    </div>
+    <Pager :page="curPage" :pages="pages" :total="totalRows" @go="go" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from "vue";
 import Icon from "./Icon.vue";
+import Pager from "./Pager.vue";
 
 const props = defineProps({
   columns: { type: Array, required: true },
   rows: { type: Array, default: () => [] },
   rowKey: { type: String, default: "id" },
-  perPage: { type: Number, default: 15 },
+  perPage: { type: Number, default: 10 },
   searchable: { type: Boolean, default: false },
   searchPlaceholder: { type: String, default: "Qidirish…" },
   clickable: { type: Boolean, default: false },
@@ -100,9 +94,17 @@ const pageRows = computed(() =>
   props.server ? props.rows : filtered.value.slice((localPage.value - 1) * props.perPage, localPage.value * props.perPage),
 );
 function go(p) {
+  p = Math.max(1, Math.min(pages.value, p));
   if (props.server) emit("page", p);
   else localPage.value = p;
 }
+// Yozuv o'chirilib, joriy sahifa yo'qolib qolsa — oxirgi mavjud sahifaga qaytamiz
+watch(
+  () => [props.server, props.total, props.page],
+  () => {
+    if (props.server && props.total > 0 && props.page > pages.value) emit("page", pages.value);
+  },
+);
 </script>
 
 <style scoped>

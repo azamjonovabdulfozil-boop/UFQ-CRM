@@ -48,19 +48,19 @@
         <div class="grid g2">
           <div class="card">
             <div class="card-h"><h3>Xato qaytarayotgan endpointlar</h3></div>
-            <div class="card-b"><DataTable :columns="epCols" :rows="d.requests.topByErrors.map((e) => ({ ...e, id: e.key }))" :per-page="8" empty-text="Xato yo'q" /></div>
+            <div class="card-b"><DataTable :columns="epCols" :rows="d.requests.topByErrors.map((e) => ({ ...e, id: e.key }))" empty-text="Xato yo'q" /></div>
           </div>
           <div class="card">
             <div class="card-h"><h3>Eng sekin endpointlar</h3></div>
-            <div class="card-b"><DataTable :columns="slowCols" :rows="d.requests.topBySlow.map((e) => ({ ...e, id: e.key }))" :per-page="8" /></div>
+            <div class="card-b"><DataTable :columns="slowCols" :rows="d.requests.topBySlow.map((e) => ({ ...e, id: e.key }))" /></div>
           </div>
           <div class="card">
             <div class="card-h"><h3>Oxirgi API xatolari (xotira)</h3></div>
-            <div class="card-b"><DataTable :columns="recCols" :rows="d.requests.recentErrors.map((e, i) => ({ ...e, id: i }))" :per-page="8" empty-text="Xato yo'q" /></div>
+            <div class="card-b"><DataTable :columns="recCols" :rows="d.requests.recentErrors.map((e, i) => ({ ...e, id: i }))" empty-text="Xato yo'q" /></div>
           </div>
           <div class="card">
             <div class="card-h"><h3>Oxirgi server xatolari (jurnal)</h3></div>
-            <div class="card-b"><DataTable :columns="logCols" :rows="(d.lastErrors || []).map((e, i) => ({ ...e, id: i }))" :per-page="8" empty-text="Xato yo'q" /></div>
+            <div class="card-b"><DataTable :columns="logCols" :rows="(d.lastErrors || []).map((e, i) => ({ ...e, id: i }))" empty-text="Xato yo'q" /></div>
           </div>
         </div>
         <div class="note">

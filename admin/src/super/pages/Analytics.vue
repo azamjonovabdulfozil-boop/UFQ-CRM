@@ -129,11 +129,11 @@
           <div class="grid g2">
             <div class="card">
               <div class="card-h"><h3>O'qituvchilar bo'yicha</h3></div>
-              <div class="card-b"><DataTable :columns="lessonTeacherCols" :rows="d.lessonsByTeacher" default-sort="held" :per-page="10" /></div>
+              <div class="card-b"><DataTable :columns="lessonTeacherCols" :rows="d.lessonsByTeacher" default-sort="held" /></div>
             </div>
             <div class="card">
               <div class="card-h"><h3>Guruhlar bo'yicha</h3></div>
-              <div class="card-b"><DataTable :columns="lessonGroupCols" :rows="d.lessonsByGroup.filter((g) => !g.archived)" default-sort="missed" :per-page="10" /></div>
+              <div class="card-b"><DataTable :columns="lessonGroupCols" :rows="d.lessonsByGroup.filter((g) => !g.archived)" default-sort="missed" /></div>
             </div>
           </div>
           <div class="card">
@@ -189,7 +189,7 @@
             <b>{{ student.dynamics.trend.attendance == null ? "ma'lumot yetarli emas" : fmt.delta(student.dynamics.trend.attendance, " p.p.") }}</b>, baho
             <b>{{ student.dynamics.trend.grade == null ? "ma'lumot yetarli emas" : fmt.delta(student.dynamics.trend.grade) }}</b>.
           </div>
-          <DataTable :columns="dynCols" :rows="student.dynamics.months.map((m) => ({ ...m, id: m.month }))" :per-page="12" />
+          <DataTable :columns="dynCols" :rows="student.dynamics.months.map((m) => ({ ...m, id: m.month }))" />
         </template>
       </State>
     </Modal>

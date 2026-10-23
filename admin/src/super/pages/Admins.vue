@@ -72,7 +72,7 @@
             <button v-if="!det.data.account.isSuper" class="btn sm" @click="revoke(s.id)">Bekor qilish</button>
           </div>
           <div class="section-t" style="margin-top: 16px">Faoliyat tarixi (oxirgi 100)</div>
-          <DataTable :columns="actCols" :rows="det.data.activity.map((x, i) => ({ ...x, id: i }))" :per-page="10">
+          <DataTable :columns="actCols" :rows="det.data.activity.map((x, i) => ({ ...x, id: i }))">
             <template #severity="{ value }"><span class="badge" :class="value === 'info' ? 'b-good' : value === 'critical' ? 'b-bad' : 'b-warn'">{{ value === "info" ? "ok" : value }}</span></template>
           </DataTable>
         </template>

@@ -273,8 +273,9 @@ function renderCourses(){
   const q=(document.getElementById('s-course').value||'').toLowerCase();
   const items=D.courses.filter(c=>c.name.toLowerCase().includes(q));
   const g=document.getElementById('course-grid');
-  if(!items.length){g.innerHTML=`<div class="empty"><div class="empty-ic">📚</div><div class="empty-txt">Kurs topilmadi</div></div>`;return;}
-  g.innerHTML=items.map((c,i)=>{
+  if(!items.length){g.innerHTML=`<div class="empty"><div class="empty-ic">📚</div><div class="empty-txt">Kurs topilmadi</div></div>`;Pager.clear('courses',g);return;}
+  const _pg=Pager.slice('courses',items,{sig:q,render:renderCourses});
+  g.innerHTML=_pg.items.map((c,_i)=>{const i=_pg.start+_i;
     const grps=D.groups.filter(gr=>gr.course===c.name).length;
     const stds=D.students.filter(s=>studentCourse(s)===c.name).length;
     const lp=getLessonPrice(c.name);
@@ -300,10 +301,11 @@ function renderCourses(){
       </div>
     </div>`;
   }).join('');
+  Pager.mount('courses',g);
 }
 
 // ===================== RENDER GROUPS =====================
-function resetGroupPage(){groupPage=1;}
+function resetGroupPage(){groupPage=1;Pager.reset('groups');}
 function renderGroups(){
   const q=(document.getElementById('s-group').value||'').toLowerCase();
   const fc=(document.getElementById('fg-course')?.value||'');
@@ -320,11 +322,12 @@ function renderGroups(){
     return mQ&&mC&&mM&&mD&&mDay&&mSt;
   });
   items.sort((a,b)=>a.name.localeCompare(b.name));
-  const total=items.length;const pages=Math.max(1,Math.ceil(total/PER_PAGE));
-  if(groupPage>pages)groupPage=pages;
-  const start=(groupPage-1)*PER_PAGE;const paged=items.slice(start,start+PER_PAGE);
+  const total=items.length;
   const grid=document.getElementById('group-grid');
-  if(!total){grid.innerHTML=`<div class="empty"><div class="empty-ic">👥</div><div class="empty-txt">Guruh topilmadi</div></div>`;document.getElementById('group-pagination').innerHTML='';return;}
+  const pgEl=document.getElementById('group-pagination');
+  if(!total){grid.innerHTML=`<div class="empty"><div class="empty-ic">👥</div><div class="empty-txt">Guruh topilmadi</div></div>`;if(pgEl)pgEl.innerHTML='';Pager.clear('groups');return;}
+  const _pg=Pager.slice('groups',items,{sig:[q,fc,fm,fd,fday,fst].join('|'),render:renderGroups});
+  groupPage=_pg.page;const paged=_pg.items;
   grid.innerHTML=paged.map(g=>{
     const cnt=groupStudentCount(g.id);
     const dur=getCourseDuration(g.course);
@@ -333,15 +336,9 @@ function renderGroups(){
     const statusBadge=g.status==='Man etilgan'?'b-orange':g.status==='Faol'?'b-teal':'b-gray';
     return `<div class="card"><div class="card-head"><div class="card-title">${g.name}</div><span class="badge ${statusBadge}">${g.status}</span></div><div class="card-body"><div><span>📚 Kurs:</span><b>${g.course}</b></div><div><span>🎓 Mentor:</span><b>${g.mentor}</b></div><div><span>🧑‍💻 Talabalar:</span><b><span class="badge b-blue" onclick="showGroupStudents(${g.id})" style="cursor:pointer;font-size:12px">${cnt} ta →</span></b></div><div><span>📅 Boshlanish:</span><b>${fmtDate(g.startDate)}</b></div><div><span>📆 Davomiylik:</span><b>${dur}</b></div><div><span>🚪 Xona:</span><b>${g.room||'—'}</b><span style="margin-left:8px">⏰</span><b>${timeStr}</b></div><div class="days-badges" style="margin-top:10px">${daysHtml}</div><div style="margin-top:8px"><span>📨 Telegram:</span><b>${g.telegramChatId?`<span class="badge b-teal" style="font-size:11px">✅ ulangan</span>`:`<span class="badge b-gray" style="font-size:11px">— sozlanmagan</span>`}</b></div></div><div class="card-foot"><button class="btn btn-sm" onclick="showGroupStudents(${g.id})" style="background:var(--teal-light);color:var(--teal-text);border-color:rgba(13,148,136,.3)">${L==='ru'?'📋 Посещаемость':L==='en'?'📋 Attendance':'📋 Davomat'}</button><button class="btn btn-sm" onclick="showMentorGroupRating(${g.id})" style="background:var(--purple-light);color:var(--purple-text);border-color:rgba(124,58,237,.3)">🏆 Reyting</button><button class="btn btn-sm" onclick="go('grades',document.getElementById('nav-grades'));setTimeout(()=>selectGradeGroup(${g.id}),150)" style="background:var(--amber-light);color:var(--amber-text);border-color:rgba(217,119,6,.3)">🏅 Baholash</button><button class="btn btn-sm" onclick="go('tests',document.getElementById('nav-tests'));setTimeout(()=>filterTestsByGroup(${g.id}),150)" style="background:var(--teal-light);color:var(--teal-text);border-color:rgba(13,148,136,.3)">${L==='ru'?'📝 Тесты':L==='en'?'📝 Tests':'📝 Testlar'}</button><button class="btn btn-sm" onclick="editItem('group',${g.id})">✏️</button><button class="btn btn-sm btn-del-outline" onclick="delItem('group',${g.id})">🗑</button></div></div>`;
   }).join('');
-  let pgHtml=`<button class="pg-btn" onclick="setGroupPage(${groupPage-1})" ${groupPage===1?'disabled':''}>‹ Oldingi</button>`;
-  const maxBtns=7;let pStart=Math.max(1,groupPage-3);let pEnd=Math.min(pages,pStart+maxBtns-1);
-  if(pEnd-pStart<maxBtns-1)pStart=Math.max(1,pEnd-maxBtns+1);
-  for(let i=pStart;i<=pEnd;i++)pgHtml+=`<button class="pg-btn ${i===groupPage?'active':''}" onclick="setGroupPage(${i})">${i}</button>`;
-  pgHtml+=`<button class="pg-btn" onclick="setGroupPage(${groupPage+1})" ${groupPage===pages?'disabled':''}>Keyingi ›</button>`;
-  pgHtml+=`<span class="pg-info">${start+1}–${Math.min(start+PER_PAGE,total)} / ${total}</span>`;
-  document.getElementById('group-pagination').innerHTML=pgHtml;
+  if(pgEl)pgEl.innerHTML=Pager.html('groups');
 }
-function setGroupPage(p){groupPage=p;renderGroups();document.getElementById('scroll').scrollTop=0;}
+function setGroupPage(p){Pager.go('groups',p);}
 
 // ===================== RENDER MENTORS =====================
 function renderMentors(){
@@ -353,12 +350,14 @@ function renderMentors(){
   });
   items.sort((a,b)=>a.name.localeCompare(b.name));
   const el=document.getElementById('mentor-list');
-  if(!items.length){el.innerHTML=`<div class="empty"><div class="empty-ic">🎓</div><div class="empty-txt">Mentor topilmadi</div></div>`;return;}
-  el.innerHTML=items.map((m,i)=>{
+  if(!items.length){el.innerHTML=`<div class="empty"><div class="empty-ic">🎓</div><div class="empty-txt">Mentor topilmadi</div></div>`;Pager.clear('mentors',el);return;}
+  const _pg=Pager.slice('mentors',items,{sig:q+'|'+_expFilter,render:renderMentors});
+  el.innerHTML=_pg.items.map((m,_i)=>{const i=_pg.start+_i;
     const gc=D.groups.filter(g=>g.mentor===m.name).length;
     const sc=D.students.filter(s=>D.groups.some(g=>g.id===s.groupId&&g.mentor===m.name)).length;
     return `<div class="list-item" onclick="openDetailMentor(${m.id})">${mentorAvatarHtml(m,i,'sm')}<div class="li-info"><div class="li-name">${m.name}</div><div class="li-sub">📱 ${m.phone} · ${m.subject}${m.experience?' · '+m.experience:''}</div><div class="li-tags"><span class="badge b-purple">${gc} guruh</span><span class="badge b-teal">${sc} talaba</span><span class="badge b-gray">📅 ${fmtDate(m.joinDate)}</span></div></div><div class="li-right" onclick="event.stopPropagation()"><button class="btn btn-sm" onclick="editItem('mentor',${m.id})">✏️ Tahrirlash</button><button class="btn btn-sm btn-del-outline" onclick="delItem('mentor',${m.id})">🗑 O'chirish</button></div></div>`;
   }).join('');
+  Pager.mount('mentors',el);
 }
 
 // ===================== RENDER STUDENTS =====================
@@ -376,34 +375,15 @@ function renderStudents(){
   items.sort((a,b)=>a.name.localeCompare(b.name));
   const el=document.getElementById('student-list');
   const pgEl=document.getElementById('student-pagination');
-  if(!items.length){el.innerHTML=`<div class="empty"><div class="empty-ic">🧑‍💻</div><div class="empty-txt">${t('no_students_found')}</div></div>`;if(pgEl)pgEl.innerHTML='';return;}
+  if(!items.length){el.innerHTML=`<div class="empty"><div class="empty-ic">🧑‍💻</div><div class="empty-txt">${t('no_students_found')}</div></div>`;if(pgEl)pgEl.innerHTML='';Pager.clear('students');return;}
   // ---- Pagination: 10 ta talaba / sahifa (1.1-band talabi) ----
-  const total=items.length;const pages=Math.max(1,Math.ceil(total/STUDENT_PER_PAGE));
-  if(studentPage>pages)studentPage=pages;
-  if(studentPage<1)studentPage=1;
-  const start=(studentPage-1)*STUDENT_PER_PAGE;
-  const paged=items.slice(start,start+STUDENT_PER_PAGE);
+  const _pg=Pager.slice('students',items,{sig:[q,sf,df,cf].join('|'),render:renderStudents});
+  studentPage=_pg.page;const paged=_pg.items;
   const sb=s=>{const m={Aktiv:'b-teal',Faolsiz:'b-gray',Muzlatilgan:'b-blue',Probatsiya:'b-amber',Arxiv:'b-purple'};const ic={Aktiv:'✅',Faolsiz:'⛔',Muzlatilgan:'❄️',Probatsiya:'🔶',Arxiv:'📦'};return `<span class="badge ${m[s.status]||'b-gray'}">${ic[s.status]||''} ${t('status_'+s.status)}</span>`;};
-  el.innerHTML=paged.map((s,i)=>`<div class="list-item" onclick="openDetailStudent(${s.id})"><div class="av ${AV_CLS[i%5]}">${ini(s.name)}</div><div class="li-info"><div class="li-name">${s.name}</div><div class="li-sub">📱 ${s.phone} · ${groupLabel(s.groupId)}</div><div class="li-tags">${sb(s)}<span class="badge ${s.isDebtor?'b-orange':'b-teal'}">${s.isDebtor?t('debtor'):t('paid')}</span><span class="badge b-purple">📍 ${s.source||'—'}</span><span class="badge b-blue">📅 ${fmtDate(s.joinDate)}</span></div></div><div class="li-right" onclick="event.stopPropagation()"><button class="btn btn-sm" onclick="editItem('student',${s.id})">✏️ ${t('edit_btn')}</button><button class="btn btn-sm btn-del-outline" onclick="delItem('student',${s.id})">🗑 ${t('delete_btn')}</button></div></div>`).join('');
-  if(pgEl){
-    if(pages<=1){pgEl.innerHTML='';}
-    else{
-      let pgHtml=`<button class="pg-btn" onclick="setStudentPage(${studentPage-1})" ${studentPage===1?'disabled':''}>‹ ${t('prev')}</button>`;
-      const maxBtns=7;let pStart=Math.max(1,studentPage-3);let pEnd=Math.min(pages,pStart+maxBtns-1);
-      if(pEnd-pStart<maxBtns-1)pStart=Math.max(1,pEnd-maxBtns+1);
-      for(let i=pStart;i<=pEnd;i++)pgHtml+=`<button class="pg-btn ${i===studentPage?'active':''}" onclick="setStudentPage(${i})">${i}</button>`;
-      pgHtml+=`<button class="pg-btn" onclick="setStudentPage(${studentPage+1})" ${studentPage===pages?'disabled':''}>${t('next')} ›</button>`;
-      pgHtml+=`<span class="pg-info">${start+1}–${Math.min(start+STUDENT_PER_PAGE,total)} / ${total}</span>`;
-      pgEl.innerHTML=pgHtml;
-    }
-  }
+  el.innerHTML=paged.map((s,i)=>`<div class="list-item" onclick="openDetailStudent(${s.id})"><div class="av ${AV_CLS[(_pg.start+i)%5]}">${ini(s.name)}</div><div class="li-info"><div class="li-name">${s.name}</div><div class="li-sub">📱 ${s.phone} · ${groupLabel(s.groupId)}</div><div class="li-tags">${sb(s)}<span class="badge ${s.isDebtor?'b-orange':'b-teal'}">${s.isDebtor?t('debtor'):t('paid')}</span><span class="badge b-purple">📍 ${s.source||'—'}</span><span class="badge b-blue">📅 ${fmtDate(s.joinDate)}</span></div></div><div class="li-right" onclick="event.stopPropagation()"><button class="btn btn-sm" onclick="editItem('student',${s.id})">✏️ ${t('edit_btn')}</button><button class="btn btn-sm btn-del-outline" onclick="delItem('student',${s.id})">🗑 ${t('delete_btn')}</button></div></div>`).join('');
+  if(pgEl)pgEl.innerHTML=Pager.html('students');
 }
-function setStudentPage(p){
-  studentPage=p;
-  renderStudents();
-  const sc=document.getElementById('scroll');
-  if(sc)sc.scrollTop=0;
-}
+function setStudentPage(p){Pager.go('students',p);}
 
 // ===================== DASHBOARD =====================
 let activeStatChip=null;

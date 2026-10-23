@@ -276,3 +276,23 @@ telefonda foydalanuvchi "oyna chiqarmasin" tugmasini bossa `confirm()` doim
 `false` qaytarar edi — o'chirish/tasdiqlash amallari jimgina ishlamay
 qolardi. Hammasi `*/public/core/ui-dialog.js` dagi CRM modaliga ko'chirildi:
 `crmAlert()`, `crmConfirm()`, `crmPrompt()`.
+
+---
+
+## Yagona sahifalash (pagination) — barcha ro'yxatlarda 10 tadan ✅
+
+Ro'yxat ostida minimal ko'rinish: **[← Orqaga]  1 / 15  [Keyingi →]**. Birinchi
+sahifada «Orqaga», oxirgisida «Keyingi» nofaol. Qidiruv yoki filtr o'zgarsa —
+1-sahifaga qaytadi; ma'lumot o'chirilib sahifa yo'qolsa — oxirgi mavjud sahifaga.
+
+- Umumiy modul: `public/core/pager.js` (uchala portalda bir xil), uslub — `ui-polish.css` (`.ufq-pager`).
+- Ulangan ro'yxatlar: talabalar, guruhlar, mentorlar, kurslar, moliya tranzaksiyalari,
+  qarzdorlar, sertifikatlar va shablonlar, testlar va test natijalari, mentor guruhlari,
+  guruh reytingi oynasi, Coin Shop (mahsulotlar, xaridlar, talaba do'koni, xaridlarim),
+  mentor/talaba loginlari, bloklangan qurilmalar, metodologiyalar, video darsliklar,
+  talabaning reyting/test/baho sahifalari, sertifikatlarim, maqsadlar.
+- «Hammasini tanlash» (qarzdorlar) faqat ko'rinib turgan 10 tani emas, filtrga mos barchasini tanlaydi.
+- Super Admin: `components/Pager.vue`, `DataTable` hamma joyda 10 tadan;
+  «Ma'lumotlar markazi» va «Faollik jurnali» backend sahifalashidan (`page`, `limit=10`, `total`) foydalanadi.
+- Davomat va baholash jadvallari (ma'lumot kiritish matritsalari) ataylab sahifalanmadi.
+- Test: `backend/tests/pager.test.mjs` (`npm test` ichida).

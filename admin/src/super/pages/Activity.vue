@@ -52,7 +52,7 @@
         </div>
         <div class="card">
           <div class="card-b">
-            <DataTable :columns="cols" :rows="d.events" server :total="d.total" :page="page" :per-page="50" clickable @page="(p) => (page = p)" @row="(r) => (sel = r)">
+            <DataTable :columns="cols" :rows="d.events" server :total="d.total" :page="page" clickable @page="(p) => (page = p)" @row="(r) => (sel = r)">
               <template #severity="{ row }">
                 <span class="badge" :class="row.severity === 'info' ? 'b-good' : row.severity === 'critical' ? 'b-bad' : 'b-warn'">
                   <Icon :name="row.severity === 'info' ? 'check' : 'alert'" :size="11" />{{ row.result }}
@@ -125,7 +125,7 @@ watch(() => [f.actor, f.q], () => {
 });
 watch(() => [f.category, f.role, f.severity, period.period, period.from, period.to], () => (page.value = 1));
 const { data: d, loading, error, reload } = useLoad(
-  () => api("/api/super/activity", { query: { from: iso.value.from, to: iso.value.to, category: f.category, role: f.role, severity: f.severity, actor: f.actor.trim(), q: f.q.trim(), page: page.value, limit: 50 } }),
+  () => api("/api/super/activity", { query: { from: iso.value.from, to: iso.value.to, category: f.category, role: f.role, severity: f.severity, actor: f.actor.trim(), q: f.q.trim(), page: page.value, limit: 10 } }),
   { deps: computed(() => [iso.value.from, iso.value.to, f.category, f.role, f.severity, page.value]), pollMs: 60000 },
 );
 function clear() {

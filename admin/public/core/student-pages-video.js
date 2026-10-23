@@ -172,7 +172,9 @@ function renderStudentRatingPage(){
   }).join('');
 
   const youLbl=LANG==='ru'?'(Вы)':LANG==='en'?'(You)':'(Siz)';
-  const listHtml=ratings.map((r,idx)=>{
+  const _rtPg=Pager.slice('stu-rating',ratings,{sig:String(grp.id),render:renderStudentRatingPage});
+  const listHtml=_rtPg.items.map((r,_idx)=>{
+    const idx=_rtPg.start+_idx;
     const isMe=r.id===s.id;
     const rc=r.rating>=80?'var(--teal-text)':r.rating>=60?'var(--amber-text)':'var(--orange-text)';
     const rgBg=r.rating>=80?'var(--teal)':r.rating>=60?'var(--amber)':'var(--orange)';
@@ -217,6 +219,7 @@ function renderStudentRatingPage(){
     <div style="background:var(--bg);border:1.5px solid var(--border2);border-radius:var(--r-lg);padding:20px 22px;box-shadow:var(--shadow-sm)">
       <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:14px">${fullListLbl} <span style="font-size:12px;font-weight:500;color:var(--text3)">${byAttLbl}</span></div>
       <div>${listHtml}</div>
+      ${Pager.html('stu-rating')}
     </div>
   </div>`;
 }
@@ -245,7 +248,8 @@ function renderStudentGradesPage(){
   const gradingResultsLbl = LANG==='ru'?'Результаты оценки':LANG==='en'?'Grading Results':'Baholash natijalari';
   const noCriteriaYetLbl = LANG==='ru'?'Ещё нет критериев. Ментор добавит их.':LANG==='en'?'No criteria yet. Mentor will add them.':'Hali mezon yo\'q. Mentor qo\'shganda ko\'rinadi.';
 
-  const criteriaHtml=criteria.length?criteria.map(c=>{
+  const _crPg=Pager.slice('stu-grades',criteria,{sig:String(grp.id),render:renderStudentGradesPage});
+  const criteriaHtml=criteria.length?_crPg.items.map(c=>{
     const val=grades[c.id];
     const hasVal = val !== undefined && val !== null;
     const pct2=hasVal && c.maxScore>0?Math.round(val/c.maxScore*100):0;
@@ -296,6 +300,7 @@ function renderStudentGradesPage(){
     <div style="background:var(--bg);border:1.5px solid var(--border2);border-radius:var(--r-lg);padding:20px 22px;box-shadow:var(--shadow-sm)">
       <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:16px">📋 ${criteriaLbl}</div>
       <div style="display:flex;flex-direction:column;gap:10px">${criteriaHtml}</div>
+      ${criteria.length?Pager.html('stu-grades'):''}
     </div>
 
   </div>`;
@@ -314,7 +319,7 @@ function renderStudentTestsPage(){
     return;
   }
 
-  const testsHtml=tests.map(t=>{
+  const testsHtml=Pager.slice('stu-tests',tests,{sig:String(grp.id),render:renderStudentTestsPage}).items.map(t=>{
     const result=D.testResults?.[t.id]?.[s.id];
     const done=!!result;
     // 🔧 BUG FIX: result.score allaqachon FOIZ (0-100) sifatida saqlanadi
@@ -370,6 +375,7 @@ function renderStudentTestsPage(){
     </div>
     <div id="student-test-taking-wrap"></div>
     <div style="display:flex;flex-direction:column;gap:12px">${testsHtml}</div>
+    ${Pager.html('stu-tests')}
   </div>`;
 }
 
@@ -878,7 +884,8 @@ function renderMentorVideos() {
     </div>`;
     return;
   }
-  grid.innerHTML = vids.map(v => renderVideoCard(v, true)).join('');
+  grid.innerHTML = Pager.slice('mentor-videos', vids, { render: renderMentorVideos }).items.map(v => renderVideoCard(v, true)).join('');
+  Pager.mount('mentor-videos', grid);
 
   // Badge count
   const nc = document.getElementById('nc-mentor-videos');
@@ -914,12 +921,13 @@ function renderStudentVideos() {
       ${countLbl}: <b style="color:var(--accent-text);font-size:16px">${vids.length}</b>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">
-      ${vids.length ? vids.map(v => renderVideoCard(v, false)).join('') : `
+      ${vids.length ? Pager.slice('stu-videos', vids, { render: renderStudentVideos }).items.map(v => renderVideoCard(v, false)).join('') : `
         <div style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--text3)">
           <div style="font-size:64px;margin-bottom:16px">🎬</div>
           <div style="font-size:18px;font-weight:700">${emptyLbl}</div>
         </div>`}
     </div>
+    ${vids.length ? Pager.html('stu-videos') : ''}
   `;
 }
 

@@ -429,6 +429,8 @@ async function debtBotRemoveToken() {
 
 /* ─── Render ──────────────────────────────────────────────────────────────── */
 
+var _debtFilteredIds = [];
+
 function renderDebtors() {
   var box = document.getElementById("debtor-list");
   if (!box) return;
@@ -499,6 +501,10 @@ function renderDebtors() {
     gsel.value = cur;
   }
 
+  _debtFilteredIds = items.map(function (s) {
+    return s.id;
+  });
+
   // Ko'rinmay qolgan talabalar tanlovdan chiqariladi
   var visible = {};
   items.forEach(function (s) {
@@ -555,6 +561,7 @@ function renderDebtors() {
       '<div style="color:var(--text3);font-size:13px;margin-top:4px">' +
       "Talaba oyiga 12 ta darsni to'liq o'qib bo'lganda avtomatik qarzdor " +
       "sifatida shu yerga tushadi.</div></div>";
+    Pager.clear("debtors", box);
     _debtUpdateBar();
     return;
   }
@@ -563,12 +570,18 @@ function renderDebtors() {
     box.innerHTML =
       '<div class="debt-empty"><div style="font-size:32px">🔍</div>' +
       '<div style="margin-top:8px;color:var(--text3)">Filtrga mos talaba topilmadi</div></div>';
+    Pager.clear("debtors", box);
     _debtUpdateBar();
     return;
   }
 
-  box.innerHTML = items
-    .map(function (s, i) {
+  var _pg = Pager.slice("debtors", items, {
+    sig: [q, gf, cf].join("|"),
+    render: renderDebtors,
+  });
+  box.innerHTML = _pg.items
+    .map(function (s, _i) {
+      var i = _pg.start + _i;
       var g = _debtGroup(s);
       var ph = _debtPhone(s);
       var amount = debtorAmount(s);
@@ -643,6 +656,7 @@ function renderDebtors() {
       );
     })
     .join("");
+  Pager.mount("debtors", box);
 
   _debtUpdateBar();
 }
@@ -690,8 +704,7 @@ function _debtUpdateBar() {
   if (lbl) lbl.textContent = n + " ta talaba tanlandi";
   var all = document.getElementById("debtor-selectall");
   if (all) {
-    var visibleCount = document.querySelectorAll("#debtor-list .debt-item")
-      .length;
+    var visibleCount = (_debtFilteredIds || []).length;
     all.checked = visibleCount > 0 && n >= visibleCount;
   }
 }
@@ -704,13 +717,12 @@ function toggleDebtor(id, on) {
 
 function toggleAllDebtors(on) {
   _debtSelected = {};
+  // "Hammasini tanlash" — faqat joriy sahifadagi 10 tani emas, filtrga mos
+  // BARCHA qarzdorlarni tanlaydi (sahifalash tanlovga ta'sir qilmaydi).
   if (on) {
-    document
-      .querySelectorAll("#debtor-list .debt-item input[type=checkbox]")
-      .forEach(function (cb) {
-        var m = /toggleDebtor\((\d+)/.exec(cb.getAttribute("onchange") || "");
-        if (m) _debtSelected[m[1]] = true;
-      });
+    (_debtFilteredIds || []).forEach(function (id) {
+      _debtSelected[id] = true;
+    });
   }
   renderDebtors();
 }

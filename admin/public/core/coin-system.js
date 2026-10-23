@@ -1136,6 +1136,13 @@
         "</div>" +
         "</div>"
       );
+    items = Pager.slice("cs-products", items, {
+      render: function () {
+        var el = document.getElementById("csp-p");
+        if (el) el.innerHTML = renderAdminProducts(getShopItems());
+        setTimeout(csScanShopImages, 20);
+      },
+    }).items;
     return (
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px">' +
       items
@@ -1189,7 +1196,8 @@
           );
         })
         .join("") +
-      "</div>"
+      "</div>" +
+      Pager.html("cs-products")
     );
   }
 
@@ -1276,6 +1284,13 @@
     var sorted = filtered.slice().sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
     });
+    sorted = Pager.slice("cs-purchases", sorted, {
+      render: function () {
+        var el = document.getElementById("csp-x");
+        if (el) el.innerHTML = renderAdminPurchases(getPurchases());
+        setTimeout(csScanShopImages, 20);
+      },
+    }).items;
     return (
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--bg2);border-radius:14px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,.07)">' +
       '<thead><tr style="background:var(--bg2);border-bottom:2px solid var(--border2)">' +
@@ -1347,7 +1362,8 @@
           );
         })
         .join("") +
-      "</tbody></table></div>"
+      "</tbody></table></div>" +
+      Pager.html("cs-purchases")
     );
   }
 
@@ -2297,6 +2313,13 @@
         "</div>" +
         "</div>"
       );
+    items = Pager.slice("cs-shop", items, {
+      render: function () {
+        var el = document.getElementById("stu-shop-panel");
+        if (el) el.innerHTML = renderStudentShopGrid(getShop(), getStudentBal(stuId), stuId);
+        setTimeout(csScanShopImages, 20);
+      },
+    }).items;
     return (
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:20px">' +
       items
@@ -2378,7 +2401,8 @@
           );
         })
         .join("") +
-      "</div>"
+      "</div>" +
+      Pager.html("cs-shop")
     );
   }
 
@@ -2396,6 +2420,19 @@
     var sorted = buys.slice().sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
     });
+    var _buyStu = buys[0] && buys[0].studentId;
+    sorted = Pager.slice("cs-mybuys", sorted, {
+      render: function () {
+        var el = document.getElementById("stu-buys-panel");
+        if (el)
+          el.innerHTML = renderStudentPurchases(
+            getPurchases().filter(function (p) {
+              return p.studentId === _buyStu;
+            }),
+          );
+        setTimeout(csScanShopImages, 20);
+      },
+    }).items;
     return (
       '<div style="display:flex;flex-direction:column;gap:10px">' +
       sorted
@@ -2425,7 +2462,8 @@
           );
         })
         .join("") +
-      "</div>"
+      "</div>" +
+      Pager.html("cs-mybuys")
     );
   }
 

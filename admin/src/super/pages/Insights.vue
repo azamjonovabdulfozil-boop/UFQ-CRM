@@ -15,7 +15,7 @@
           </button>
         </div>
         <div class="grid g2">
-          <article v-for="(i, k) in shown" :key="k" class="card ins" :class="i.level">
+          <article v-for="(i, k) in pageItems" :key="k" class="card ins" :class="i.level">
             <div class="card-b stack" style="gap: 10px">
               <div class="row between">
                 <span class="badge" :class="BADGE[i.level][0]"><Icon :name="BADGE[i.level][1]" :size="12" /> {{ BADGE[i.level][2] }}</span>
@@ -31,13 +31,15 @@
             </div>
           </article>
         </div>
+        <Pager :page="pg" :pages="pages" :total="shown.length" @go="(p) => (pg = p)" />
       </template>
     </State>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
+import Pager from "../components/Pager.vue";
 import { api } from "../api.js";
 import { periodQuery } from "../store.js";
 import { useLoad } from "../useLoad.js";
@@ -55,6 +57,13 @@ const BADGE = {
 const level = ref("all");
 const { data: d, loading, error, reload } = useLoad(() => api("/api/super/insights", { query: periodQuery.value }), { deps: periodQuery });
 const shown = computed(() => (d.value?.insights || []).filter((i) => level.value === "all" || i.level === level.value));
+// 10 tadan sahifalash; filtr o'zgarsa 1-sahifa, ro'yxat qisqarsa oxirgi sahifa
+const PAGE = 10;
+const pg = ref(1);
+const pages = computed(() => Math.max(1, Math.ceil(shown.value.length / PAGE)));
+const pageItems = computed(() => shown.value.slice((Math.min(pg.value, pages.value) - 1) * PAGE, Math.min(pg.value, pages.value) * PAGE));
+watch(level, () => (pg.value = 1));
+watch(pages, (n) => { if (pg.value > n) pg.value = n; });
 function linkOf(l) {
   const q = {};
   if (l.tab) q.tab = l.tab;

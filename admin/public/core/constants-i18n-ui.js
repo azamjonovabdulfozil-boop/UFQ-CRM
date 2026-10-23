@@ -982,7 +982,7 @@ function renderStudentGoalsPage(){
   // Ro'yxat
   const shown=goals.filter(g=>filter==='all'?true:filter==='done'?g.done:!g.done);
   const emptyHtml=!goals.length?`<b>${lbl.emptyT}</b>${lbl.emptySub}`:filter==='active'?`<b>${lbl.emptyAct}</b>`:`<b>${lbl.emptyDone}</b>`;
-  const listHtml=shown.length?shown.map(g=>{
+  const listHtml=shown.length?Pager.slice('goals',shown,{sig:filter,render:renderStudentGoalsPage}).items.map(g=>{
     const late=!g.done&&g.deadline&&dayDiff(g.deadline)<0;
     return `
         <div class="gx-item${g.done?' is-done':''}${late?' is-late':''}">
@@ -1056,7 +1056,7 @@ function renderStudentGoalsPage(){
           <input type="date" id="new-goal-deadline" title="${t('goal_deadline_label')}">
           <button type="button" class="btn btn-primary" onclick="addStudentGoal()">+ ${lbl.addBtn}</button>
         </div>
-        <div class="gx-list">${listHtml}
+        <div class="gx-list">${listHtml}${shown.length?Pager.html('goals'):''}
         </div>
       </section>
 

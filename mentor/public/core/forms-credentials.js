@@ -1225,6 +1225,13 @@ function renderMentorCredsList() {
       '<div style="font-size:12px;color:var(--text3);padding:6px 0">Hali hech bir mentorga login berilmagan.</div>';
     return;
   }
+  _paintMentorCreds();
+}
+
+function _paintMentorCreds() {
+  const listEl = document.getElementById("mentor-creds-list");
+  if (!listEl) return;
+  const users = Pager.slice("mentor-creds", getMentorUsers(), { render: _paintMentorCreds }).items;
   listEl.innerHTML =
     '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">Hisob berilgan mentorlar:</div>' +
     users
@@ -1236,7 +1243,8 @@ function renderMentorCredsList() {
       <button class="btn btn-sm btn-del-outline" style="padding:3px 8px;font-size:11px" onclick="deleteMentorCredential('${u.mentorId}')">✕ O'chirish</button>
     </div>`,
       )
-      .join("");
+      .join("") +
+    Pager.html("mentor-creds");
 }
 
 async function deleteMentorCredential(mentorId) {
@@ -1333,6 +1341,13 @@ function renderStudentCredsList() {
       '<div style="font-size:12px;color:var(--text3);padding:6px 0">Hali hech bir talabaga login berilmagan.</div>';
     return;
   }
+  _paintStudentCreds();
+}
+
+function _paintStudentCreds() {
+  const listEl = document.getElementById("student-creds-list");
+  if (!listEl) return;
+  const users = Pager.slice("student-creds", getStudentUsers(), { render: _paintStudentCreds }).items;
   listEl.innerHTML =
     '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">Login berilgan talabalar:</div>' +
     users
@@ -1344,7 +1359,8 @@ function renderStudentCredsList() {
       <button class="btn btn-sm btn-del-outline" style="padding:3px 8px;font-size:11px" onclick="deleteStudentCredential('${u.studentId}')">✕ O'chirish</button>
     </div>`,
       )
-      .join("");
+      .join("") +
+    Pager.html("student-creds");
 }
 
 async function deleteStudentCredential(studentId) {
@@ -1375,7 +1391,12 @@ function showMentorGroupRating(gid) {
       Probatsiya: "b-amber",
       Arxiv: "b-purple",
     };
-    ratings.forEach((r, idx) => {
+    const _grPg = Pager.slice("grp-rating", ratings, {
+      sig: String(gid),
+      render: () => showMentorGroupRating(gid),
+    });
+    _grPg.items.forEach((r, _idx) => {
+      const idx = _grPg.start + _idx;
       const rc =
         r.rating >= 80
           ? "var(--teal-text)"
@@ -1393,6 +1414,7 @@ function showMentorGroupRating(gid) {
         <span style="font-size:15px;font-weight:800;color:${rc};min-width:42px;text-align:right">${r.rating}%</span>
       </div>`;
     });
+    html += Pager.html("grp-rating");
   }
   document.getElementById("detail-title").textContent =
     "🏆 " + g.name + " — Guruh reytingi";
