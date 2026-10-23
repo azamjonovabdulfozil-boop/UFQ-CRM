@@ -8,9 +8,10 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "build": "bash build.sh",
-    "test": "node tests/calc.test.mjs && node tests/pager.test.mjs",
+    "test": "node tests/calc.test.mjs && node tests/pager.test.mjs && node tests/webanalytics.test.mjs",
     "test:integration": "node tests/superadmin.itest.mjs",
-    "test:ai": "node --env-file=.env tests/superai.itest.mjs"
+    "test:ai": "node --env-file=.env tests/superai.itest.mjs",
+    "test:wa": "node tests/webanalytics.itest.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.2.0",

@@ -41,7 +41,7 @@
       <nav class="sa-nav">
         <template v-for="(n, i) in NAV" :key="i">
           <div v-if="n.group" class="sa-nav-g">{{ n.group }}</div>
-          <router-link v-else :to="n.path" :title="ui.collapsed ? n.name : undefined" @click="ui.navOpen = false">
+          <router-link v-else :to="n.path" :class="{ 'router-link-active': $route.meta.nav === n.path }" :title="ui.collapsed ? n.name : undefined" @click="ui.navOpen = false">
             <Icon :name="n.icon" :size="18" /><span class="sa-lbl">{{ n.name }}</span>
           </router-link>
         </template>

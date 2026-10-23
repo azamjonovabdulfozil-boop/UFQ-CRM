@@ -67,6 +67,9 @@ Asboblar:
   /api/super/activity — faoliyat jurnali; query: from, to (ISO), category, role, severity, actor, q, page, limit
   /api/super/reports, /api/super/reports/{kind}?format=json — hisobot ma'lumoti (kind: ${Object.keys(REPORTS).join(", ")})
   /api/super/backups — zaxira nusxalari
+  /api/super/wa/overview — ulangan saytlar analitikasi (barcha saytlar; query: period = today|yesterday|7|30|90|month|prevmonth|custom, from/to, site)
+  /api/super/wa/sites — saytlar ro'yxati; /api/super/wa/sites/{id}/stats — bitta sayt: tashriflar, manbalar, sahifalar, yo'l, kampaniyalar, konversiyalar, qurilmalar (query: period, source, campaign, device, page, event)
+  /api/super/wa/sites/{id}/realtime — hozir faol sessiyalar; /api/super/wa/alerts?site={id} — ogohlantirishlar
 - super_post — Super Admin amallari (POST):
   /api/super/data/{students|groups|mentors|courses}/{id} body {fields:{...}} — tahrir (students: status, groupId, phone, parentName, parentPhone, notes; groups: status, mentorId, days; mentors: phone, telegram, email; courses: name, price)
   /api/super/admins body {username, name} — yangi admin (parol o'rnatish havolasi qaytadi)

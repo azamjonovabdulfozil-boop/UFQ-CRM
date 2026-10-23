@@ -83,3 +83,46 @@ Sinov (haqiqiy bazaga tegmaydi): `cd backend && npm run test:ai`.
 Pastdagi «Sozlamalardagi «Menyu bo'limlari»» jadvalida Admin / Mentor / Talaba uchun kalit bor.
 O'chirilsa — o'sha rol Sozlamalarida «Menyu bo'limlari» umuman chiqmaydi va u oldin yashirgan bo'limlar
 yana ko'rinadi. Ochiq panellar o'zgarishni bir daqiqa ichida (yoki oyna faollashganda) oladi.
+
+---
+
+## 📈 Saytlar analitikasi (Super Admin → «Saytlar analitikasi»)
+
+**Sayt qo'shish:** «+ Sayt qo'shish» → nom, URL, tavsif, kategoriya, vaqt zonasi, konversiya maqsadlari.
+URL tekshiriladi (faqat ommaviy http/https; localhost va ichki tarmoq rad etiladi), takror sayt
+aniqlanadi (`www` va oxiridagi `/` farq qilmaydi), noyob `site_id` va `tracking_id` beriladi va
+**sayt sahifasi avtomatik ochiladi**. Hodisa kelmaguncha sahifada o'rnatish kodi va yo'riqnoma turadi.
+
+**O'rnatish:** saytning `<head>` qismiga:
+
+```html
+<script defer src="https://<backend>/api/wa/t.js?id=UFQ-XXXXXXXX"></script>
+```
+
+Avtomatik: `session_start`, `page_view` (SPA ham), `page_exit` (sahifadagi vaqt), `scroll` (25/50/75/100%),
+`form_submit` (faqat forma nomi — maydon qiymatlari o'qilmaydi). Qo'lda: `ufq('track','lead')`,
+`ufq('track','purchase',{value:150000})`, `ufq('track','conversion')`; tugma — `data-ufq-event="nomi"`,
+lead formasi — `data-ufq-lead`. Rozilik talab qilinsa: `ufq('consent', true)`.
+
+**Maxfiylik:** cookie yo'q; tashrif buyuruvchi — saytning o'z brauzer xotirasidagi tasodifiy psevdonim
+(turli qurilmalar alohida sanaladi). IP, to'liq User-Agent, so'rov parametrlari va forma qiymatlari
+saqlanmaydi. Do Not Track / GPC hurmat qilinadi. Xom ma'lumot `WA_RETENTION_DAYS` (standart 400) kundan
+keyin avtomatik o'chadi.
+
+**Hisoblar:** sessiya 30 daqiqa faoliyatsizlikda tugaydi (sozlanadi); chiqish hodisasi kelmagan
+sessiyalar davomiyligi "taxminiy" deb alohida ko'rsatiladi. Manba faqat referrer/UTM dan — taxmin
+qilinmaydi. Bounce = 1 sahifa, < 10 s, konversiyasiz. Konversiya foizi = konversiyali sessiyalar /
+sessiyalar × 100; CPA = xarajat / konversiyalar; ROAS = daromad / xarajat (nolga bo'lish — «—»).
+Reklama xarajati, ko'rishlar va bosishlar faqat import qilingan ma'lumotdan (CSV) olinadi.
+
+**Xavfsizlik:** tracking endpoint'lari (`/api/wa/t.js`, `/api/wa/collect`) umumiy CORS/CSRF qatlamidan
+oldin ulanadi va o'z himoyasiga ega: tracking ID, Origin va sahifa domeni sayt domeniga mosligi, botlar
+filtri, 16 KB hajm va IP bo'yicha limit, takroriy hodisalar rad etiladi. Super Admin API
+(`/api/super/wa/*`) — faqat Super Admin. Sayt holati tekshiruvi SSRF himoyali (`security/ssrf.js`),
+har 15 daqiqada avtomatik.
+
+**Kolleksiyalar** (indekslar ishga tushganda yaratiladi): `wa_sites`, `wa_events`, `wa_sessions`,
+`wa_visitors`, `wa_spend`, `wa_alerts`, `wa_checks`.
+
+**Testlar:** `npm test` (sof hisob-kitoblar) · `WA_TEST_MONGO=mongodb://127.0.0.1:27017 npm run test:wa`
+(haqiqiy MongoDB, har safar vaqtinchalik baza; bulutdagi bazada ishlamaydi).

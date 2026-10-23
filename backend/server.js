@@ -55,6 +55,7 @@ import {
 } from "./superadmin/settings.js";
 import { createSuperRouter } from "./superadmin/router.js";
 import { createSuperAiRouter } from "./superadmin/ai.js";
+import { createWaPublicRouter, createWaSuperRouter, startWaMonitor } from "./webanalytics/router.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -123,6 +124,10 @@ const app = express();
 
 // ⚠️ Xavfsizlik middleware'lari ENG BOSHIDA — sarlavhalar, CORS oq ro'yxati,
 // cookie o'qish. Marshrutlar ulardan keyin ro'yxatdan o'tadi.
+// 📈 Saytlar analitikasi: tashqi saytlardan keladigan tracking so'rovlari umumiy
+// CORS/CSRF qatlamidan OLDIN ulanadi (u tashqi Origin'ni rad etardi). Bu
+// marshrutlarning o'z himoyasi bor: tracking ID, domen tekshiruvi, limit.
+app.use(createWaPublicRouter({ getDb: () => getDb(), rateLimit }));
 const security = installSecurity(app);
 // So'rov vaqti va xatolarini xotirada sanaydi (Super Admin → Monitoring)
 app.use(metricsMiddleware);
@@ -2692,6 +2697,17 @@ initSettings(getDb);
       },
     }),
   );
+  // 📈 Saytlar analitikasi (Super Admin)
+  app.use(
+    createWaSuperRouter({
+      getDb,
+      requireSuperAdmin,
+      audit,
+      rateLimit,
+      getTimezone: async () => (await getSettings()).general.timezone,
+    }),
+  );
+  startWaMonitor(getDb);
   // 🤖 Super Admin AI yordamchisi — Super Admin API'larini shu foydalanuvchi nomidan chaqiradi
   app.use(
     createSuperAiRouter({

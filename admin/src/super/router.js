@@ -7,6 +7,7 @@ export const NAV = [
   { path: "/teachers", name: "Eng yaxshi o'qituvchilar", icon: "trophy", comp: () => import("./pages/Teachers.vue") },
   { path: "/insights", name: "Aqlli tavsiyalar", icon: "spark", comp: () => import("./pages/Insights.vue") },
   { path: "/ai", name: "AI yordamchi", icon: "spark", comp: () => import("./pages/AiAssistant.vue") },
+  { path: "/web", name: "Saytlar analitikasi", icon: "pulse", comp: () => import("./pages/WebAnalytics.vue") },
   { path: "/data", name: "Markaziy ma'lumotlar", icon: "db", comp: () => import("./pages/DataCenter.vue") },
   { group: "Boshqaruv" },
   { path: "/admins", name: "Administratorlar", icon: "users", comp: () => import("./pages/Admins.vue") },
@@ -26,6 +27,7 @@ export const router = createRouter({
   routes: [
     { path: "/", redirect: "/dashboard" },
     ...NAV.filter((n) => n.path).map((n) => ({ path: n.path, component: n.comp, meta: { title: n.name } })),
+    { path: "/web/:id", component: () => import("./pages/WebSite.vue"), meta: { title: "Sayt analitikasi", nav: "/web" } },
     { path: "/:p(.*)*", redirect: "/dashboard" },
   ],
   scrollBehavior: () => ({ top: 0 }),
