@@ -1,6 +1,8 @@
 #!/bin/bash
 # Render build script — Vue portallarini build qiladi, keyin npm install
 set -e
+# Portallarni shu skript build qiladi — backend postinstall qayta build qilmasin
+export UFQ_PORTALS_BUILT=1
 
 ROOT="$(dirname "$(cd "$(dirname "$0")" && pwd)")"
 echo "📁 Root: $ROOT"

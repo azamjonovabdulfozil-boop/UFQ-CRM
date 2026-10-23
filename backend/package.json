@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "build": "bash build.sh",
+    "postinstall": "node scripts/build-portals.mjs",
     "test": "node tests/calc.test.mjs && node tests/pager.test.mjs && node tests/webanalytics.test.mjs",
     "test:integration": "node tests/superadmin.itest.mjs",
     "test:ai": "node --env-file=.env tests/superai.itest.mjs",
