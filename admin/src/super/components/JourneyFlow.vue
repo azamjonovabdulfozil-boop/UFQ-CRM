@@ -1,6 +1,6 @@
 <template>
   <div class="jf" ref="wrap">
-    <div v-if="!flow.nodes.length" class="jf-empty">Bu davrda yo'l ma'lumoti yo'q</div>
+    <div v-if="!flow.nodes.length" class="jf-empty">Bu davrda ma'lumot hali yetarli emas</div>
     <template v-else>
       <div class="jf-scroll">
         <svg :width="W" :height="H" :viewBox="`0 0 ${W} ${H}`" role="img" aria-label="Foydalanuvchi yo'li diagrammasi">
@@ -24,7 +24,7 @@
         </svg>
       </div>
       <div v-if="tip" class="jf-tip" :style="{ left: Math.min(tip.x, W - 220) + 'px', top: tip.y + 'px' }">
-        {{ tip.text }}<br /><b>{{ tip.n }}</b> sessiya
+        {{ tip.text }}<br /><b>{{ tip.n }}</b> ta tashrif
       </div>
       <div class="jf-cols muted small">
         <span v-for="c in flow.columns" :key="c">{{ colName(c - 1) }}</span>
@@ -80,7 +80,7 @@ const layout = computed(() => {
         ...n, x: colX(c), y, h,
         lx: last ? colX(c) - 6 : colX(c) + NW + 6,
         anchor: last ? "end" : "start",
-        kind: n.label.startsWith("✓") ? "conv" : n.label === "Saytdan chiqish" ? "exit" : c === 0 ? "src" : "page",
+        kind: n.label.startsWith("✓") ? "conv" : n.label === "Saytdan chiqib ketdi" ? "exit" : c === 0 ? "src" : "page",
         inY: y, outY: y,
       };
       nodes.push(node);

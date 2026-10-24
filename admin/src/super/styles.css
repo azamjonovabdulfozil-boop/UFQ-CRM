@@ -283,6 +283,7 @@ table.t tr:last-child td { border-bottom: 0; }
 .note.warn { color: var(--warn); background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, transparent); border-style: solid; }
 .note.info { color: var(--info); background: var(--info-soft); border-color: color-mix(in srgb, var(--info) 30%, transparent); border-style: solid; }
 .note.bad { color: var(--bad); background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 30%, transparent); border-style: solid; }
+.note.good { color: var(--good); background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, transparent); border-style: solid; }
 
 /* ── Modal ── */
 .modal-bg { position: fixed; inset: 0; background: rgba(6, 9, 20, .55); z-index: 100; display: grid; place-items: center; padding: 16px; animation: fade .15s; }

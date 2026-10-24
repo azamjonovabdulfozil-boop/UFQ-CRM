@@ -175,7 +175,7 @@ try {
     assert.equal(camp.sessions, 1);
     assert.equal(camp.spend, null);
     assert.equal(camp.roas, null);
-    assert.ok(st.journey.topPaths.some((p) => p.path === "Instagram → / → /narxlar → /rahmat → ✓ Konversiya"));
+    assert.ok(st.journey.topPaths.some((p) => p.path === "Instagram → / → /narxlar → /rahmat → ✓ Natija"));
     assert.equal(st.funnel[3].value, 1);
     assert.equal(st.goals[0].sessions, 1);
   });

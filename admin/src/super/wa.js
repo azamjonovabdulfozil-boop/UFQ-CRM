@@ -52,19 +52,64 @@ export function change(cur, prev) {
   return Math.round(((cur - prev) / prev) * 1000) / 10;
 }
 export const EVENT_LABEL = {
-  session_start: "Sessiya boshlandi",
-  page_view: "Sahifa ko'rildi",
-  page_exit: "Sahifadan chiqildi",
-  scroll: "Scroll",
-  click: "Tugma bosildi",
-  form_submit: "Forma yuborildi",
-  lead: "Lead",
-  purchase: "Xarid",
-  conversion: "Konversiya",
+  session_start: "Saytga kirdi",
+  page_view: "Sahifani ochdi",
+  page_exit: "Sahifadan chiqdi",
+  scroll: "Sahifani pastga aylantirdi",
+  click: "Tugmani bosdi",
+  form_submit: "Forma yubordi",
+  lead: "Ariza qoldirdi",
+  purchase: "Xarid qildi",
+  conversion: "Maqsadga yetdi",
 };
 export const GOAL_TYPES = [
-  ["page", "Sahifaga kirish (yo'l)"],
-  ["event", "Hodisa nomi"],
-  ["click", "Tugma (data-ufq-event)"],
-  ["form", "Forma yuborilishi"],
+  ["page", "Sahifa ochilsa"],
+  ["form", "Forma yuborilsa"],
+  ["click", "Tugma bosilsa"],
+  ["event", "Maxsus hodisa (dasturchi uchun)"],
 ];
+
+/** Sahifa analitikasi uchun oddiy tilda xulosa gaplari. */
+export function plainSummary(d, periodLabel) {
+  const c = d.kpis.cur;
+  const p = d.kpis.prev;
+  const out = [];
+  if (!c.sessions) {
+    out.push({ icon: "info", tone: "mute", html: `${periodLabel ? esc(periodLabel) + " davomida" : "Bu davrda"} saytga hech kim kirmadi.` });
+    return out;
+  }
+  const ch = change(c.sessions, p.sessions);
+  const cmp =
+    ch == null ? "" : ch === 0 ? " Oldingi shunday davr bilan bir xil." : ` Oldingi shunday davrga nisbatan <b class="${ch > 0 ? "up" : "down"}">${Math.abs(ch)}% ${ch > 0 ? "ko'p" : "kam"}</b>.`;
+  out.push({ icon: "users", tone: "info", html: `Saytga <b>${num(c.sessions)} marta</b> kirishdi, ularni <b>${num(c.visitors)} kishi</b> (qurilma) amalga oshirdi.${cmp}` });
+  const src = (d.sources || [])[0];
+  if (src) out.push({ icon: "link", tone: "info", html: `Ko'pchilik <b>${esc(src.key)}</b> orqali keldi — barcha tashriflarning <b>${pct(src.share)}</b>.` });
+  const pg = (d.pages || []).slice().sort((a, b) => b.views - a.views)[0];
+  if (pg) out.push({ icon: "doc", tone: "info", html: `Eng ko'p ochilgan sahifa — <b class="mono">${esc(pg.path)}</b> (${num(pg.views)} marta).` });
+  const phone = (d.devices || []).find((x) => x.key === "Telefon");
+  if (phone) out.push({ icon: "phone", tone: "info", html: `Tashriflarning <b>${pct(phone.share)}</b> telefondan bo'ldi${phone.share >= 50 ? " — saytning telefon ko'rinishi muhim" : ""}.` });
+  if (c.avgDuration != null) out.push({ icon: "clock", tone: "info", html: `Odamlar saytda o'rtacha <b>${dur(c.avgDuration)}</b> qolishdi, har safar <b>${c.pagesPerSession ?? "—"}</b> ta sahifa ko'rishdi.` });
+  if (c.bounceRate != null) {
+    const b = Math.round(c.bounceRate);
+    const bad = b >= 60;
+    out.push({
+      icon: bad ? "alert" : "check",
+      tone: bad ? "warn" : "good",
+      html: `Har 100 kishidan <b>${b} tasi</b> bitta sahifani ko'rib, darhol chiqib ketdi${bad ? " — bu ko'p: birinchi ochiladigan sahifalarni yaxshilang" : " — bu yaxshi ko'rsatkich"}.`,
+    });
+  }
+  if (c.conversions > 0)
+    out.push({ icon: "target", tone: "good", html: `<b>${num(c.conversions)} ta natija</b> bo'ldi (ariza, xarid va h.k.) — har 100 tashrifdan <b>${Math.round((c.conversionRate || 0) * 10) / 10} tasi</b>.${c.leads ? ` Shundan <b>${num(c.leads)} tasi ariza</b>.` : ""}` });
+  else
+    out.push({ icon: "target", tone: "mute", html: (d.goals || []).length ? "Bu davrda birorta ham natija (ariza, xarid) bo'lmadi." : "Natijalar hisoblanmayapti — «Sozlamalar»da nimani natija deb hisoblashni belgilang (masalan, ariza formasi)." });
+  const h = d.hourly || [];
+  const mx = Math.max(0, ...h);
+  if (mx > 0) {
+    const i = h.indexOf(mx);
+    out.push({ icon: "chart", tone: "info", html: `Eng faol vaqt — soat <b>${String(i).padStart(2, "0")}:00–${String((i + 1) % 24).padStart(2, "0")}:00</b>.` });
+  }
+  return out;
+}
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}

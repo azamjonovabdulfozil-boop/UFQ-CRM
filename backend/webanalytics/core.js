@@ -444,14 +444,14 @@ export function journeys(sessions, pageviews, { depth = 3, perStep = 6 } = {}) {
     const list = (seq.get(s.sid) || []).map((e) => e.path).filter((p, i, a) => i === 0 || a[i - 1] !== p);
     if (!list.length && s.entry) list.push(s.entry);
     const steps = [s.source || "Noma'lum", ...list.slice(0, depth)];
-    steps.push((s.conv || 0) > 0 ? "✓ Konversiya" : "Saytdan chiqish");
+    steps.push((s.conv || 0) > 0 ? "✓ Natija" : "Saytdan chiqib ketdi");
     return steps;
   });
   // Har ustun uchun yetakchi qiymatlar. Natija (konversiya / chiqish) yo'lning
   // haqiqiy oxirgi qadamidan KEYINGI ustunga qo'yiladi — oqim boshqa sahifalar
   // ustidan "sakrab" o'tib, go'yo ular orqali o'tgandek ko'rinmasin.
   const cols = depth + 2;
-  const isResult = (v) => v === "✓ Konversiya" || v === "Saytdan chiqish";
+  const isResult = (v) => v === "✓ Natija" || v === "Saytdan chiqib ketdi";
   const keep = [];
   for (let c = 0; c < cols; c++) {
     const cnt = new Map();
@@ -554,10 +554,10 @@ export function campaigns(sessions, spendRows = []) {
 export function funnel(sessions) {
   const n = sessions.length;
   const steps = [
-    ["Sessiyalar", n],
-    ["2+ sahifa ko'rgan", sessions.filter((s) => (s.pages || 0) >= 2).length],
-    ["Forma yuborgan yoki lead", sessions.filter((s) => (s.forms || 0) > 0 || (s.leads || 0) > 0).length],
-    ["Konversiya", sessions.filter((s) => (s.conv || 0) > 0).length],
+    ["Saytga kirdi", n],
+    ["2 va undan ko'p sahifa ko'rdi", sessions.filter((s) => (s.pages || 0) >= 2).length],
+    ["Forma yubordi yoki ariza qoldirdi", sessions.filter((s) => (s.forms || 0) > 0 || (s.leads || 0) > 0).length],
+    ["Maqsadga yetdi (natija)", sessions.filter((s) => (s.conv || 0) > 0).length],
   ];
   return steps.map(([label, v], i) => ({ label, value: v, ofTotal: pct(v, n), ofPrev: i ? pct(v, steps[i - 1][1]) : null }));
 }
@@ -577,21 +577,21 @@ export function detectAlerts({ site, cur, prev, health, lastEventAt, now = new D
     out.push({ type, level, metric, prev: before, cur: after, change: change(after, before), reason, action, siteId: site._id, siteName: site.name, at: now });
   const MIN = 20;
   if (prev.sessions >= MIN && cur.sessions < prev.sessions * 0.6)
-    add("traffic_drop", "bad", "Sessiyalar", prev.sessions, cur.sessions, "Tashriflar oldingi davrga nisbatan keskin kamaydi.", "Trafik manbalari jadvalida qaysi manba kamayganini tekshiring; reklama kampaniyalari to'xtamaganini va tracking kodi barcha sahifalarda turganini ko'ring.");
+    add("traffic_drop", "bad", "Tashriflar", prev.sessions, cur.sessions, "Saytga kirishlar oldingi davrga nisbatan keskin kamaydi.", "«Odamlar qayerdan keldi» bo'limida qaysi manba kamayganini ko'ring; reklama to'xtab qolmaganini va kuzatuv kodi barcha sahifalarda turganini tekshiring.");
   if (prev.sessions >= MIN && cur.sessions > prev.sessions * 2)
-    add("traffic_spike", "info", "Sessiyalar", prev.sessions, cur.sessions, "Tashriflar odatdagidan ikki baravardan ko'p oshdi.", "Qaysi manba yoki kampaniya o'sish berganini ko'ring. Bounce rate ham keskin oshgan bo'lsa — bot trafik bo'lishi mumkin.");
+    add("traffic_spike", "info", "Tashriflar", prev.sessions, cur.sessions, "Saytga kirishlar odatdagidan ikki baravardan ko'p oshdi.", "Qaysi manba yoki reklama o'sish berganini ko'ring. «Darhol chiqib ketganlar» ham keskin oshgan bo'lsa — bu robotlar (bot) bo'lishi mumkin.");
   if (prev.sessions >= MIN && prev.conversionRate > 0 && cur.conversionRate != null && cur.conversionRate < prev.conversionRate * 0.7)
-    add("conversion_drop", "bad", "Konversiya foizi", prev.conversionRate, cur.conversionRate, "Konversiya foizi 30% dan ko'proq pasaydi.", "Ariza/xarid sahifalari ishlayotganini, formalar yuborilayotganini va narx/taklif o'zgarmaganini tekshiring.");
+    add("conversion_drop", "bad", "Natija foizi", prev.conversionRate, cur.conversionRate, "Natija beradigan tashriflar ulushi 30% dan ko'proq pasaydi.", "Ariza/xarid sahifalari ishlayotganini, formalar yuborilayotganini va narx/taklif o'zgarmaganini tekshiring.");
   if (prev.sessions >= MIN && cur.sessions >= MIN && cur.bounceRate != null && prev.bounceRate != null && cur.bounceRate - prev.bounceRate >= 15)
-    add("bounce_up", "warn", "Bounce rate", prev.bounceRate, cur.bounceRate, "Bitta sahifani ko'rib tez chiqib ketuvchilar ulushi 15 punktdan ko'proq oshdi.", "Kirish sahifalari jadvalidan chiqish darajasi oshgan sahifalarni toping; sahifa tezligi va reklama mosligini tekshiring.");
+    add("bounce_up", "warn", "Darhol chiqib ketganlar", prev.bounceRate, cur.bounceRate, "Bitta sahifani ko'rib darhol chiqib ketuvchilar ulushi 15 foiz punktdan ko'proq oshdi.", "Odamlar birinchi ochadigan sahifalarni ko'ring: sahifa tez ochilyaptimi va reklamadagi taklifga mos keladimi.");
   if (prev.leads >= 5 && cur.leads < prev.leads * 0.6)
-    add("leads_drop", "bad", "Leadlar", prev.leads, cur.leads, "Leadlar soni 40% dan ko'proq kamaydi.", "Ariza formasini sinab ko'ring va lead keltiradigan manbalar trafigini solishtiring.");
+    add("leads_drop", "bad", "Arizalar", prev.leads, cur.leads, "Arizalar soni 40% dan ko'proq kamaydi.", "Ariza formasini sinab ko'ring va lead keltiradigan manbalar trafigini solishtiring.");
   if (spendPrev > 0 && spendCur > spendPrev * 1.5)
-    add("spend_up", "warn", "Reklama xarajati", spendPrev, spendCur, "Reklama xarajati 50% dan ko'proq oshdi.", "Kampaniyalar jadvalida CPA va ROAS o'zgarishini tekshiring.");
+    add("spend_up", "warn", "Reklama xarajati", spendPrev, spendCur, "Reklama xarajati 50% dan ko'proq oshdi.", "Reklama bo'limida bitta natija narxi va reklama qaytimi qanday o'zgarganini tekshiring.");
   if (lastEventAt && now - new Date(lastEventAt) > 24 * 3600_000)
-    add("tracking_stopped", "bad", "Oxirgi hodisa", null, null, "24 soatdan beri saytdan birorta ham hodisa kelmadi.", "Tracking kodi saytdan olib tashlanmaganini va sayt ishlayotganini tekshiring (\"Ulanishni tekshirish\").");
+    add("tracking_stopped", "bad", "Saytdan ma'lumot", null, null, "24 soatdan beri saytdan hech qanday ma'lumot kelmadi.", "Kuzatuv kodi saytdan olib tashlanmaganini va sayt ishlayotganini tekshiring («Ulanishni tekshirish» tugmasi).");
   if (health && health.ok === false)
-    add("site_down", "bad", "Sayt holati", null, null, "Oxirgi tekshiruvda sayt javob bermadi: " + (health.error || "HTTP " + health.status) + ".", "Hosting va domen sozlamalarini tekshiring.");
+    add("site_down", "bad", "Sayt holati", null, null, "Oxirgi tekshiruvda sayt ochilmadi: " + (health.error || "HTTP " + health.status) + ".", "Hosting va domen sozlamalarini tekshiring.");
   return out;
 }
 

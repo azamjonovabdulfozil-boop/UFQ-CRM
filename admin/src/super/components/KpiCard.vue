@@ -5,12 +5,13 @@
       <span v-if="live" class="kpi-live" title="Har 15 soniyada yangilanadi"><i></i> jonli</span>
     </div>
     <div class="kpi-v">{{ value }}</div>
+    <div v-if="desc" class="kpi-desc">{{ desc }}</div>
     <div class="kpi-f">
-      <span v-if="delta != null" class="kpi-d" :class="tone">
+      <span v-if="delta != null" class="kpi-d" :class="tone" :title="deltaTitle">
         {{ delta > 0 ? "▲" : delta < 0 ? "▼" : "•" }} {{ Math.abs(delta) }}%
       </span>
       <span v-else-if="prevText" class="muted small">—</span>
-      <span v-if="prevText" class="muted small">oldin: {{ prevText }}</span>
+      <span v-if="prevText" class="muted small">oldingi davr: {{ prevText }}</span>
       <span v-else-if="sub" class="muted small">{{ sub }}</span>
       <Spark v-if="spark && spark.length" class="kpi-s" :values="spark" :label="label + ' trendi'" />
     </div>
@@ -30,7 +31,11 @@ const props = defineProps({
   upIsGood: { type: Boolean, default: true },
   live: Boolean,
   hint: String,
+  desc: String, // ko'rsatkich nima ekanini oddiy tilda tushuntiradi (doim ko'rinadi)
 });
+const deltaTitle = computed(() =>
+  "Oldingi shunday davrga nisbatan " + (props.delta > 0 ? "ko'paydi" : props.delta < 0 ? "kamaydi" : "o'zgarmadi"),
+);
 const tone = computed(() => {
   if (!props.delta) return "flat";
   return props.delta > 0 === props.upIsGood ? "good" : "bad";
@@ -43,6 +48,7 @@ const tone = computed(() => {
 .kpi-top { display: flex; align-items: center; gap: 8px; }
 .kpi-l { font-size: 12.5px; font-weight: 600; color: var(--text-2); flex: 1; line-height: 1.3; }
 .kpi-v { font-size: 25px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.kpi-desc { font-size: 11.5px; line-height: 1.35; color: var(--text-3); }
 .kpi-f { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 28px; }
 .kpi-d { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
 .kpi-d.good { color: var(--good); background: var(--good-soft); }

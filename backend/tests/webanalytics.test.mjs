@@ -168,8 +168,8 @@ t("sahifalar va foydalanuvchi yo'li", () => {
   assert.equal(srv.avgTime, 20);
   const j = C.journeys(sessions, pvs);
   assert.equal(j.topPaths.length, 2);
-  assert.ok(j.topPaths.some((p) => p.path === "Instagram → / → /xizmatlar → /narxlar → ✓ Konversiya"));
-  assert.ok(j.topPaths.some((p) => p.path === "Google → / → /xizmatlar → Saytdan chiqish"));
+  assert.ok(j.topPaths.some((p) => p.path === "Instagram → / → /xizmatlar → /narxlar → ✓ Natija"));
+  assert.ok(j.topPaths.some((p) => p.path === "Google → / → /xizmatlar → Saytdan chiqib ketdi"));
   const total = j.links.filter((l) => l.source.startsWith("0|")).reduce((x, l) => x + l.value, 0);
   assert.equal(total, 2, "manbadan chiquvchi oqimlar sessiyalar soniga teng");
 });
