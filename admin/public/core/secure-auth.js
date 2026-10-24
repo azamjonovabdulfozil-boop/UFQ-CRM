@@ -313,6 +313,8 @@
     var rt = readFallbackRt();
     var csrf = state.csrfToken;
     clearSession();
+    // Super Admin'ning «CRM paneli» belgisi keyingi kirishga o'tib ketmasin
+    try { sessionStorage.removeItem("edu_super_crm"); } catch (e) {}
     return postJson("/api/auth/logout", { refreshToken: rt }, csrf ? { "X-CSRF-Token": csrf } : null).catch(
       function () {},
     );

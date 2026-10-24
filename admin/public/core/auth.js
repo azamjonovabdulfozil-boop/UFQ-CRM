@@ -219,8 +219,11 @@ async function doLogin() {
   if (otpEl) otpEl.value = '';
 
   const found = out.user;
-  // 👑 Super Admin — o'zining alohida paneliga
-  if (found.role === 'superadmin' && !superWantsCrm()) {
+  // 👑 Super Admin — yangi kirishda HAR DOIM o'z paneliga. Avvalgi «CRM paneli»
+  // (?crm=1) belgisi tab xotirasida qolib ketib, login'ni oddiy admin paneliga
+  // yuborardi — shuning uchun kirishda uni tozalaymiz.
+  try { sessionStorage.removeItem('edu_super_crm'); } catch (e) {}
+  if (found.role === 'superadmin') {
     const lp1 = document.getElementById('login-pass');
     if (lp1) lp1.value = '';
     location.href = superAdminUrl();
@@ -340,6 +343,7 @@ async function doLogout() {
   // Serverdagi sessiyani ham yopamiz — faqat brauzerdan o'chirish yetarli emas
   try { await window.CRMAuth.logout(); } catch (e) {}
   _authDelete();
+  try { sessionStorage.removeItem('edu_super_crm'); } catch (e) {}
   try { localStorage.removeItem('edu_remember_cred'); } catch (e) {}
   location.reload();
 }
