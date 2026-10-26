@@ -1318,11 +1318,19 @@
       // Katta ekranda (screen-fit.js zoom) o'lchov ekran pikselida, style esa CSS pikselda
       var k = window.__uiZoom || 1;
       var h = Math.round((vh - top) / k); // pastda ham bo'sh joy qolmaydi
-      if (h < 380) return;
+      // Past ekran (telefon yotiq holatda, ~360px): oyna qolgan joyga sig'sin —
+      // aks holda CSS min-height (360-380px) yozish qatorini ekrandan tushirardi
+      var low = vh / k < 520;
+      var minH = low ? 220 : 380;
+      if (h < minH) return;
       el.style.height = h + "px";
+      el.style.minHeight = low ? h + "px" : "";
       // Sahifa pastida ortiqcha joy (padding) bo'lsa — sahifa aylanmasin
       var extra = document.documentElement.scrollHeight - vh / k;
-      if (extra > 0 && extra < 60 && h - extra >= 380) el.style.height = h - extra + "px";
+      if (extra > 0 && extra < 60 && h - extra >= minH) {
+        el.style.height = h - extra + "px";
+        if (low) el.style.minHeight = h - extra + "px";
+      }
     });
   }
   function fitSoon() {
