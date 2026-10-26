@@ -1,5 +1,5 @@
 /* ===================================================================
-   EduManage CRM — RESPONSIVE UI BEHAVIOURS v1.0
+   UFQ CRM — RESPONSIVE UI BEHAVIOURS v1.0
    -------------------------------------------------------------------
    `responsive.css` ni to'ldiruvchi kichik xulq-atvor qatlami. Faqat
    CSS bilan qilib bo'lmaydigan narsalar:

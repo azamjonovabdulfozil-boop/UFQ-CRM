@@ -13,12 +13,14 @@
 
   <!-- Yuklanmoqda -->
   <div v-else class="boot-screen">
+    <img class="boot-logo" :src="ufqLogo" alt="UFQ CRM" />
     <div class="boot-spinner"></div>
-    <p class="boot-text">EduManage yuklanmoqda…</p>
+    <p class="boot-text">UFQ CRM yuklanmoqda…</p>
   </div>
 </template>
 
 <script setup>
+import ufqLogo from "../assets/ufq-logo.png";
 defineProps({
   // Bo'sh bo'lsa — yuklanish ekrani, aks holda xato ekrani.
   error: { type: String, default: "" },
@@ -27,6 +29,7 @@ defineEmits(["retry"]);
 </script>
 
 <style scoped>
+.boot-logo { width: 84px; height: 84px; object-fit: contain; }
 /* Urg'u rangini har bir portal #crm-root da --boot-accent orqali beradi. */
 .boot-screen,
 .boot-error {

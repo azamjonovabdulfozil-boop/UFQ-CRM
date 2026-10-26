@@ -1,5 +1,5 @@
 /* ============================================================
-   EduManage AI Yordamchi — mentor va talaba uchun
+   UFQ CRM AI Yordamchi — mentor va talaba uchun
    Tez ishlaydi: Gemini Flash → Anthropic Haiku → Pollinations
    ============================================================ */
 (function () {

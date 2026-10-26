@@ -1021,3 +1021,13 @@ body.accent-green  { --accent-2: #22c55e; }
   html body #course-grid.card-grid,
   html body #group-grid.card-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; }
 }
+
+/* ===================== UFQ CRM LOGOSI =====================
+   Standart (yuklanmagan) logo shaffof fonda ko'rinadi — harf uchun
+   mo'ljallangan rangli gradient fon olib tashlanadi. */
+.logo-mark.logo-default,
+.login-logo-mark.logo-default,
+#sett-logo-preview.logo-default { background: transparent !important; box-shadow: none !important; }
+/* "UFQ CRM" nomi sidebarda bitta qatorda tursin */
+.logo-name { white-space: nowrap; }
+.logo > div:last-child { min-width: 0; }

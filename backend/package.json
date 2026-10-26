@@ -1,7 +1,7 @@
 {
   "name": "edumanage-crm-backend",
   "version": "3.0.0",
-  "description": "EduManage CRM — Express + MongoDB backend",
+  "description": "UFQ CRM — Express + MongoDB backend",
   "private": true,
   "type": "module",
   "scripts": {

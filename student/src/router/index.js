@@ -35,5 +35,5 @@ function resolveBase() {
 
 const base = resolveBase()
 const router = createRouter({ history: createWebHistory(base), routes })
-router.afterEach(() => { document.title = 'EduManage — Talaba' })
+router.afterEach(() => { document.title = 'UFQ CRM — Talaba' })
 export default router

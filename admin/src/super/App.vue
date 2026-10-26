@@ -32,7 +32,7 @@
     <div class="sa-backdrop" :class="{ open: ui.navOpen }" @click="ui.navOpen = false"></div>
     <aside class="sa-side" :class="{ open: ui.navOpen, collapsed: ui.collapsed }" aria-label="Asosiy menyu">
       <div class="sa-brand">
-        <div class="sa-brand-mark"><Icon name="crown" :size="20" /></div>
+        <div class="sa-brand-mark sa-brand-logo"><img :src="brandLogo" alt="UFQ CRM" /></div>
         <div class="sa-brand-txt">
           <div class="sa-brand-t">{{ brandName }}</div>
           <div class="sa-brand-s">Super Admin</div>
@@ -99,10 +99,13 @@ import { session, boot, logout, portalUrl, api } from "./api.js";
 import { ui, toasts } from "./store.js";
 import { NAV } from "./router.js";
 import Icon from "./components/Icon.vue";
+import ufqLogo from "../assets/ufq-logo.png";
 import Modal from "./components/Modal.vue";
 
 const askLogout = ref(false);
-const brandName = ref("EduManage");
+const brandName = ref("UFQ CRM");
+// Standart UFQ logosi; admin Sozlamalarda o'z logosini yuklagan bo'lsa — o'sha
+const brandLogo = ref(ufqLogo);
 const initials = computed(() => (session.user?.name || session.user?.username || "SA").slice(0, 2).toUpperCase());
 const themeTitle = computed(() => ({ auto: "Mavzu: avtomatik", light: "Mavzu: yorug'", dark: "Mavzu: qorong'i" })[ui.theme]);
 function cycleTheme() {
@@ -115,7 +118,9 @@ onMounted(async () => {
   if (session.user && !session.forbidden) {
     try {
       const s = await api("/api/super/settings");
-      brandName.value = s.branding?.crmName || "EduManage";
+      const nm = s.branding?.crmName;
+      brandName.value = nm && nm !== "EduManage" ? nm : "UFQ CRM";
+      if (s.branding?.crmLogo) brandLogo.value = s.branding.crmLogo;
     } catch {}
   }
 });

@@ -289,24 +289,24 @@ function renderStudentFunFeatures(s, grp, pct, rating, myRank, totalStudents){
   const quotes = {
     uz: [
       {q:"Muvaffaqiyat — bu tasodif emas, balki izchil harakat natijasidir.", a:"Albert Einstein"},
-      {q:"Bugun o'rganmagan narsa — ertaga imkoniyat bo'ladi.", a:"EduManage"},
+      {q:"Bugun o'rganmagan narsa — ertaga imkoniyat bo'ladi.", a:"UFQ CRM"},
       {q:"Bilim — eng yaxshi investitsiyadir.", a:"Benjamin Franklin"},
-      {q:"Har bir dars seni maqsadingga bir qadam yaqinlashtiradi.", a:"EduManage"},
-      {q:"Qiyin yo'l ko'pincha to'g'ri yo'ldir.", a:"EduManage"},
+      {q:"Har bir dars seni maqsadingga bir qadam yaqinlashtiradi.", a:"UFQ CRM"},
+      {q:"Qiyin yo'l ko'pincha to'g'ri yo'ldir.", a:"UFQ CRM"},
     ],
     ru: [
       {q:"Успех — это не случайность, а результат последовательных усилий.", a:"Альберт Эйнштейн"},
-      {q:"То, чего ты не узнал сегодня — станет возможностью завтра.", a:"EduManage"},
+      {q:"То, чего ты не узнал сегодня — станет возможностью завтра.", a:"UFQ CRM"},
       {q:"Знание — лучшая инвестиция.", a:"Бенджамин Франклин"},
-      {q:"Каждый урок приближает тебя к цели на один шаг.", a:"EduManage"},
-      {q:"Трудный путь — зачастую правильный путь.", a:"EduManage"},
+      {q:"Каждый урок приближает тебя к цели на один шаг.", a:"UFQ CRM"},
+      {q:"Трудный путь — зачастую правильный путь.", a:"UFQ CRM"},
     ],
     en: [
       {q:"Success is not an accident — it's the result of consistent effort.", a:"Albert Einstein"},
-      {q:"What you don't learn today becomes an opportunity tomorrow.", a:"EduManage"},
+      {q:"What you don't learn today becomes an opportunity tomorrow.", a:"UFQ CRM"},
       {q:"Knowledge is the best investment.", a:"Benjamin Franklin"},
-      {q:"Every lesson brings you one step closer to your goal.", a:"EduManage"},
-      {q:"The hard path is often the right path.", a:"EduManage"},
+      {q:"Every lesson brings you one step closer to your goal.", a:"UFQ CRM"},
+      {q:"The hard path is often the right path.", a:"UFQ CRM"},
     ]
   };
   const qArr = quotes[LANG]||quotes.uz;

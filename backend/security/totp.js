@@ -96,7 +96,7 @@ export function decryptSecret(blob) {
   }
 }
 
-export function otpauthUri(secretB32, account, issuer = "EduManage CRM") {
+export function otpauthUri(secretB32, account, issuer = "UFQ CRM") {
   const label = encodeURIComponent(issuer + ":" + account);
   return `otpauth://totp/${label}?secret=${secretB32}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }

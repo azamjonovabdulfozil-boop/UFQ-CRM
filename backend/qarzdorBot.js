@@ -1,5 +1,5 @@
 /**
- * EduManage CRM — Qarzdorlar Telegram boti
+ * UFQ CRM — Qarzdorlar Telegram boti
  * ============================================================================
  * Davomat botidan ALOHIDA bot. U qarzdor talabaning (yoki ota-onasining)
  * SHAXSIY Telegramiga to'lov eslatmasini yuboradi.

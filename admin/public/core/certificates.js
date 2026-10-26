@@ -72,7 +72,7 @@ function _certBrand() {
     if (typeof _brandSettings !== "undefined" && _brandSettings.crmName)
       return _brandSettings.crmName;
   } catch (e) {}
-  return "EduManage";
+  return "UFQ CRM";
 }
 
 var _CERT_MON_UZ = [

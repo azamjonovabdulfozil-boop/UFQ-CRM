@@ -1609,7 +1609,7 @@ function renderMySchedule() {
   applyLogo();
   // Update login screen name
   const loginName = document.getElementById("login-crm-name");
-  if (loginName) loginName.textContent = _brandSettings.crmName || "EduManage";
+  if (loginName) loginName.textContent = _brandSettings.crmName || "UFQ CRM";
   // Login hint
   const hint = document.querySelector(".login-hint");
   if (hint) hint.textContent = "";

@@ -311,7 +311,12 @@ const UI_KEY='edumanage_ui_v8';
 //  edumanage_branding_v1 — umumiy, backend KV orqali barcha panellarga (admin/mentor/student) tarqaladi)
 const BRAND_KEY='edumanage_branding_v1';
 let _uiSettings={lang:'uz',tab:'dashboard',theme:'auto',fontSize:'md',accent:'blue'};
-let _brandSettings={crmName:'EduManage',crmLogo:null};
+let _brandSettings={crmName:'UFQ CRM',crmLogo:null};
+// UFQ CRM standart logosi — Sozlamalarda boshqa logo yuklanmagan bo'lsa shu ko'rinadi.
+// Yo'l shu skript turgan joydan olinadi (/admin/core/… → /admin/ufq-logo.png).
+const UFQ_DEFAULT_LOGO=(function(){try{var s=document.currentScript&&document.currentScript.src;if(s)return s.replace(/core\/[^\/]*$/,'ufq-logo.png');}catch(e){}return 'ufq-logo.png';})();
+// Brauzer sarlavhasi: nom allaqachon "CRM" bilan tugasa, qayta qo'shilmaydi
+function brandTitle(name){return /\bcrm\b/i.test(name)?name:name+' CRM';}
 
 // Helper functions
 function fmtMoney(n){return Math.round(n).toLocaleString('uz-UZ');}
@@ -519,7 +524,9 @@ function applyTranslations(){
 function loadBranding(){
   try{
     const b=JSON.parse(localStorage.getItem(BRAND_KEY)||'{}');
-    _brandSettings=Object.assign({crmName:'EduManage',crmLogo:null},b);
+    _brandSettings=Object.assign({crmName:'UFQ CRM',crmLogo:null},b);
+    // Eski standart nom saqlanib qolgan bo'lsa — yangi nom ko'rsatiladi
+    if(!_brandSettings.crmName||_brandSettings.crmName==='EduManage')_brandSettings.crmName='UFQ CRM';
   }catch(e){}
 }
 function saveBranding(){
@@ -542,10 +549,10 @@ function refreshBrandingFromBackend(){
           Storage.prototype.setItem.call(localStorage,BRAND_KEY,fresh);
           loadBranding();
           applyLogo();
-          const name=_brandSettings.crmName||'EduManage';
+          const name=_brandSettings.crmName||'UFQ CRM';
           const slm=document.getElementById('sidebar-crm-name');if(slm)slm.textContent=name;
           const llm=document.getElementById('login-crm-name');if(llm)llm.textContent=name;
-          document.title=name+' CRM';
+          document.title=brandTitle(name);
           // Standart rang/mavzu (Super Admin) o'zgargan bo'lsa — darhol qo'llanadi
           try{applyUISettings();}catch(e){}
         }
@@ -608,14 +615,14 @@ function applyUISettings(){
   body.classList.remove('accent-teal','accent-purple','accent-orange','accent-rose','accent-green');
   if(_effAccent&&_effAccent!=='blue')body.classList.add('accent-'+_effAccent);
 
-  const name=_brandSettings.crmName||'EduManage';
+  const name=_brandSettings.crmName||'UFQ CRM';
   document.getElementById('sidebar-crm-name').textContent=name;
 
   // FIX #1: Login screen title must use saved CRM name
   const loginCrmName=document.getElementById('login-crm-name');
   if(loginCrmName) loginCrmName.textContent=name;
 
-  document.title=name+' CRM';
+  document.title=brandTitle(name);
   applyLogo();
   applyTranslations();
 }
@@ -623,21 +630,24 @@ function applyUISettings(){
 // FIX #1: Apply logo to login screen too
 function applyLogo(){
   const logo=_brandSettings.crmLogo;
-  const name=_brandSettings.crmName||'EduManage';
-  const fl=name[0]||'E';
+  const name=_brandSettings.crmName||'UFQ CRM';
+  const fl=name[0]||'U';
+  const def=`<img src="${UFQ_DEFAULT_LOGO}" alt="UFQ CRM" style="width:100%;height:100%;object-fit:contain;display:block">`;
 
   // Sidebar logo
   const slm=document.getElementById('sidebar-logo-mark');
   if(slm){
     if(logo) slm.innerHTML=`<img src="${logo}" style="width:38px;height:38px;object-fit:cover;border-radius:var(--r-lg)">`;
-    else slm.innerHTML=`<span style="color:#fff;font-weight:700;font-size:18px">${fl}</span>`;
+    else slm.innerHTML=def;
+    slm.classList.toggle('logo-default',!logo);
   }
 
   // FIX #1: Login logo - use saved logo and name
   const llm=document.getElementById('login-logo-img-wrap');
   if(llm){
     if(logo) llm.innerHTML=`<img src="${logo}" style="width:52px;height:52px;object-fit:cover;border-radius:var(--r-lg)">`;
-    else llm.innerHTML=`<span style="color:#fff;font-weight:800;font-size:22px">${fl}</span>`;
+    else llm.innerHTML=def;
+    llm.classList.toggle('logo-default',!logo);
   }
 
   // FIX #1: Login CRM name
@@ -648,15 +658,16 @@ function applyLogo(){
   const sp=document.getElementById('sett-logo-preview');
   if(sp){
     if(logo) sp.innerHTML=`<img src="${logo}" style="width:64px;height:64px;object-fit:cover;border-radius:16px">`;
-    else{sp.innerHTML=`<span style="color:#fff;font-weight:800;font-size:26px">${fl}</span>`;sp.style.background='linear-gradient(135deg,var(--accent),var(--accent-2))';}
+    else{sp.innerHTML=def;sp.style.background='transparent';}
+    sp.classList.toggle('logo-default',!logo);
   }
 }
 
 // Settings panel
 // Settings panel
 function renderSettingsPanel(){
-  const inp=document.getElementById('sett-crm-name');if(inp)inp.value=_brandSettings.crmName||'EduManage';
-  const prev=document.getElementById('sett-name-preview');if(prev)prev.textContent=_brandSettings.crmName||'EduManage';
+  const inp=document.getElementById('sett-crm-name');if(inp)inp.value=_brandSettings.crmName||'UFQ CRM';
+  const prev=document.getElementById('sett-name-preview');if(prev)prev.textContent=_brandSettings.crmName||'UFQ CRM';
   applyLogo();
   ['light','auto','black'].forEach(th=>{const el=document.getElementById('theme-'+th);if(el)el.classList.toggle('selected',_uiSettings.theme===th);});
   ['sm','md','lg','xl'].forEach(s=>{const el=document.getElementById('fs-'+s);if(el)el.classList.toggle('selected',(_uiSettings.fontSize||'md')===s);});
@@ -1084,9 +1095,9 @@ function renderStudentGoalsPage(){
   </div>`;
 }
 
-function previewCrmName(){const val=document.getElementById('sett-crm-name').value||'EduManage';const prev=document.getElementById('sett-name-preview');if(prev)prev.textContent=val;}
+function previewCrmName(){const val=document.getElementById('sett-crm-name').value||'UFQ CRM';const prev=document.getElementById('sett-name-preview');if(prev)prev.textContent=val;}
 function saveCrmName(){
-  const val=(document.getElementById('sett-crm-name').value||'').trim()||'EduManage';
+  const val=(document.getElementById('sett-crm-name').value||'').trim()||'UFQ CRM';
   _brandSettings.crmName=val;saveBranding();applyUISettings();
   toast('✅ CRM nomi saqlandi: '+val);
 }

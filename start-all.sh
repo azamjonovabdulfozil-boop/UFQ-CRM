@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────
-#  EduManage CRM — LOKAL ishga tushirish
+#  UFQ CRM — LOKAL ishga tushirish
 #
 #  Bitta server (PORT=3000) uchala portalni ham beradi:
 #     http://localhost:3000/admin
@@ -18,7 +18,7 @@ BUILD=1
 [ "$1" = "--no-build" ] && BUILD=0
 
 echo ""
-echo "🚀 EduManage CRM (lokal) ishga tushmoqda..."
+echo "🚀 UFQ CRM (lokal) ishga tushmoqda..."
 echo ""
 
 # ── Portallarni build qilish ─────────────────────────

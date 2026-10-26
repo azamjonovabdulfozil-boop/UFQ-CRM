@@ -1,5 +1,5 @@
 /**
- * EduManage CRM — Backend (MongoDB versiyasi)
+ * UFQ CRM — Backend (MongoDB versiyasi)
  * Barcha ma'lumotlar MongoDB'da saqlanadi
  *
  * Ishga tushirish: cd backend && npm install && npm start
@@ -1168,7 +1168,7 @@ app.get("/api/health", async (_req, res) => {
     await db.admin().ping();
     mongoOk = true;
   } catch (e) {}
-  res.json({ ok: mongoOk, service: "EduManage CRM", status: mongoOk ? "up" : "degraded" });
+  res.json({ ok: mongoOk, service: "UFQ CRM", status: mongoOk ? "up" : "degraded" });
 });
 
 app.get("/api/health/full", requireAdmin, async (_req, res) => {
@@ -1186,7 +1186,7 @@ app.get("/api/health/full", requireAdmin, async (_req, res) => {
 
   res.json({
     ok: true,
-    service: "EduManage CRM",
+    service: "UFQ CRM",
     version: "3.0.0-mongodb",
     davomatBot: (await notifyStatuses()).tg,
     sms: (await notifyStatuses()).sms,
@@ -2309,9 +2309,10 @@ async function _certBranding() {
       .collection("kv")
       .findOne({ key: "edumanage_branding_v1" });
     const b = kv ? JSON.parse(String(kv.value)) : {};
-    return { name: b.crmName || "EduManage", logo: b.crmLogo || "" };
+    const nm = b.crmName && b.crmName !== "EduManage" ? b.crmName : "UFQ CRM";
+    return { name: nm, logo: b.crmLogo || "" };
   } catch (e) {
-    return { name: "EduManage", logo: "" };
+    return { name: "UFQ CRM", logo: "" };
   }
 }
 
@@ -2862,7 +2863,7 @@ app.get("/", (_req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EduManage CRM</title>
+<title>UFQ CRM</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center}
@@ -2879,7 +2880,7 @@ app.get("/", (_req, res) => {
 </head>
 <body>
 <div class="wrap">
-  <h1>🎓 EduManage CRM</h1>
+  <h1>UFQ CRM</h1>
   <p>Portalingizni tanlang</p>
   <div class="cards">
     <a class="card" href="/admin">

@@ -17,7 +17,7 @@
                 <input
                   type="text"
                   id="sett-crm-name"
-                  placeholder="EduManage"
+                  placeholder="UFQ CRM"
                   oninput="previewCrmName()"
                 />
               </div>
@@ -51,7 +51,7 @@
                   "
                   id="sett-name-preview"
                 >
-                  EduManage
+                  UFQ CRM
                 </div>
               </div>
               <button

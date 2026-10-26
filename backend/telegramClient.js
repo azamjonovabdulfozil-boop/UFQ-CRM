@@ -1,5 +1,5 @@
 /**
- * EduManage CRM — Telegram transport qatlami (ikkala bot uchun umumiy)
+ * UFQ CRM — Telegram transport qatlami (ikkala bot uchun umumiy)
  * ============================================================================
  * CRM da IKKITA mustaqil Telegram bot ishlaydi:
  *

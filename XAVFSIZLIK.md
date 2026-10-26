@@ -1,4 +1,4 @@
-# 🔐 Xavfsizlik — EduManage CRM
+# 🔐 Xavfsizlik — UFQ CRM
 
 Bu hujjat tizimning xavfsizlik modelini, oldin qanday bo'lganini va endi qanday
 ishlashini tushuntiradi. Serverga chiqarishdan oldin **"Ishga tushirish"**

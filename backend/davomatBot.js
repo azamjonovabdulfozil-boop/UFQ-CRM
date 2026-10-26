@@ -1,5 +1,5 @@
 /**
- * EduManage CRM — Davomat Telegram boti
+ * UFQ CRM — Davomat Telegram boti
  * ============================================================================
  * Mentor/admin K, Y yoki S bosganda ota-onalar Telegram guruhiga davomat
  * hisoboti yuboriladi. Bir dars uchun bitta xabar bo'ladi: keyingi belgilashda

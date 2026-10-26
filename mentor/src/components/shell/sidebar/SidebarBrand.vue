@@ -1,8 +1,8 @@
 <template>
     <div class="logo">
-      <div class="logo-mark" id="sidebar-logo-mark"></div>
+      <div class="logo-mark logo-default" id="sidebar-logo-mark"><img :src="ufqLogo" alt="UFQ CRM" style="width:100%;height:100%;object-fit:contain;display:block"></div>
       <div>
-        <div class="logo-name" id="sidebar-crm-name">EduManage</div>
+        <div class="logo-name" id="sidebar-crm-name">UFQ CRM</div>
         <div class="logo-tag">v8.0 • CRM</div>
       </div>
     </div>
@@ -19,3 +19,8 @@
     </div>
     <div class="nav-label" data-t="menu">Menyu</div>
 </template>
+
+<script setup>
+// Standart logo — Sozlamalarda boshqa logo yuklansa, applyLogo() almashtiradi
+import ufqLogo from "../../../assets/ufq-logo.png";
+</script>

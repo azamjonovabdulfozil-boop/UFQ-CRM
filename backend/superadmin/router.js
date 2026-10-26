@@ -1042,7 +1042,7 @@ export function createSuperRouter(deps) {
       settings: s,
       defaults: defaultSettings(),
       branding: {
-        crmName: branding.crmName || "EduManage",
+        crmName: branding.crmName && branding.crmName !== "EduManage" ? branding.crmName : "UFQ CRM",
         crmLogo: branding.crmLogo || null,
         defaultAccent: branding.defaultAccent || "blue",
         defaultTheme: branding.defaultTheme || "auto",

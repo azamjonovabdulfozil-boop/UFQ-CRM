@@ -33,5 +33,5 @@ export const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 });
 router.afterEach((to) => {
-  document.title = (to.meta.title ? to.meta.title + " — " : "") + "Super Admin";
+  document.title = (to.meta.title ? to.meta.title + " — " : "") + "UFQ CRM Super Admin";
 });

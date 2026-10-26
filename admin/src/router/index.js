@@ -35,5 +35,5 @@ function resolveBase() {
 
 const base = resolveBase()
 const router = createRouter({ history: createWebHistory(base), routes })
-router.afterEach(() => { document.title = 'EduManage — Admin' })
+router.afterEach(() => { document.title = 'UFQ CRM — Admin' })
 export default router

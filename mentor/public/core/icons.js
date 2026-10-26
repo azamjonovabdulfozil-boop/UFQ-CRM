@@ -1,5 +1,5 @@
 // ================================================
-// ICONS — EduManage
+// ICONS — UFQ CRM
 // Loyihadagi barcha emoji "sticker"lar o'rniga bir xil
 // uslubdagi SVG ikonkalar (stroke, currentColor, 1em).
 //

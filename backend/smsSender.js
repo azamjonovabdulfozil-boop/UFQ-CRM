@@ -1,5 +1,5 @@
 /**
- * EduManage CRM — SMS yuborish (Eskiz.uz)
+ * UFQ CRM — SMS yuborish (Eskiz.uz)
  * ============================================================================
  * Qarzdorlar sahifasidagi "📱 SMS" tugmasi shu modul orqali ishlaydi.
  *

@@ -1,5 +1,5 @@
 // ================================================
-// COIN SHOP SYSTEM — EduManage
+// COIN SHOP SYSTEM — UFQ CRM
 // Admin: mahsulot qo'shish + mentorga coin
 // Talaba: coin shop — sotib olish
 // ================================================

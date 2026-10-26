@@ -9,9 +9,9 @@
       <div class="ls-grid"></div>
       <div class="ls-left-body">
         <div class="ls-brand">
-          <div class="login-logo-mark" id="login-logo-img-wrap"></div>
+          <div class="login-logo-mark logo-default" id="login-logo-img-wrap"><img :src="ufqLogo" alt="UFQ CRM" style="width:100%;height:100%;object-fit:contain;display:block"></div>
           <div>
-            <div class="login-logo-name" id="login-crm-name">EduManage</div>
+            <div class="login-logo-name" id="login-crm-name">UFQ CRM</div>
             <div class="login-logo-tag">v8.0 • Zamonaviy CRM</div>
           </div>
         </div>
@@ -91,3 +91,7 @@
   </div>
 </div>
 </template>
+
+<script setup>
+import ufqLogo from "../../assets/ufq-logo.png";
+</script>
