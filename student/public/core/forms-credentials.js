@@ -180,7 +180,7 @@ function formStudent(d = {}) {
   const loginVal = existingCred ? existingCred.login : suggestLogin(d.name || "", "student", d.id || null);
   const passPlaceholder = d.id ? t("pass_keep_current") : t("pass_min_chars");
   const passVal = d.id ? "" : genPassword();
-  return `<div class="modal-section-label">👤 Shaxsiy ma'lumot</div><div class="form-row"><div class="fg"><label>Ism <span class="req">*</span></label><input id="f-firstname" value="${existFirst}" placeholder="Jasur" oninput="_autoFillStudentLogin()"></div><div class="fg"><label>Familiya <span class="req">*</span></label><input id="f-lastname" value="${existLast}" placeholder="Mirzayev" oninput="_autoFillStudentLogin()"></div></div><div class="form-row"><div class="fg"><label>📱 Tel raqami <span class="req">*</span></label><input id="f-phone" value="${d.phone || ""}" placeholder="+998 90 123 45 67" oninput="phoneOnlyDigits(this)" inputmode="numeric"></div><div class="fg"><label>🎂 Tug'ilgan sana <span class="req">*</span></label><input type="date" id="f-birth" value="${d.birthDate || ""}"></div></div><div class="fg"><label>👥 Guruh <span class="req">*</span></label><select id="f-group">${groupOpts}</select></div><div class="modal-section-label">🔐 ${t("login_credentials_title")}</div><div class="form-row"><div class="fg"><label>Login <span class="req">*</span></label><div style="display:flex;gap:6px"><input id="f-login" value="${loginVal}" placeholder="jasur.mirzayev" style="flex:1;font-family:'JetBrains Mono',monospace" oninput="this.dataset.touched='1';this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,'')"><button type="button" class="btn btn-sm" onclick="_autoFillStudentLogin(true)" title="${t("suggest_btn")}">🔄</button></div></div><div class="fg"><label>${t("password_label")} ${d.id ? "" : '<span class="req">*</span>'}</label><div style="display:flex;gap:6px"><input id="f-pass" value="${passVal}" placeholder="${passPlaceholder}" style="flex:1;font-family:'JetBrains Mono',monospace" autocomplete="new-password"><button type="button" class="btn btn-sm" onclick="document.getElementById('f-pass').value=genPassword()" title="${t("generate_btn")}">🔄</button></div></div></div><div style="font-size:12px;color:var(--text3);margin:-6px 0 4px">💡 ${t("login_credentials_hint")}</div><div class="modal-section-label">👨‍👩‍👦 Ota-ona</div><div class="form-row"><div class="fg"><label>Ota-ona ismi</label><input id="f-parent" value="${d.parentName || ""}" placeholder="Kamoliddin Mirzayev"></div><div class="fg"><label>📞 Ota-ona tel raqami</label><input id="f-pphone" value="${d.parentPhone || ""}" placeholder="+998 90 000 00 00" oninput="phoneOnlyDigits(this)" inputmode="numeric"></div></div><div class="modal-section-label">⚙️ Holat va manba</div><div class="form-row"><div class="fg"><label>Faollik holati</label><select id="f-status"><option value="Aktiv" ${!d.status || d.status === "Aktiv" ? "selected" : ""}>✅ Aktiv</option><option value="Faolsiz" ${d.status === "Faolsiz" ? "selected" : ""}>⛔ Faolsiz</option><option value="Muzlatilgan" ${d.status === "Muzlatilgan" ? "selected" : ""}>❄️ Muzlatilgan</option><option value="Probatsiya" ${d.status === "Probatsiya" ? "selected" : ""}>🔶 Probatsiya</option><option value="Arxiv" ${d.status === "Arxiv" ? "selected" : ""}>📦 Arxiv</option></select></div><div class="fg"><label>To'lov holati</label><select id="f-debt"><option value="0" ${!d.isDebtor ? "selected" : ""}>✅ To'lagan</option><option value="1" ${d.isDebtor ? "selected" : ""}>💸 Qarzdor</option></select></div></div><div class="form-row"><div class="fg"><label>📍 Manba</label><select id="f-src">${srcOpts}</select></div><div class="fg"><label>📅 Qo'shilgan sana</label><input type="date" id="f-join" value="${d.joinDate || todayStr()}"></div></div><div class="fg"><label>💬 Izohlar</label><textarea id="f-notes" rows="3" placeholder="Talaba haqida izoh...">${d.notes || ""}</textarea></div>`;
+  return `<div class="modal-section-label">👤 Shaxsiy ma'lumot</div><div class="form-row"><div class="fg"><label>Ism <span class="req">*</span></label><input id="f-firstname" value="${existFirst}" placeholder="Jasur" oninput="_autoFillStudentLogin()"></div><div class="fg"><label>Familiya <span class="req">*</span></label><input id="f-lastname" value="${existLast}" placeholder="Mirzayev" oninput="_autoFillStudentLogin()"></div></div><div class="form-row"><div class="fg"><label>📱 Tel raqami <span class="req">*</span></label><input id="f-phone" value="${d.phone || ""}" placeholder="+998 90 123 45 67" oninput="phoneOnlyDigits(this)" inputmode="numeric"></div><div class="fg"><label>🎂 Tug'ilgan sana <span class="req">*</span></label><input type="date" id="f-birth" value="${d.birthDate || ""}"></div></div><div class="fg"><label>👥 Guruh <span class="req">*</span></label><select id="f-group">${groupOpts}</select></div><div class="modal-section-label">🔐 ${t("login_credentials_title")}</div><div class="form-row"><div class="fg"><label>Login <span class="req">*</span></label><div style="display:flex;gap:6px"><input id="f-login" value="${loginVal}" ${existingCred ? 'data-touched="1"' : ""} placeholder="jasur.mirzayev" style="flex:1;font-family:'JetBrains Mono',monospace" oninput="this.dataset.touched='1';this.dataset.userEdited='1';this.value=this.value.toLowerCase().replace(/[^a-z0-9._-]/g,'')"><button type="button" class="btn btn-sm" onclick="_autoFillStudentLogin(true)" title="${t("suggest_btn")}">🔄</button></div></div><div class="fg"><label>${t("password_label")} ${d.id ? "" : '<span class="req">*</span>'}</label><div style="display:flex;gap:6px"><input id="f-pass" value="${passVal}" placeholder="${passPlaceholder}" style="flex:1;font-family:'JetBrains Mono',monospace" autocomplete="new-password"><button type="button" class="btn btn-sm" onclick="document.getElementById('f-pass').value=genPassword()" title="${t("generate_btn")}">🔄</button></div></div></div><div style="font-size:12px;color:var(--text3);margin:-6px 0 4px">💡 ${t("login_credentials_hint")}</div><div class="modal-section-label">👨‍👩‍👦 Ota-ona</div><div class="form-row"><div class="fg"><label>Ota-ona ismi</label><input id="f-parent" value="${d.parentName || ""}" placeholder="Kamoliddin Mirzayev"></div><div class="fg"><label>📞 Ota-ona tel raqami</label><input id="f-pphone" value="${d.parentPhone || ""}" placeholder="+998 90 000 00 00" oninput="phoneOnlyDigits(this)" inputmode="numeric"></div></div><div class="modal-section-label">⚙️ Holat va manba</div><div class="form-row"><div class="fg"><label>Faollik holati</label><select id="f-status"><option value="Aktiv" ${!d.status || d.status === "Aktiv" ? "selected" : ""}>✅ Aktiv</option><option value="Faolsiz" ${d.status === "Faolsiz" ? "selected" : ""}>⛔ Faolsiz</option><option value="Muzlatilgan" ${d.status === "Muzlatilgan" ? "selected" : ""}>❄️ Muzlatilgan</option><option value="Probatsiya" ${d.status === "Probatsiya" ? "selected" : ""}>🔶 Probatsiya</option><option value="Arxiv" ${d.status === "Arxiv" ? "selected" : ""}>📦 Arxiv</option></select></div><div class="fg"><label>To'lov holati</label><select id="f-debt"><option value="0" ${!d.isDebtor ? "selected" : ""}>✅ To'lagan</option><option value="1" ${d.isDebtor ? "selected" : ""}>💸 Qarzdor</option></select></div></div><div class="form-row"><div class="fg"><label>📍 Manba</label><select id="f-src">${srcOpts}</select></div><div class="fg"><label>📅 Qo'shilgan sana</label><input type="date" id="f-join" value="${d.joinDate || todayStr()}"></div></div><div class="fg"><label>💬 Izohlar</label><textarea id="f-notes" rows="3" placeholder="Talaba haqida izoh...">${d.notes || ""}</textarea></div>`;
 }
 // Ism/familiya kiritilayotganda login maydonini avtomatik taklif qiladi
 // (agar admin login maydonini o'zi qo'lda o'zgartirmagan bo'lsa, yoki "force" true bo'lsa)
@@ -193,7 +193,10 @@ function _autoFillStudentLogin(force) {
   const full = (fn + " " + ln).trim();
   if (!full) { if (force) loginEl.value = ""; return; }
   loginEl.value = suggestLogin(full, "student", _editId);
-  if (force) loginEl.dataset.touched = "0";
+  if (force) {
+    loginEl.dataset.touched = "0";
+    loginEl.dataset.userEdited = "1"; // admin 🔄 ni o'zi bosdi — login ataylab almashtirilmoqda
+  }
 }
 
 let _modalType = null,
@@ -430,7 +433,19 @@ async function saveModal() {
     const fullName = firstName + (lastName ? " " + lastName : "");
     const groupId = parseInt(document.getElementById("f-group").value);
     // ---- 1.2: Login va parol tekshiruvi (Student Panelga kirish uchun) ----
-    const loginVal = (document.getElementById("f-login").value || "").trim().toLowerCase();
+    const loginEl0 = document.getElementById("f-login");
+    let loginVal = (loginEl0.value || "").trim().toLowerCase();
+    // 🔧 BUG FIX: talaba tahrirlanganda login JIMGINA o'zgarib qolardi (ism
+    // yozilganda login avtomatik qayta yasalardi yoki forma eskirgan ro'yxatdan
+    // taklif ko'rsatardi) — server hisobni yangi loginga ko'chirar, talaba esa
+    // eski login bilan kira olmay qolardi. Endi login FAQAT admin uni o'zi
+    // o'zgartirsa (yoki 🔄 ni bossa) almashadi.
+    const keepLogin = (list) => {
+      if (!isEdit || loginEl0.dataset.userEdited === "1") return;
+      const cur = (list || []).find((u) => String(u.studentId) === String(_editId));
+      if (cur && cur.login) loginVal = String(cur.login).toLowerCase();
+    };
+    keepLogin(getStudentUsers());
     const passVal = (document.getElementById("f-pass").value || "").trim();
     if (loginVal.length < 3) {
       toast("⚠️ " + t("login_too_short"));
@@ -477,6 +492,7 @@ async function saveModal() {
     // ---- Login/parolni saqlash: parol hech qachon ochiq matnda saqlanmaydi (SHA-256 hash) ----
     let credToShow = null;
     try {
+      keepLogin(getStudentUsers()); // serverdan yangilangan ro'yxat bo'yicha
       const existingCred = getStudentUsers().find(
         (u) => String(u.studentId) === String(studentId),
       );
@@ -569,6 +585,19 @@ function editItem(type, id) {
     type,
     map[type].find((x) => x.id === id),
   );
+  // Talabaning HAQIQIY loginini serverdan olib formaga qo'yamiz — brauzerdagi
+  // ro'yxat eskirgan bo'lsa formada noto'g'ri (taklif qilingan) login turardi.
+  if (type === "student" && typeof _freshPortalUsers === "function") {
+    _freshPortalUsers().then(() => {
+      const el = document.getElementById("f-login");
+      if (!el || el.dataset.userEdited === "1" || _editId !== id) return;
+      const cur = getStudentUsers().find((u) => String(u.studentId) === String(id));
+      if (cur && cur.login) {
+        el.value = cur.login;
+        el.dataset.touched = "1";
+      }
+    });
+  }
 }
 function delItem(type, id) {
   const map = {
