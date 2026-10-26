@@ -122,7 +122,8 @@ const isolated = (vals, i) => vals[i] != null && vals[i - 1] == null && vals[i +
 function onMove(e) {
   if (!wrap.value || !e) return;
   const r = wrap.value.querySelector("svg").getBoundingClientRect();
-  const px = e.clientX - r.left;
+  // ekran pikseli → grafik koordinatasi (katta ekranda interfeys zoom qilingan bo'lishi mumkin)
+  const px = r.width ? ((e.clientX - r.left) * w.value) / r.width : 0;
   const n = props.labels.length;
   if (!n) return;
   const i = Math.round(((px - padL) / (w.value - padL - padR)) * (n - 1));

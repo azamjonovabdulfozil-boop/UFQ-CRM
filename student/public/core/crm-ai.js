@@ -1315,11 +1315,13 @@
     els.forEach(function (el) {
       if (!el || !el.offsetParent) return; // yashirin panel
       var top = el.getBoundingClientRect().top;
-      var h = Math.round(vh - top); // pastda ham bo'sh joy qolmaydi
+      // Katta ekranda (screen-fit.js zoom) o'lchov ekran pikselida, style esa CSS pikselda
+      var k = window.__uiZoom || 1;
+      var h = Math.round((vh - top) / k); // pastda ham bo'sh joy qolmaydi
       if (h < 380) return;
       el.style.height = h + "px";
       // Sahifa pastida ortiqcha joy (padding) bo'lsa — sahifa aylanmasin
-      var extra = document.documentElement.scrollHeight - vh;
+      var extra = document.documentElement.scrollHeight - vh / k;
       if (extra > 0 && extra < 60 && h - extra >= 380) el.style.height = h - extra + "px";
     });
   }

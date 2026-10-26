@@ -1409,7 +1409,7 @@ function renderMentorDashboard(){
         <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,.4);flex-shrink:0;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff">${mentor&&mentorPhotoSrc(mentor)?`<img src="${mentorPhotoSrc(mentor)}" style="width:100%;height:100%;object-fit:cover">`:(mentorName||'M').substring(0,2).toUpperCase()}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;opacity:.8">Xush kelibsiz,</div>
-          <div style="font-size:24px;font-weight:800;letter-spacing:-.5px">${mentorName}</div>
+          <div class="mdash-hero-name" style="font-size:24px;font-weight:800;letter-spacing:-.5px">${mentorName}</div>
           ${mentor?`<div style="font-size:13px;opacity:.85;margin-top:3px">📚 ${mentor.subject} · 💼 ${mentor.experience||'—'}</div>`:''}
         </div>
       </div>

@@ -46,7 +46,7 @@ function renderStudentSchedulePage(){
     const active=days.includes(d);
     const isToday=d===todayDay&&active;
     const isNext=d===nextDay&&daysUntil>0;
-    return `<div style="flex:1;min-width:72px;border-radius:var(--r-lg);border:2px solid ${isToday?'var(--teal)':isNext?'var(--accent)':'var(--border2)'};background:${isToday?'var(--teal-light)':isNext?'var(--accent-light)':active?'var(--bg2)':'var(--bg3)'};padding:14px 8px;text-align:center;opacity:${active?1:0.35}">
+    return `<div class="sch-day" style="flex:1;min-width:72px;border-radius:var(--r-lg);border:2px solid ${isToday?'var(--teal)':isNext?'var(--accent)':'var(--border2)'};background:${isToday?'var(--teal-light)':isNext?'var(--accent-light)':active?'var(--bg2)':'var(--bg3)'};padding:14px 8px;text-align:center;opacity:${active?1:0.35}">
       <div style="font-size:11px;font-weight:700;color:${isToday?'var(--teal-text)':isNext?'var(--accent-text)':'var(--text3)'};text-transform:uppercase;letter-spacing:.5px">${DAY_SHORT[d]||d}</div>
       <div style="font-size:12px;font-weight:800;color:${isToday?'var(--teal-text)':isNext?'var(--accent-text)':'var(--text)'};margin-top:4px">${DAY_LONG[d]||d}</div>
       ${isToday?`<div style="font-size:10px;color:var(--teal-text);margin-top:4px;font-weight:700">${todayLbl}</div>`:''}

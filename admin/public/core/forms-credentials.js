@@ -1803,7 +1803,7 @@ function renderMySchedule() {
     <!-- Haftalik jadval -->
     <div style="background:var(--bg);border:1.5px solid var(--border2);border-radius:var(--r-lg);padding:18px 20px;margin-bottom:24px;box-shadow:var(--shadow-sm)">
       <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px">📆 Haftalik jadval</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table class="rs-week-table" style="width:100%;border-collapse:collapse">
         <tbody>${weekRows}</tbody>
       </table>
     </div>

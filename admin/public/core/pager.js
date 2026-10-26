@@ -119,7 +119,8 @@
     // Pager ekranda o'z joyida qolsin — sahifa "sakramasin"
     var bar2 = document.querySelector('[data-pager="' + esc(key) + '"]');
     if (bar2 && top !== null) {
-      var diff = bar2.getBoundingClientRect().top - top;
+      // ekran pikseli → scroll (CSS) pikseli (katta ekranda zoom bo'lishi mumkin)
+      var diff = (bar2.getBoundingClientRect().top - top) / (window.__uiZoom || 1);
       var sc = scrollParent(bar2);
       if (diff && sc) sc.scrollTop += diff;
     }
