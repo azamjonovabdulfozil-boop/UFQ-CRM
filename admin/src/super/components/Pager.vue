@@ -21,7 +21,12 @@ defineEmits(["go"]);
 </script>
 
 <style scoped>
-.sa-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; }
+.sa-pager {
+  display: grid; grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
+  align-items: center; column-gap: 14px; margin-top: 16px; width: 100%;
+}
+.sa-pager > .sa-pg-btn:first-child { justify-self: end; }
+.sa-pager > .sa-pg-btn:last-child { justify-self: start; }
 .sa-pg-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-width: 112px; height: 38px; padding: 0 18px;
@@ -33,10 +38,10 @@ defineEmits(["go"]);
 .sa-pg-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
 .sa-pg-btn:active:not(:disabled) { transform: scale(0.97); }
 .sa-pg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.sa-pg-info { min-width: 60px; text-align: center; font-size: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sa-pg-info { width: 100%; min-width: 0; text-align: center; font-size: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sa-pg-info b { color: var(--text); }
 @media (max-width: 600px) {
-  .sa-pager { gap: 10px; }
-  .sa-pg-btn { min-width: 0; flex: 1 1 0; max-width: 150px; padding: 0 10px; font-size: 13px; }
+  .sa-pager { grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr); column-gap: 10px; }
+  .sa-pg-btn { min-width: 0; width: 100%; max-width: 150px; padding: 0 10px; font-size: 13px; }
 }
 </style>

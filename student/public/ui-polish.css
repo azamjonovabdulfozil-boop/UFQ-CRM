@@ -869,11 +869,23 @@ body.accent-green  { --accent-2: #22c55e; }
 
 /* ===================== UFQ PAGER (core/pager.js) =====================
    Minimal sahifalash: [← Orqaga]  1 / 15  [Keyingi →] */
-.ufq-pager {
-  display: flex; align-items: center; justify-content: center;
-  gap: 14px; margin: 18px 0 6px; padding: 0; width: 100%;
-  grid-column: 1 / -1; flex-wrap: nowrap;
+/* Pager.mount() qo'yadigan o'rov: ota-element flex/grid bo'lsa ham to'liq enda,
+   aks holda kontent eniga qisqarib chetga yopishib qoladi. */
+[data-pager-slot] {
+  display: block; width: 100%; min-width: 0;
+  flex-basis: 100%; align-self: stretch; grid-column: 1 / -1;
 }
+/* 3 ustunli grid: chap va o'ng ustunlar teng (1fr), o'rtadagi raqam ustuni
+   belgilangan enda — raqam doim aniq markazda, sahifalar soni o'zgarsa ham
+   tugmalar joyidan siljimaydi. */
+.ufq-pager {
+  display: grid; grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
+  align-items: center; column-gap: 14px;
+  margin: 18px 0 6px; padding: 0; width: 100%; box-sizing: border-box;
+  grid-column: 1 / -1; flex: 0 0 100%;
+}
+.ufq-pager > .ufq-pg-btn:first-child { justify-self: end; }
+.ufq-pager > .ufq-pg-btn:last-child { justify-self: start; }
 .ufq-pg-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-width: 112px; height: 40px; padding: 0 18px;
@@ -896,14 +908,14 @@ body.accent-green  { --accent-2: #22c55e; }
 }
 .ufq-pg-arr { font-size: 15px; line-height: 1; }
 .ufq-pg-info {
-  min-width: 64px; text-align: center; white-space: nowrap;
+  width: 100%; min-width: 0; text-align: center; white-space: nowrap;
   font-size: 14px; font-weight: 500; color: var(--text2);
   font-variant-numeric: tabular-nums;
 }
 .ufq-pg-info b { color: var(--text); font-weight: 700; }
 @media (max-width: 600px) {
-  .ufq-pager { gap: 10px; margin-top: 14px; }
-  .ufq-pg-btn { min-width: 0; flex: 1 1 0; max-width: 150px; height: 40px; padding: 0 12px; font-size: 13px; }
+  .ufq-pager { grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr); column-gap: 10px; margin-top: 14px; }
+  .ufq-pg-btn { min-width: 0; width: 100%; max-width: 150px; height: 40px; padding: 0 12px; font-size: 13px; }
 }
 @media (max-width: 360px) {
   .ufq-pg-btn { padding: 0 8px; font-size: 12px; }
