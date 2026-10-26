@@ -1,5 +1,5 @@
 <template>
-  <nav v-if="total > 0" class="sa-pager" aria-label="Sahifalash">
+  <nav v-if="total > 0 && pages > 1" class="sa-pager" aria-label="Sahifalash">
     <button type="button" class="sa-pg-btn" :disabled="page <= 1" @click="$emit('go', page - 1)">
       <span aria-hidden="true">←</span> Orqaga
     </button>
@@ -12,6 +12,7 @@
 
 <script setup>
 // Butun Super Admin paneli uchun yagona sahifalash: [← Orqaga] 1 / N [Keyingi →]
+// Faqat 2-sahifa paydo bo'lganda ko'rinadi — bitta sahifa bo'lsa yashirin.
 defineProps({
   page: { type: Number, default: 1 },
   pages: { type: Number, default: 1 },

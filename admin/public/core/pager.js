@@ -59,7 +59,9 @@
 
   function html(key) {
     var st = state[key];
-    if (!st || !st.total) return "";
+    // Pager faqat 2-sahifa paydo bo'lganda ko'rinadi (10 tadan ko'p yozuv).
+    // 10 va undan kam bo'lsa "1 / 1" ko'rsatib o'tirilmaydi.
+    if (!st || !st.total || st.pages <= 1) return "";
     var lb = labels();
     var k = esc(key);
     var p = st.page;
