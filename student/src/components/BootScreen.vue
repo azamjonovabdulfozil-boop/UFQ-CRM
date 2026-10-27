@@ -29,7 +29,7 @@ defineEmits(["retry"]);
 </script>
 
 <style scoped>
-.boot-logo { width: 84px; height: 84px; object-fit: contain; }
+.boot-logo { width: 84px; height: 84px; object-fit: contain; background: #fff; border-radius: 18px; padding: 8px; box-sizing: border-box; }
 /* Urg'u rangini har bir portal #crm-root da --boot-accent orqali beradi. */
 .boot-screen,
 .boot-error {
