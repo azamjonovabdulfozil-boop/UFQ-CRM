@@ -396,6 +396,82 @@ async function resetData() {
 }
 if (!window.D) window.D = {};
 var D = window.D;
+
+// ================================================
+// DAVOMAT QOIDASI — Super Admin → «Davomat va to'lov»
+// «S» (sababli) belgisi qo'yilgan dars uchun talabadan pul yechilsinmi.
+// Qoida serverda saqlanadi; bu yerda tez ishlashi uchun brauzerda keshlanadi
+// (to'g'ridan Storage.prototype — KV sinxroniga tushmaydi). Standart: yechiladi.
+// ================================================
+var ATT_RULES_KEY = "crm_att_rules_v1";
+window.__CRM_RULES__ = (function () {
+  try {
+    var c = JSON.parse(Storage.prototype.getItem.call(localStorage, ATT_RULES_KEY) || "null");
+    if (c && typeof c === "object") return c;
+  } catch (e) {}
+  return { chargeExcused: true };
+})();
+/** Sababli (S) dars to'lovga kiradimi */
+function chargeExcused() {
+  return !window.__CRM_RULES__ || window.__CRM_RULES__.chargeExcused !== false;
+}
+/** Bitta davomat belgisi to'lovga kiradimi: K va Y — har doim, S — qoidaga ko'ra */
+function isPaidMark(v) {
+  return v === "K" || v === "Y" || (v === "S" && chargeExcused());
+}
+var _rulesBusy = false;
+function loadAttendanceRules() {
+  if (_rulesBusy || window.__CRM_DEMO__) return;
+  try {
+    if (!window.CRMAuth || !window.CRMAuth.isLoggedIn()) return;
+  } catch (e) {
+    return;
+  }
+  _rulesBusy = true;
+  fetch("/api/attendance-rules", { cache: "no-store" })
+    .then(function (r) {
+      return r.ok ? r.json() : null;
+    })
+    .then(function (d) {
+      if (!d || !d.ok) return;
+      var next = { chargeExcused: d.chargeExcused !== false };
+      var changed = next.chargeExcused !== chargeExcused();
+      window.__CRM_RULES__ = next;
+      try {
+        Storage.prototype.setItem.call(localStorage, ATT_RULES_KEY, JSON.stringify(next));
+      } catch (e) {}
+      // Qoida o'zgardi — qarz va to'lovlar qayta hisoblanib ko'rsatilsin
+      if (changed) {
+        try {
+          if (typeof renderAll === "function") renderAll();
+          // Mentor/talaba: ochiq turgan sahifa (masalan to'lov hisobi) ham yangilansin
+          if (typeof window.go === "function" && typeof currentTab !== "undefined" && currentTab)
+            window.go(currentTab, document.getElementById("nav-" + currentTab));
+        } catch (e) {}
+      }
+    })
+    .catch(function () {})
+    .then(function () {
+      _rulesBusy = false;
+    });
+}
+window.loadAttendanceRules = loadAttendanceRules;
+// Kirgandan keyin darhol, so'ng har daqiqada va oyna qayta ochilganda
+(function () {
+  var tries = 0;
+  var t = setInterval(function () {
+    tries++;
+    try {
+      if (window.CRMAuth && window.CRMAuth.isLoggedIn()) {
+        clearInterval(t);
+        loadAttendanceRules();
+      }
+    } catch (e) {}
+    if (tries > 600) clearInterval(t);
+  }, 1000);
+  setInterval(loadAttendanceRules, 60000);
+  window.addEventListener("focus", loadAttendanceRules);
+})();
 function newId() {
   return ++D.nextId;
 }
@@ -946,8 +1022,8 @@ function openMentorSalaryModal() {
           let payLessons = 0;
           for (let l = 1; l <= LESSON_COUNT; l++) {
             const v = sAtt["l" + l] || "";
-            // K, Y va S — uchalasi ham to'lovga kiradi
-            if (v === "K" || v === "Y" || v === "S") payLessons++;
+            // K va Y — har doim, S — Super Admin qoidasiga ko'ra to'lovga kiradi
+            if (isPaidMark(v)) payLessons++;
           }
           mentorIncome += payLessons * lp;
         });

@@ -419,6 +419,14 @@
       if (!msg || msg.hello) return;
       // O'z yozuvimiz qaytib keldi — qayta yuklash shart emas.
       if (msg.origin && CLIENT_ID && msg.origin === CLIENT_ID) return;
+      // Super Admin davomat qoidasini o'zgartirdi — KV emas, alohida yuklanadi
+      if (Array.isArray(msg.keys) && msg.keys.indexOf("edumanage_attendance_rules") !== -1) {
+        if (typeof window.loadAttendanceRules === "function") window.loadAttendanceRules();
+        msg.keys = msg.keys.filter(function (k) {
+          return k !== "edumanage_attendance_rules";
+        });
+        if (!msg.keys.length) return;
+      }
       enqueue(msg.keys);
     };
 

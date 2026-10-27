@@ -19,9 +19,15 @@ import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODULES } from "./settings.js";
 import { REPORTS } from "./reports.js";
+import { prepareInput, MEDIA_COL, ensureMediaIndexes } from "./aiFiles.js";
 
 const MODEL = process.env.SUPER_AI_MODEL || "claude-opus-5-5";
 const CHATS_COL = "super_ai_chats";
+/** Ko'rsatma + bugungi sana va vaqt (AI sanani o'ylab topmasin) */
+function systemNow() {
+  const now = new Date().toLocaleString("uz-UZ", { timeZone: process.env.TZ_CRM || "Asia/Tashkent", weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  return SYSTEM + "\n\nHozirgi sana va vaqt (Toshkent): " + now + ". Sana kerak bo'lsa — faqat shuni ishlat.";
+}
 const MAX_STEPS = 14; // bitta xabar uchun asbob chaqiruvlari sikli
 const MAX_RESULT_CHARS = 40_000;
 const MAX_MESSAGES = 160; // undan uzun suhbat — yangi suhbat ochish taklif qilinadi
@@ -76,7 +82,7 @@ Asboblar:
   /api/super/admins body {username, firstName, lastName} — yangi admin (parol o'rnatish havolasi qaytadi); /api/super/admins/{id}/profile body {firstName, lastName} — ism-familiyani o'zgartirish. Adminni butunlay o'chirish faqat panelda parol bilan tasdiqlanadi (Administratorlar → O'chirish)
   /api/super/admins/{id}/status body {status:"active"|"disabled"}; /api/super/admins/{id}/sessions/revoke; /api/super/admins/{id}/reset-link; /api/super/admins/{id}/restrictions body {modules:{key:{menu,api}}}
   /api/super/modules body {modules:{key:{menu,api}}, settingsMenu:{admin,mentor,student}} — modul kalitlari: ${MODULES.map((m) => m.key).join(", ")}. DIQQAT: modules ichida HAMMA modullarni joriy holati bilan yubor (avval GET /api/super/modules ni o'qi), aks holda yuborilmaganlari ochiladi.
-  /api/super/settings/{general|notifications|ranking}; /api/super/teachers/criteria; /api/super/branding body {crmName}; /api/super/backups/create
+  /api/super/settings/{general|notifications|ranking}; /api/super/settings/attendance body {chargeExcused: true|false} — sababli (S) dars uchun talabadan pul yechilsinmi; /api/super/teachers/criteria; /api/super/branding body {crmName}; /api/super/backups/create
 - crm_create / crm_update / crm_delete — CRM yozuvini qo'shish, istalgan maydonini o'zgartirish, o'chirish (students, groups, mentors, courses, finance).
 - report_file — hisobotni fayl (xlsx, pdf, csv) qilib tayyorlaydi; foydalanuvchida «Yuklab olish» tugmasi chiqadi.
 
@@ -190,6 +196,7 @@ function jsonOut(v) {
 
 export function createSuperAiRouter(deps) {
   const { getDb, audit, requireSuperAdmin: S, rateLimit, broadcast, snapshotCrmData, CRM_KV_KEY, port } = deps;
+  const transcribe = typeof deps.transcribe === "function" ? deps.transcribe : async () => "";
   const r = Router();
   const db = () => getDb();
   const limiter = rateLimit({ windowMs: 60_000, max: 20, name: "super-ai", key: (req) => req.user?.sub || "?" });
@@ -401,13 +408,14 @@ export function createSuperAiRouter(deps) {
   const geminiKey = () => String(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
   const enabledNow = () => !!getClient() || !!geminiKey() || !!String(process.env.LOVABLE_API_KEY || "").trim();
 
-  async function runClaude(req, chat, text, ctx) {
+  async function runClaude(req, chat, input, ctx) {
     const c = getClient();
     const messages = (chat.messages || []).slice();
     // Boshqa dvigatel bilan o'tgan qadamlar matn sifatida qo'shiladi
     for (const d of (chat.display || []).slice(chat.claudeUpto || 0))
       messages.push({ role: d.role === "user" ? "user" : "assistant", content: [{ type: "text", text: d.text || "—" }] });
-    messages.push({ role: "user", content: text });
+    // Joriy xabar: rasm/PDF bloklari bilan; tarixga esa qisqa matn yoziladi
+    const userIdx = messages.push({ role: "user", content: input.claude }) - 1;
     let reply = "";
     for (let step = 0; step < MAX_STEPS; step++) {
       let resp;
@@ -415,7 +423,7 @@ export function createSuperAiRouter(deps) {
         resp = await c.beta.messages.create({
           model: MODEL,
           max_tokens: 16000,
-          system: SYSTEM,
+          system: systemNow(),
           tools: TOOLS,
           messages,
           output_config: { effort: "medium" },
@@ -454,6 +462,7 @@ export function createSuperAiRouter(deps) {
     }
     // Suhbat har doim assistant javobi bilan tugasin
     if (messages[messages.length - 1].role === "user") messages.push({ role: "assistant", content: [{ type: "text", text: reply }] });
+    messages[userIdx] = { role: "user", content: input.history || input.text };
     chat.messages = messages;
     return reply;
   }
@@ -486,7 +495,7 @@ export function createSuperAiRouter(deps) {
     return out;
   }
 
-  async function runGemini(req, chat, text, ctx) {
+  async function runGemini(req, chat, input, ctx) {
     const key = geminiKey();
     // Band yoki yopilgan model bo'lsa — qayta urinish, so'ng keyingi model
     const models = [...new Set([process.env.SUPER_AI_GEMINI_MODEL, "gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3-flash-preview"].filter(Boolean))];
@@ -494,10 +503,10 @@ export function createSuperAiRouter(deps) {
     const contents = (chat.gmessages || []).slice();
     for (const d of (chat.display || []).slice(chat.geminiUpto || 0))
       contents.push({ role: d.role === "user" ? "user" : "model", parts: [{ text: d.text || "—" }] });
-    contents.push({ role: "user", parts: [{ text }] });
+    const userIdx = contents.push({ role: "user", parts: input.gemini }) - 1;
     let reply = "";
     for (let step = 0; step < MAX_STEPS; step++) {
-      const body = JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents, tools: G_TOOLS, generationConfig: { maxOutputTokens: 8192 } });
+      const body = JSON.stringify({ systemInstruction: { parts: [{ text: systemNow() }] }, contents, tools: G_TOOLS, generationConfig: { maxOutputTokens: 8192 } });
       // Avval joriy model; u band bo'lsa — qolganlari
       const tryModels = [model, ...models.filter((x) => x !== model)];
       let r = null;
@@ -555,6 +564,7 @@ export function createSuperAiRouter(deps) {
       if (step === MAX_STEPS - 1) reply = "Vazifa juda ko'p bosqichli bo'lib ketdi — iltimos, uni kichikroq qismlarga bo'lib so'rang.";
     }
     if (contents[contents.length - 1].role === "user") contents.push({ role: "model", parts: [{ text: reply }] });
+    contents[userIdx] = { role: "user", parts: [{ text: input.history || input.text }] };
     chat.gmessages = contents;
     return reply;
   }
@@ -564,12 +574,12 @@ export function createSuperAiRouter(deps) {
   const lovableKey = () => String(process.env.LOVABLE_API_KEY || "").trim().replace(/^['"]|['"]$/g, "");
   const L_TOOLS = TOOLS.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: geminiSchema(t.input_schema) } }));
 
-  async function runLovable(req, chat, text, ctx) {
+  async function runLovable(req, chat, input, ctx) {
     const model = process.env.SUPER_AI_LOVABLE_MODEL || process.env.LOVABLE_AI_MODEL || "google/gemini-3-flash-preview";
     const msgs = (chat.lmessages || []).slice();
     for (const d of (chat.display || []).slice(chat.lovableUpto || 0))
       msgs.push({ role: d.role === "user" ? "user" : "assistant", content: d.text || "—" });
-    msgs.push({ role: "user", content: text });
+    const userIdx = msgs.push({ role: "user", content: input.lovable }) - 1;
     let reply = "";
     for (let step = 0; step < MAX_STEPS; step++) {
       let r;
@@ -579,7 +589,7 @@ export function createSuperAiRouter(deps) {
           r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Lovable-API-Key": lovableKey() },
-            body: JSON.stringify({ model, messages: [{ role: "system", content: SYSTEM }, ...msgs], tools: L_TOOLS }),
+            body: JSON.stringify({ model, messages: [{ role: "system", content: systemNow() }, ...msgs], tools: L_TOOLS }),
             signal: AbortSignal.timeout(90_000),
           });
           d = await r.json().catch(() => null);
@@ -618,6 +628,7 @@ export function createSuperAiRouter(deps) {
       if (step === MAX_STEPS - 1) reply = "Vazifa juda ko'p bosqichli bo'lib ketdi — iltimos, uni kichikroq qismlarga bo'lib so'rang.";
     }
     if (msgs[msgs.length - 1].role !== "assistant") msgs.push({ role: "assistant", content: reply });
+    msgs[userIdx] = { role: "user", content: input.history || input.text };
     chat.lmessages = msgs;
     return reply;
   }
@@ -642,13 +653,26 @@ export function createSuperAiRouter(deps) {
   r.post("/api/super/ai/chat", S, limiter, async (req, res) => {
     if (!enabledNow())
       return res.status(503).json({ ok: false, error: "AI sozlanmagan: serverga ANTHROPIC_API_KEY yoki GEMINI_API_KEY qo'yilmagan" });
-    const text = clip(req.body?.message, 8000).trim();
-    if (!text) return res.status(400).json({ ok: false, error: "Xabar bo'sh" });
-    const col = db().collection(CHATS_COL);
     const owner = String(req.user.sub);
+    // Matn, fayllar (rasm, PDF, Word, Excel…) va ovozli xabar — bitta ko'rinishga
+    let input;
+    try {
+      input = await prepareInput(req.body, { transcribe, hints: await nameHints(), db: db(), owner });
+    } catch (e) {
+      console.error("❌ [super-ai] fayl:", e?.message);
+      return res.status(400).json({ ok: false, error: "Faylni o'qib bo'lmadi: " + clip(e?.message, 160) });
+    }
+    if (input.error) return res.status(400).json({ ok: false, code: input.code, error: input.error });
+    if (!mediaIdx) {
+      mediaIdx = true;
+      ensureMediaIndexes(db());
+    }
+    const text = input.text;
+    const title = clip(input.visibleText || input.display.voice?.transcript || input.display.files[0]?.name || "Yangi suhbat", 80);
+    const col = db().collection(CHATS_COL);
     let chat = null;
     if (req.body?.chatId) chat = await col.findOne({ _id: String(req.body.chatId), owner });
-    if (!chat) chat = { _id: randomUUID(), owner, title: clip(text, 80), messages: [], gmessages: [], display: [], createdAt: new Date() };
+    if (!chat) chat = { _id: randomUUID(), owner, title, messages: [], gmessages: [], display: [], createdAt: new Date() };
     if ((chat.messages || []).length + (chat.gmessages || []).length + (chat.lmessages || []).length > MAX_MESSAGES)
       return res.status(400).json({ ok: false, code: "too-long", error: "Suhbat juda uzun — yangi suhbat oching" });
 
@@ -659,7 +683,7 @@ export function createSuperAiRouter(deps) {
     try {
       if (useClaude) {
         try {
-          reply = await runClaude(req, chat, text, ctx);
+          reply = await runClaude(req, chat, input, ctx);
           engine = "claude";
         } catch (e) {
           console.error("❌ [super-ai] claude:", e?.status || "", clip(e?.message, 300));
@@ -674,7 +698,7 @@ export function createSuperAiRouter(deps) {
       if (geminiKey()) backups.push(["gemini", runGemini]);
       for (let i = 0; !engine && i < backups.length; i++) {
         try {
-          reply = await backups[i][1](req, chat, text, ctx);
+          reply = await backups[i][1](req, chat, input, ctx);
           engine = backups[i][0];
         } catch (e) {
           console.error("❌ [super-ai] " + backups[i][0] + ":", clip(e?.message, 300));
@@ -690,7 +714,8 @@ export function createSuperAiRouter(deps) {
     const now = new Date();
     chat.display = [
       ...(chat.display || []),
-      { role: "user", text, at: now },
+      // text — boshqa dvigatellar uchun to'liq izoh; shown — panelda ko'rinadigan yozuv
+      { role: "user", text: input.history || text, shown: input.visibleText, voice: input.display.voice, files: input.display.files, at: now },
       { role: "assistant", text: reply, actions: ctx.actions, files: ctx.files, engine, at: new Date() },
     ];
     if (engine === "claude") chat.claudeUpto = chat.display.length;
@@ -703,7 +728,7 @@ export function createSuperAiRouter(deps) {
       console.error("❌ [super-ai] saqlanmadi", e?.message);
     }
     await audit("super.ai.chat", { req, actor: req.user, meta: { chatId: chat._id, engine, actions: ctx.actions.length } });
-    res.json({ ok: true, chatId: chat._id, title: chat.title, reply, engine, actions: ctx.actions, files: ctx.files });
+    res.json({ ok: true, chatId: chat._id, title: chat.title, reply, engine, actions: ctx.actions, files: ctx.files, user: chat.display[chat.display.length - 2] });
   });
 
   r.get("/api/super/ai/chats", S, async (req, res) => {
@@ -724,9 +749,51 @@ export function createSuperAiRouter(deps) {
   });
 
   r.delete("/api/super/ai/chats/:id", S, async (req, res) => {
-    await db().collection(CHATS_COL).deleteOne({ _id: clip(req.params.id, 60), owner: String(req.user.sub) });
+    const owner = String(req.user.sub);
+    const chat = await db().collection(CHATS_COL).findOne({ _id: clip(req.params.id, 60), owner }, { projection: { display: 1 } });
+    await db().collection(CHATS_COL).deleteOne({ _id: clip(req.params.id, 60), owner });
+    // Suhbatga biriktirilgan ovoz va fayllar ham o'chadi
+    const ids = [];
+    for (const d of chat?.display || []) {
+      if (d.voice?.id) ids.push(d.voice.id);
+      for (const f of d.files || []) if (f.id) ids.push(f.id);
+    }
+    if (ids.length) await db().collection(MEDIA_COL).deleteMany({ _id: { $in: ids }, owner }).catch(() => {});
     res.json({ ok: true });
   });
+
+  // Ovozli xabar yoki biriktirilgan faylni qayta ochish (faqat egasiga)
+  r.get("/api/super/ai/media/:id", S, async (req, res) => {
+    const m = await db()
+      .collection(MEDIA_COL)
+      .findOne({ _id: clip(req.params.id, 60), owner: String(req.user.sub) })
+      .catch(() => null);
+    if (!m) return res.status(404).json({ ok: false, error: "Fayl topilmadi" });
+    const buf = Buffer.from(m.data.buffer || m.data);
+    res.setHeader("Content-Type", m.mime || "application/octet-stream");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    if (m.name) res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(m.name)}`);
+    res.send(buf);
+  });
+
+  /** Transkripsiya aniq bo'lishi uchun CRM'dagi nomlar (guruh, mentor, talaba). */
+  let hintsCache = { at: 0, list: [] };
+  async function nameHints() {
+    if (Date.now() - hintsCache.at < 5 * 60_000) return hintsCache.list;
+    try {
+      const D = (await db().collection("crm_data").findOne({ _type: "main" }, { projection: { groups: 1, mentors: 1, students: 1, courses: 1 } })) || {};
+      const names = [
+        ...(D.groups || []).map((g) => g?.name),
+        ...(D.courses || []).map((c) => c?.name),
+        ...(D.mentors || []).map((m) => m?.name),
+        ...(D.students || []).map((s) => String(s?.name || "").split(" — ")[0]),
+      ].filter(Boolean);
+      hintsCache = { at: Date.now(), list: [...new Set(names)].slice(0, 200) };
+    } catch {}
+    return hintsCache.list;
+  }
+  let mediaIdx = false;
 
   return r;
 }

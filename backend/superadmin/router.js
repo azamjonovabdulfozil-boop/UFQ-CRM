@@ -1139,11 +1139,13 @@ export function createSuperRouter(deps) {
 
   r.post("/api/super/settings/:section", S, async (req, res) => {
     const section = String(req.params.section);
-    if (!["general", "notifications", "ranking"].includes(section))
+    if (!["general", "notifications", "ranking", "attendance"].includes(section))
       return res.status(400).json({ ok: false, error: "Noma'lum bo'lim" });
     const out = await saveSettings(section, req.body || {}, req.user);
     if (!out.ok) return res.status(400).json(out);
     await audit("super.settings.update", { req, actor: req.user, meta: { section, value: out.value }, severity: "warn" });
+    // Davomat qoidasi o'zgarsa — ochiq panellar qayta hisoblasin
+    if (section === "attendance") broadcast(["edumanage_attendance_rules"]);
     res.json({ ok: true, value: out.value });
   });
 
@@ -1667,6 +1669,12 @@ export function createSuperRouter(deps) {
   });
 
   // ═══════════════════════ ODDIY ADMIN UCHUN: MODULLAR HOLATI ══════════════
+  // Davomat qoidalari — barcha portallar qarz va daromadni shunga ko'ra hisoblaydi
+  r.get("/api/attendance-rules", requireAuth, async (req, res) => {
+    const s = await getSettings();
+    res.json({ ok: true, chargeExcused: s.attendance?.chargeExcused !== false });
+  });
+
   r.get("/api/modules/me", requireAuth, async (req, res) => {
     const eff = await effectiveModules(req.user);
     res.json({

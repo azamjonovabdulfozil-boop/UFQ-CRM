@@ -12,6 +12,7 @@ export const NAV = [
   { group: "Boshqaruv" },
   { path: "/admins", name: "Administratorlar", icon: "users", comp: () => import("./pages/Admins.vue") },
   { path: "/menu", name: "Menyu boshqaruvi", icon: "menu", comp: () => import("./pages/MenuControl.vue") },
+  { path: "/attendance", name: "Davomat va to'lov", icon: "check", comp: () => import("./pages/AttendanceRules.vue") },
   { path: "/settings", name: "Tizim sozlamalari", icon: "gear", comp: () => import("./pages/Settings.vue") },
   { group: "Nazorat" },
   { path: "/monitoring", name: "Tizim monitoringi", icon: "pulse", comp: () => import("./pages/Monitoring.vue") },

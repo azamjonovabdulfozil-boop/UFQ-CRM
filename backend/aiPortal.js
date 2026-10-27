@@ -645,5 +645,58 @@ export function initAiPortal({ app, getDb, readCrmData, readAllKv, ROLES, requir
     }
   });
 
+  /* ── Ovozli xabarlar (Telegramdagidek): yuborgan odam istalgan qurilmada
+     qayta eshita oladi. Har bir ovoz faqat egasiga beriladi; 180 kundan
+     keyin avtomatik o'chadi. ── */
+  const VOICE_COL = "ai_voice";
+  const VOICE_MAX = 6 * 1024 * 1024;
+  const vidOk = (v) => /^[a-z0-9_-]{6,48}$/i.test(String(v || ""));
+  // Indeks baza ulangandan keyin, birinchi yozuvda yaratiladi
+  let voiceIdx = false;
+  const ensureVoiceIdx = () => {
+    if (voiceIdx) return;
+    voiceIdx = true;
+    db()
+      .collection(VOICE_COL)
+      .createIndex({ createdAt: 1 }, { expireAfterSeconds: 180 * 86400 })
+      .catch(() => (voiceIdx = false));
+  };
+
+  app.post("/api/ai/voice", requireAuth, writeLimiter, async (req, res) => {
+    try {
+      const vid = String(req.body?.id || "");
+      const mime = String(req.body?.mime || "audio/wav").toLowerCase();
+      const data = String(req.body?.data || "");
+      if (!vidOk(vid) || !/^audio\/[a-z0-9.+-]+$/.test(mime) || !/^[A-Za-z0-9+/=]+$/.test(data))
+        return res.status(400).json({ ok: false, error: "Ovoz formati noto'g'ri" });
+      ensureVoiceIdx();
+      const buf = Buffer.from(data, "base64");
+      if (!buf.length || buf.length > VOICE_MAX) return res.status(413).json({ ok: false, error: "Ovoz juda katta" });
+      await db()
+        .collection(VOICE_COL)
+        .updateOne(
+          { _id: req.user.sub + ":" + vid },
+          { $set: { owner: String(req.user.sub), mime, data: buf, size: buf.length, createdAt: new Date() } },
+          { upsert: true },
+        );
+      res.json({ ok: true });
+    } catch (e) {
+      fail(res, e, req);
+    }
+  });
+
+  app.get("/api/ai/voice/:id", requireAuth, async (req, res) => {
+    try {
+      if (!vidOk(req.params.id)) return res.status(400).json({ ok: false, error: "Noto'g'ri id" });
+      const v = await db().collection(VOICE_COL).findOne({ _id: req.user.sub + ":" + req.params.id });
+      if (!v) return res.status(404).json({ ok: false, error: "Ovoz topilmadi" });
+      res.setHeader("Content-Type", v.mime || "audio/wav");
+      res.setHeader("Cache-Control", "private, max-age=86400");
+      res.send(Buffer.from(v.data.buffer || v.data));
+    } catch (e) {
+      fail(res, e, req);
+    }
+  });
+
   return { prepareChat };
 }

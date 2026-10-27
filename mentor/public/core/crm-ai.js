@@ -2402,9 +2402,53 @@
         db.transaction("v", "readwrite").objectStore("v").put(blob, id);
       })
       .catch(function () {});
+    vUpload(id, blob);
+  }
+  /* Ovoz serverga ham yuklanadi — Telegramdagidek boshqa qurilmada ham eshitiladi */
+  function vUpload(id, blob) {
+    if (!blob || !id || window.__CRM_DEMO__) return;
+    try {
+      var fr = new FileReader();
+      fr.onload = function () {
+        var data = String(fr.result || "").replace(/^data:[^,]*,/, "");
+        fetch(apiBase() + "/api/ai/voice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: id, mime: (blob.type || "audio/wav").split(";")[0], data: data }),
+        }).catch(function () {});
+      };
+      fr.readAsDataURL(blob);
+    } catch (e) {}
+  }
+  function vFetch(id) {
+    if (window.__CRM_DEMO__) return Promise.resolve(null);
+    return fetch(apiBase() + "/api/ai/voice/" + encodeURIComponent(id))
+      .then(function (r) {
+        return r.ok ? r.blob() : null;
+      })
+      .then(function (b) {
+        if (b && b.size) {
+          _vBlobs[id] = b;
+          vdb()
+            .then(function (db) {
+              db.transaction("v", "readwrite").objectStore("v").put(b, id);
+            })
+            .catch(function () {});
+          return b;
+        }
+        return null;
+      })
+      .catch(function () {
+        return null;
+      });
   }
   function vGet(id) {
     if (_vBlobs[id]) return Promise.resolve(_vBlobs[id]);
+    return vGetLocal(id).then(function (b) {
+      return b || vFetch(id);
+    });
+  }
+  function vGetLocal(id) {
     return vdb()
       .then(function (db) {
         return new Promise(function (res) {
@@ -2534,7 +2578,7 @@
       if (_vp !== me) return;
       if (!blob) {
         vpStop();
-        if (typeof toast === "function") toast("🎤 Bu ovozli xabar boshqa qurilmada yozilgan — uni faqat o'sha qurilmada eshitish mumkin");
+        if (typeof toast === "function") toast("🎤 Bu ovozli xabarni yuklab bo'lmadi — internetni tekshirib, qayta urinib ko'ring");
         return;
       }
       me.url = URL.createObjectURL(blob);

@@ -1936,8 +1936,75 @@ initMethodology({ app, getDb, ROLES, requireAuth, requireRole, writeLimiter, aud
 // 🎤 Ovozli xabarni o'zbekcha matnga o'girish. Sinovda Gemini transkripsiya
 // modeli o'zbekchani so'zma-so'z aniq yozdi. Matn javobga ham qaytariladi —
 // tarixda saqlanadi va ovoz yo'qolgandan keyin ham AI suhbatni eslaydi.
-async function transcribeAudio(f) {
+/** Transkripsiya uchun CRM nomlari: guruh, kurs, mentor va talabalar (5 daqiqa keshlanadi). */
+let _nameHints = { at: 0, list: [] };
+async function crmNameHints() {
+  if (Date.now() - _nameHints.at < 5 * 60_000) return _nameHints.list;
+  try {
+    const D = (await readCrmData()) || {};
+    const names = [
+      ...(D.groups || []).map((g) => g?.name),
+      ...(D.courses || []).map((c) => c?.name),
+      ...(D.mentors || []).map((m) => m?.name),
+      ...(D.students || []).map((x) => String(x?.name || "").split(" — ")[0]),
+    ].filter(Boolean);
+    _nameHints = { at: Date.now(), list: [...new Set(names)].slice(0, 200) };
+  } catch {}
+  return _nameHints.list;
+}
+
+/**
+ * WAV (PCM 16-bit) ovozining tavsifi: balandlik (rms) va nol kesishish ulushi (zcr).
+ * Jimlik — rms juda past; oq shovqin — zcr juda yuqori (nutqda ~0.05–0.2).
+ * null — WAV emas (tekshirib bo'lmaydi).
+ */
+function wavStats(buf) {
+  if (buf.length < 64 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") return null;
+  let off = 12;
+  let bits = 16;
+  while (off + 8 <= buf.length) {
+    const id = buf.toString("ascii", off, off + 4);
+    const size = buf.readUInt32LE(off + 4);
+    if (id === "fmt ") bits = buf.readUInt16LE(off + 22);
+    if (id === "data") {
+      if (bits !== 16) return null;
+      const end = Math.min(buf.length, off + 8 + size);
+      let sum = 0;
+      let n = 0;
+      let zc = 0;
+      let prev = 0;
+      for (let i = off + 8; i + 1 < end; i += 2) {
+        const x = buf.readInt16LE(i) / 32768;
+        sum += x * x;
+        if ((x >= 0) !== (prev >= 0) && Math.abs(x - prev) > 0.002) zc++;
+        prev = x;
+        n++;
+      }
+      return n ? { rms: Math.sqrt(sum / n), zcr: zc / n } : { rms: 0, zcr: 0 };
+    }
+    off += 8 + size + (size % 2);
+  }
+  return null;
+}
+
+/** Model jimlik yoki shovqinda o'z ko'rsatmasini «matn» qilib qaytarishi mumkin — bunday javob qabul qilinmaydi. */
+function isPromptEcho(t, prompt) {
+  const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9Ѐ-ӿ]+/g, " ").trim();
+  const a = norm(t);
+  if (!a) return true;
+  if (/uchrashi mumkin|lotin yozuvida|rus tili aralash|so.zma.so.z aniq/.test(a)) return true;
+  return a.length > 12 && norm(prompt).includes(a);
+}
+
+async function transcribeAudio(f, hints) {
   if (!lovableReady()) return "";
+  // Jimlik: ovozda gap yo'q — modelga yubormaymiz (u matn o'ylab topishi mumkin)
+  const st = wavStats(Buffer.from(f.data, "base64"));
+  if (st && (st.rms < 0.004 || st.zcr > 0.35)) return "";
+  // CRM'dagi nomlar (guruh, mentor, talaba) — model ularni to'g'ri yozsin
+  const hintText = Array.isArray(hints) && hints.length
+    ? " Uchrashi mumkin bo'lgan nomlar: " + hints.join(", ").slice(0, 700) + "."
+    : "";
   const buf = Buffer.from(f.data, "base64");
   const ext = f.format === "mpeg" ? "mp3" : f.format || "wav";
   for (const model of [process.env.LOVABLE_STT_MODEL, "google/gemini-3.5-transcribe", "openai/gpt-4o-transcribe"].filter(Boolean)) {
@@ -1947,7 +2014,8 @@ async function transcribeAudio(f) {
       fd.append("model", model);
       // OpenAI "uz" kodini tanimaydi — tilni ko'rsatma orqali aytamiz
       if (model.startsWith("google/")) fd.append("language", "uz");
-      fd.append("prompt", "O'zbek tilidagi (ba'zan rus tili aralash) nutq. O'zbek lotin yozuvida yozing.");
+      const prompt = "O'zbek tilidagi (ba'zan rus tili aralash) nutq. O'zbek lotin yozuvida, so'zma-so'z aniq yozing." + hintText;
+      fd.append("prompt", prompt);
       const r = await fetchWithTimeout(
         "https://ai.gateway.lovable.dev/v1/audio/transcriptions",
         { method: "POST", headers: { "Lovable-API-Key": lovableKey() }, body: fd },
@@ -1956,7 +2024,7 @@ async function transcribeAudio(f) {
       if (!r.ok) continue;
       const d = await r.json().catch(() => ({}));
       const t = String(d.text || "").trim();
-      if (t) return t.slice(0, 8000);
+      if (t && !isPromptEcho(t, prompt)) return t.slice(0, 8000);
     } catch {}
   }
   return "";
@@ -1995,14 +2063,26 @@ async function aiChatCore(req, res) {
   const lastVoice = [...nmsgs].reverse().find((m) => m.role === "user");
   const auds = lastVoice ? lastVoice.files.filter((f) => f.kind === "audio").slice(0, 3) : [];
   if (auds.length) {
-    const texts = (await Promise.all(auds.map((f) => transcribeAudio(f).catch(() => "")))).filter(Boolean);
+    const hints = await crmNameHints();
+    const texts = (await Promise.all(auds.map((f) => transcribeAudio(f, hints).catch(() => "")))).filter(Boolean);
     if (texts.length) {
       voiceText = texts.join("\n");
       auds.forEach((f) => (f.transcribed = true));
       lastVoice.text =
         (lastVoice.text ? lastVoice.text + "\n\n" : "") +
         "🎤 Foydalanuvchi ovozli xabar yubordi. Uning matni: «" + voiceText + "»\n" +
-        "Ovozli xabar mazmunini diqqat bilan tahlil qilib, unga o'zbek tilida to'liq javob ber.";
+        "Ovozli xabar mazmunini diqqat bilan tahlil qilib, unga o'zbek tilida to'liq javob ber. " +
+        "Javobni faqat shu matnga asoslab ber; ism, raqam yoki savol noaniq bo'lsa — taxmin qilma, aniqlashtirib so'ra.";
+    } else {
+      // Ovozni matnga aylantirib bo'lmadi — AI taxmin qilib, so'ralmagan narsani
+      // gapirmasin: foydalanuvchiga aniq aytamiz.
+      return res.json({
+        ok: true,
+        voiceUnclear: true,
+        text:
+          "🎤 Ovozli xabaringizni aniq tushunib bo'lmadi. Iltimos, telefonni og'zingizga yaqinroq tutib, " +
+          "shovqinsiz joyda qaytadan yozing yoki savolni matn bilan yuboring.",
+      });
     }
   }
   // Prompt orqali servisni suiiste'mol qilishga qarshi hajm cheklovi
@@ -2790,6 +2870,7 @@ initSettings(getDb);
       snapshotCrmData,
       CRM_KV_KEY,
       port: PORT,
+      transcribe: (f, hints) => transcribeAudio(f, hints),
     }),
   );
 }

@@ -95,6 +95,9 @@ const MODULE_KEYS = new Set(MODULES.map((m) => m.key));
 const DEFAULTS = {
   modules: Object.fromEntries(MODULES.map((m) => [m.key, { menu: true, api: true }])),
   general: { timezone: DEFAULT_TZ },
+  // Davomat va to'lov: «S» (sababli) belgisi qo'yilgan dars uchun talabadan
+  // pul yechilsinmi. true — yechiladi (avvalgi xatti-harakat), false — yechilmaydi.
+  attendance: { chargeExcused: true },
   // Sozlamalar → «Menyu bo'limlari» kartasi har bir rol uchun ochiq/yopiq.
   // false bo'lsa o'sha rol sozlamalarida bu bo'lim umuman chiqmaydi.
   settingsMenu: { admin: true, mentor: true, student: true },
@@ -136,7 +139,7 @@ export async function getSettings() {
   try {
     const docs = await _getDb()
       .collection(SETTINGS_COL)
-      .find({ _id: { $in: ["modules", "general", "notifications", "ranking", "settingsMenu"] } })
+      .find({ _id: { $in: ["modules", "general", "notifications", "ranking", "settingsMenu", "attendance"] } })
       .toArray();
     for (const d of docs) out[d._id] = merge(DEFAULTS[d._id], d.value);
   } catch (e) {
@@ -166,6 +169,9 @@ function validate(section, value) {
       ok: true,
       value: { admin: v.admin !== false, mentor: v.mentor !== false, student: v.student !== false },
     };
+  }
+  if (section === "attendance") {
+    return { ok: true, value: { chargeExcused: v.chargeExcused !== false } };
   }
   if (section === "general") {
     const tz = String(v.timezone || DEFAULT_TZ);

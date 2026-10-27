@@ -240,6 +240,11 @@ export function describeEvent(e, ctx) {
     case "super.modules.update":
       return { title: "Menyu bo'limlarini yoqdi/o'chirdi", details: [] };
     case "super.settings.update":
+      if (m.section === "attendance")
+        return {
+          title: `Davomat qoidasini o'zgartirdi: sababli dars uchun pul ${m.value && m.value.chargeExcused === false ? "yechilmaydi" : "yechiladi"}`,
+          details: [],
+        };
       return { title: "Tizim sozlamalarini o'zgartirdi", details: [] };
     case "super.branding.update":
       return { title: "CRM nomi yoki logotipini o'zgartirdi", details: [] };
