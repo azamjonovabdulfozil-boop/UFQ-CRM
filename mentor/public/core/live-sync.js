@@ -456,18 +456,21 @@
     return true;
   }
 
+  var lastKvSig = null; // serverning oxirgi to'liq javob imzosi
   // ─── Zaxira polling ─────────────────────────────────────────────────────────
   function poll() {
     if (inFlight || document.hidden) return;
     inFlight = true;
-    fetch(API_BASE + "/api/kv", { cache: "no-store" })
+    // ⚡ TEZLIK: oldingi javob imzosini yuboramiz — hech narsa o'zgarmagan
+    // bo'lsa server butun omborni emas, qisqa "unchanged" javobini qaytaradi.
+    var pollUrl = API_BASE + "/api/kv";
+    if (lastKvSig && lastKvHash) pollUrl += "?since=" + encodeURIComponent(lastKvSig);
+    fetch(pollUrl, { cache: "no-store" })
       .then(function (r) {
         return r.ok ? r.text() : null;
       })
       .then(function (text) {
         if (!text) return;
-        var h = djb2(text);
-        if (h === lastKvHash) return;
         var d;
         try {
           d = JSON.parse(text);
@@ -475,6 +478,10 @@
           return;
         }
         if (!d || !d.ok) return;
+        if (d.unchanged) return;
+        var h = djb2(text);
+        lastKvSig = d.sig || null;
+        if (h === lastKvHash) return;
         var data = d.data || {};
         var changed = [];
         var skippedGrace = false;

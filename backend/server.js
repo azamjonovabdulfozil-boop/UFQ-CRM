@@ -5,7 +5,7 @@
  * Ishga tushirish: cd backend && npm install && npm start
  */
 
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve, sep } from "path";
@@ -900,7 +900,43 @@ async function cachedRead(name, loader) {
   return value;
 }
 
-const readAllKv = () => cachedRead("kv", () => getDb().collection("kv").find({}).toArray());
+// ⚡ TEZLIK: KV ombori xotirada saqlanadi (KV_MIRROR). Butun omborni Atlas'dan
+// faqat BIR MARTA o'qiymiz. Keyingi yangilashlarda faqat kalit + _updatedAt
+// ro'yxati olinadi (bir necha KB) va faqat o'zgargan hujjatlar qayta
+// yuklanadi. Ilgari har bir yozuvdan keyin butun ombor (~1.3 MB) qayta
+// o'qilardi — Atlas trafigi tugab, tezlik cheklangach bitta o'qish 30+
+// soniyaga cho'zilib, kirish ham shuni kutib qolardi.
+const KV_MIRROR = { docs: new Map(), loaded: false };
+let kvRefreshing = null;
+const _kvStamp = (d) => (d && d._updatedAt ? new Date(d._updatedAt).getTime() : 0);
+async function refreshKvMirror() {
+  const col = getDb().collection("kv");
+  if (!KV_MIRROR.loaded) {
+    const all = await col.find({}).toArray();
+    KV_MIRROR.docs = new Map(all.map((d) => [d.key, d]));
+    KV_MIRROR.loaded = true;
+    return;
+  }
+  const heads = await col.find({}, { projection: { key: 1, _updatedAt: 1 } }).toArray();
+  const seen = new Set();
+  const changed = [];
+  for (const h of heads) {
+    seen.add(h.key);
+    const cur = KV_MIRROR.docs.get(h.key);
+    if (!cur || _kvStamp(cur) !== _kvStamp(h)) changed.push(h.key);
+  }
+  for (const k of [...KV_MIRROR.docs.keys()]) if (!seen.has(k)) KV_MIRROR.docs.delete(k);
+  if (changed.length) {
+    for (const d of await col.find({ key: { $in: changed } }).toArray()) KV_MIRROR.docs.set(d.key, d);
+  }
+}
+const readAllKv = () =>
+  cachedRead("kv", async () => {
+    // Bir vaqtda kelgan so'rovlar bitta yangilashni kutadi (takror o'qish yo'q)
+    if (!kvRefreshing) kvRefreshing = refreshKvMirror().finally(() => { kvRefreshing = null; });
+    await kvRefreshing;
+    return [...KV_MIRROR.docs.values()];
+  });
 const readCrmData = () =>
   cachedRead("crm_data", () => getDb().collection("crm_data").findOne({ _type: "main" }));
 const readAllUsers = () => cachedRead("users", () => getDb().collection("users").find({}).toArray());
@@ -917,17 +953,31 @@ app.get("/api/kv", requireAuth, async (req, res) => {
       .filter(Boolean);
     const all = await readAllKv();
     const wanted = want.length && !want.includes("*") ? new Set(want) : null;
-    const data = {};
-    for (const doc of all) if (!wanted || wanted.has(doc.key)) data[doc.key] = doc.value;
     // Super Admin yopgan bo'limlar KV dagi CRM nusxasidan ham olib tashlanadi
     const pol = await sectionPolicy(req.user);
+    // ⚡ TEZLIK: to'liq so'rovlar uchun "imzo" (kalitlar + o'zgarish vaqtlari +
+    // rol/siyosat). Brauzer oldingi imzoni ?since= bilan yuborsa va hech narsa
+    // o'zgarmagan bo'lsa — 1.3 MB o'rniga bir necha baytlik javob qaytadi.
+    let sig = null;
+    if (!wanted) {
+      const h = createHash("sha1");
+      h.update(String(req.user?.sub || "") + "|" + String(req.user?.role || "") + "|");
+      h.update([...pol.readBlocked].sort().join(",") + "|");
+      for (const d of [...all].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)))
+        h.update(d.key + ":" + _kvStamp(d) + ":" + String(d.value ?? "").length + ";");
+      sig = h.digest("hex").slice(0, 20);
+      if (req.query.since && String(req.query.since) === sig)
+        return res.json({ ok: true, unchanged: true, sig, rev: revision });
+    }
+    const data = {};
+    for (const doc of all) if (!wanted || wanted.has(doc.key)) data[doc.key] = doc.value;
     if (pol.readBlocked.size && typeof data[CRM_KV_KEY] === "string") {
       try {
         data[CRM_KV_KEY] = JSON.stringify(stripSections(JSON.parse(data[CRM_KV_KEY]), pol.readBlocked));
       } catch {}
     }
     // Hisob ma'lumotlari va sozlamalar talaba/mentor javobiga tushmaydi
-    res.json({ ok: true, data: filterKvForRole(req.user.role, data), rev: revision });
+    res.json({ ok: true, data: filterKvForRole(req.user.role, data), rev: revision, ...(sig ? { sig } : {}) });
   } catch (e) {
     fail(res, e, req);
   }
@@ -2934,6 +2984,10 @@ async function start() {
   startTelegramPolling();
   // Qarzdorlar boti — token bazadan o'qiladi (bo'lmasa QARZDOR_BOT_TOKEN env)
   if (mongoOk) await initQarzdorBot({ getDb });
+
+  // KV omborini oldindan xotiraga yuklaymiz — birinchi kirgan foydalanuvchi
+  // uni kutib qolmasin (server ishga tushishini to'xtatmaydi)
+  if (mongoOk) readAllKv().catch((e) => console.warn("KV oldindan yuklanmadi:", e.message));
 
   app.listen(PORT, "0.0.0.0", () => {
     const base = `http://localhost:${PORT}`;
