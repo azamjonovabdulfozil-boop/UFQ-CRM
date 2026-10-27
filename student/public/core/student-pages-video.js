@@ -120,7 +120,7 @@ function renderStudentSchedulePage(){
         <div style="display:flex;flex-direction:column;gap:9px;font-size:13px">
           <div style="display:flex;gap:8px"><span style="color:var(--text3);min-width:100px">${crsLbl}</span><span style="font-weight:600">${grp.course||'—'}</span></div>
           <div style="display:flex;gap:8px"><span style="color:var(--text3);min-width:100px">${strtLbl}</span><span style="font-weight:600">${fmtDate(grp.startDate)}</span></div>
-          <div style="display:flex;gap:8px"><span style="color:var(--text3);min-width:100px">${durLbl}</span><span style="font-weight:600">${grp.duration||'—'}</span></div>
+          <div style="display:flex;gap:8px"><span style="color:var(--text3);min-width:100px">${durLbl}</span><span style="font-weight:600">${grp.duration||getCourseDuration(grp.course)||'—'}</span></div>
           <div style="display:flex;gap:8px"><span style="color:var(--text3);min-width:100px">${roomLabel}</span><span style="font-weight:600;color:var(--teal-text)">${grp.room||'—'}</span></div>
           <div style="display:flex;gap:8px"><span style="color:var(--text3);min-width:100px">${timeLabel}</span><span style="font-weight:700;color:var(--accent)">${grp.timeStart||'—'} – ${grp.timeEnd||'—'}</span></div>
         </div>
