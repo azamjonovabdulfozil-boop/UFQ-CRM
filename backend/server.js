@@ -2047,7 +2047,7 @@ async function transcribeGemini(f, prompt) {
         continue;
       }
       const t = String(d.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "").trim();
-      if (/^NO_SPEECH.?$/i.test(t)) return "";
+      if (/^NO_SPEECH\.?$/i.test(t)) return "";
       if (t && !isPromptEcho(t, prompt)) return t.slice(0, 8000);
     } catch (e) {
       console.warn("⚠️  [stt] gemini " + model + ":", e?.message);

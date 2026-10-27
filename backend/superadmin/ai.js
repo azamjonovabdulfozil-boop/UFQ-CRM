@@ -23,6 +23,8 @@ import { prepareInput, MEDIA_COL, ensureMediaIndexes } from "./aiFiles.js";
 
 const MODEL = process.env.SUPER_AI_MODEL || "claude-opus-5-5";
 const CHATS_COL = "super_ai_chats";
+/** Brauzerda ochilishi xavfsiz fayl turlari (skript ishlata olmaydi) */
+const SAFE_INLINE = /^(image\/(png|jpeg|gif|webp)|application\/pdf|audio\/[a-z0-9.+-]+|text\/plain)$/;
 /** Ko'rsatma + bugungi sana va vaqt (AI sanani o'ylab topmasin) */
 function systemNow() {
   const now = new Date().toLocaleString("uz-UZ", { timeZone: process.env.TZ_CRM || "Asia/Tashkent", weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
@@ -46,7 +48,7 @@ const POST_ALLOW = [
   /^\/api\/super\/admins$/,
   /^\/api\/super\/admins\/[a-f0-9]{24}\/(status|sessions\/revoke|reset-link|restrictions)$/,
   /^\/api\/super\/modules$/,
-  /^\/api\/super\/settings\/(general|notifications|ranking)$/,
+  /^\/api\/super\/settings\/(general|notifications|ranking|attendance)$/,
   /^\/api\/super\/teachers\/criteria$/,
   /^\/api\/super\/branding$/,
   /^\/api\/super\/backups\/create$/,
@@ -211,7 +213,16 @@ export function createSuperAiRouter(deps) {
 
   // ── Super Admin API'sini shu foydalanuvchi nomidan chaqirish ──────────────
   async function callApi(req, method, path, { query, body } = {}) {
+    // Yo'l normallashtirilgandan keyin ham /api/super/ ichida qolsin
+    // (%2e%2e, teskari chiziq, // kabi aylanma yo'llar bilan boshqa API'ga chiqib bo'lmasin)
+    if (!/^\/api\/super\/[A-Za-z0-9_\-./]*$/.test(path) || path.includes("..") || path.includes("//"))
+      return { ok: false, error: "Bu manzilga murojaat qilib bo'lmaydi" };
     let url = base + path;
+    try {
+      if (!new URL(url).pathname.startsWith("/api/super/")) return { ok: false, error: "Bu manzilga murojaat qilib bo'lmaydi" };
+    } catch {
+      return { ok: false, error: "Manzil noto'g'ri" };
+    }
     if (query && typeof query === "object") {
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null && v !== "") q.set(k, String(v));
@@ -770,10 +781,15 @@ export function createSuperAiRouter(deps) {
       .catch(() => null);
     if (!m) return res.status(404).json({ ok: false, error: "Fayl topilmadi" });
     const buf = Buffer.from(m.data.buffer || m.data);
-    res.setHeader("Content-Type", m.mime || "application/octet-stream");
+    // Faqat xavfsiz turlar brauzerda ochiladi; qolgani (HTML, SVG, JS…) —
+    // faqat yuklab olinadi, aks holda fayl ichidagi kod CRM nomidan ishlashi mumkin
+    const mime = String(m.mime || "").toLowerCase();
+    const safe = SAFE_INLINE.test(mime);
+    res.setHeader("Content-Type", safe ? mime : "application/octet-stream");
     res.setHeader("Cache-Control", "private, max-age=86400");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    if (m.name) res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(m.name)}`);
+    const fname = encodeURIComponent(m.name || "fayl");
+    res.setHeader("Content-Disposition", `${safe ? "inline" : "attachment"}; filename*=UTF-8''${fname}`);
     res.send(buf);
   });
 

@@ -147,7 +147,7 @@
 <script setup>
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from "vue";
 import {
-  toBase64, fileSize, durText, mediaUrl, rememberLocal, rec, startRecording, stopRecording, canRecord, player, playUrl, speak, stopAll,
+  toBase64, fileSize, durText, mediaUrl, safeUrl, isSafeImage, rememberLocal, rec, startRecording, stopRecording, canRecord, player, playUrl, speak, stopAll,
 } from "../aiMedia.js";
 import { api, download } from "../api.js";
 import { toast } from "../store.js";
@@ -192,7 +192,7 @@ function addFiles(list) {
       toast(`«${f.name}» juda katta (${fileSize(f.size)}). Bitta fayl 12 MB gacha bo'lsin`, "error");
       continue;
     }
-    pending.value.push({ file: f, name: f.name || "fayl", size: f.size, mime: f.type, preview: /^image\//.test(f.type) ? URL.createObjectURL(f) : null });
+    pending.value.push({ file: f, name: f.name || "fayl", size: f.size, mime: f.type, preview: isSafeImage(f.type) ? safeUrl(f) : null });
   }
 }
 function pick(e) {
@@ -329,7 +329,7 @@ async function send(preset, voice) {
     shown: t,
     pending: true,
     voice: localVoice,
-    files: files.map((f) => ({ name: f.name, size: f.size, kind: f.preview ? "image" : "file", localUrl: f.preview || URL.createObjectURL(f.file) })),
+    files: files.map((f) => ({ name: f.name, size: f.size, kind: f.preview ? "image" : "file", localUrl: f.preview || safeUrl(f.file) })),
   };
   msgs.value.push(um);
   const idx = msgs.value.length - 1;

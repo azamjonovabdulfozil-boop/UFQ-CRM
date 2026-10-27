@@ -60,7 +60,7 @@ export function securityHeaders(req, res, next) {
   res.setHeader("Origin-Agent-Cluster", "?1");
   res.setHeader(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), interest-cohort=()",
+    "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), interest-cohort=()",
   );
   res.setHeader("Content-Security-Policy", isApi ? CSP_API : cspApp(nonce));
   res.setHeader("X-DNS-Prefetch-Control", "off");

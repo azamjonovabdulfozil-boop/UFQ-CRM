@@ -650,6 +650,7 @@ export function initAiPortal({ app, getDb, readCrmData, readAllKv, ROLES, requir
      keyin avtomatik o'chadi. ── */
   const VOICE_COL = "ai_voice";
   const VOICE_MAX = 6 * 1024 * 1024;
+  const VOICE_PER_USER = 300; // bir foydalanuvchiga eng ko'pi — eskilari o'chadi
   const vidOk = (v) => /^[a-z0-9_-]{6,48}$/i.test(String(v || ""));
   // Indeks baza ulangandan keyin, birinchi yozuvda yaratiladi
   let voiceIdx = false;
@@ -659,6 +660,7 @@ export function initAiPortal({ app, getDb, readCrmData, readAllKv, ROLES, requir
     db()
       .collection(VOICE_COL)
       .createIndex({ createdAt: 1 }, { expireAfterSeconds: 180 * 86400 })
+      .then(() => db().collection(VOICE_COL).createIndex({ owner: 1, createdAt: 1 }))
       .catch(() => (voiceIdx = false));
   };
 
@@ -679,6 +681,17 @@ export function initAiPortal({ app, getDb, readCrmData, readAllKv, ROLES, requir
           { $set: { owner: String(req.user.sub), mime, data: buf, size: buf.length, createdAt: new Date() } },
           { upsert: true },
         );
+      const owner = String(req.user.sub);
+      const n = await db().collection(VOICE_COL).countDocuments({ owner });
+      if (n > VOICE_PER_USER) {
+        const old = await db()
+          .collection(VOICE_COL)
+          .find({ owner }, { projection: { _id: 1 } })
+          .sort({ createdAt: 1 })
+          .limit(n - VOICE_PER_USER)
+          .toArray();
+        await db().collection(VOICE_COL).deleteMany({ _id: { $in: old.map((x) => x._id) } });
+      }
       res.json({ ok: true });
     } catch (e) {
       fail(res, e, req);

@@ -25,6 +25,16 @@ export const durText = (s) => {
   return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 };
 
+// ─── Xavfsiz blob havola ────────────────────────────────────────────────
+// Brauzerda ochilganda kod ishlata olmaydigan turlar. Qolgani (HTML, SVG, JS…)
+// «octet-stream» qilib beriladi — ochilsa faqat yuklab olinadi.
+const SAFE_TYPES = /^(image\/(png|jpeg|gif|webp)|application\/pdf|audio\/[a-z0-9.+-]+|text\/plain)$/i;
+export const isSafeImage = (t) => /^image\/(png|jpeg|gif|webp)$/i.test(String(t || ""));
+export function safeUrl(blob) {
+  const t = String(blob.type || "").split(";")[0];
+  return URL.createObjectURL(SAFE_TYPES.test(t) ? blob : new Blob([blob], { type: "application/octet-stream" }));
+}
+
 // ─── Serverdagi media (ovoz, rasm, fayl) ────────────────────────────────
 const urlCache = new Map();
 export async function mediaUrl(id) {
@@ -32,7 +42,7 @@ export async function mediaUrl(id) {
   if (urlCache.has(id)) return urlCache.get(id);
   const p = fetch(base() + "/api/super/ai/media/" + encodeURIComponent(id))
     .then((r) => (r.ok ? r.blob() : null))
-    .then((b) => (b ? URL.createObjectURL(b) : null))
+    .then((b) => (b ? safeUrl(b) : null))
     .catch(() => null);
   urlCache.set(id, p);
   const u = await p;
