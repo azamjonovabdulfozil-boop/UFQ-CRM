@@ -305,7 +305,8 @@ function setupStudentView() {
   const uRole = document.querySelector('.u-role');
   const studentId2 = cu.studentId ? parseInt(cu.studentId) : null;
   const savedDisplay = _uiSettings['studentDisplayName_' + (studentId2 || '')];
-  const showName = savedDisplay || (cu.studentName || cu.name || 'Talaba');
+  const stuRec = studentId2 ? (D.students || []).find(x => x.id === studentId2) : null;
+  const showName = savedDisplay || (stuRec && stuRec.name) || String(cu.studentName || cu.name || 'Talaba').split(' — ')[0];
   if (uName) uName.textContent = showName;
   // Talabada faqat ism-familiya ko'rinadi, rol yozuvi yashiriladi
   if (uRole) { uRole.removeAttribute('data-t'); uRole.textContent = ''; uRole.style.display = 'none'; }

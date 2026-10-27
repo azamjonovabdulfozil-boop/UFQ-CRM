@@ -177,14 +177,20 @@
    * ruxsat serverda, tokendagi rol bo'yicha beriladi; bu yerni tahrirlash
    * hech qanday qo'shimcha huquq bermaydi.
    */
+  // Eski saqlangan talaba nomlari "Ism — Guruh (Kurs)" ko'rinishida bo'lishi
+  // mumkin — talabaga faqat ism-familiya ko'rsatiladi.
+  function cleanStudentName(n) {
+    return n ? String(n).split(" — ")[0].trim() : n;
+  }
   function writeLegacyAuth(user) {
+    var isStu = (user.legacyRole || "Talaba") === "Talaba";
     var obj = {
       loggedIn: true,
-      name: user.name,
+      name: isStu ? cleanStudentName(user.name) : user.name,
       role: user.legacyRole || "Talaba",
       mentorName: user.mentorName || null,
       studentId: user.studentId || null,
-      studentName: user.studentName || null,
+      studentName: cleanStudentName(user.studentName) || null,
       username: user.username,
       mustChangePassword: !!user.mustChangePassword,
     };

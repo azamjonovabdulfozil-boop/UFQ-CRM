@@ -1295,7 +1295,9 @@ function saveStudentCredentials() {
   const pass = (
     document.getElementById("sett-student-pass").value || ""
   ).trim();
-  const studentName = sel.options[sel.selectedIndex]?.text || "";
+  // Ro'yxatdagi matn "Ism — Guruh (Kurs)" — saqlashga faqat ism-familiya ketadi
+  const _stuRec = (D.students || []).find((x) => String(x.id) === String(sel.value));
+  const studentName = _stuRec ? _stuRec.name : String(sel.options[sel.selectedIndex]?.text || "").split(" — ")[0];
   if (!sel.value) {
     toast("⚠️ Talaba tanlang!");
     return;
