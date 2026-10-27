@@ -118,13 +118,37 @@ export const limiterStats = () => ({ buckets: buckets.size });
 // ─── Tayyor cheklovlar ────────────────────────────────────────────────────────
 
 /** Butun API uchun umumiy tom (DoS/skaner). */
-export const globalLimiter = rateLimit({
+// ⚠️ Ilgari bu cheklov HAR BIR so'rovga (JS/CSS fayllarga ham) IP bo'yicha
+// qo'llanardi. O'quv markazida hamma bitta Wi-Fi (bitta IP) orqali chiqadi:
+// bitta sahifa ~30 ta skript yuklaydi, ochiq oynalar ma'lumot so'raydi —
+// 600 tadan oshib, BUTUN BINO 1 daqiqaga bloklanardi va panel
+// "Yuklanmadi: modules-guard.js" kabi xatolar bilan ochilmay qolardi.
+// Endi: statik fayllar hisoblanmaydi, API esa QURILMA bo'yicha cheklanadi;
+// IP bo'yicha esa faqat juda yuqori umumiy tom qoladi (DoS himoyasi).
+const isApi = (req) => String(req.path || req.url || "").startsWith("/api");
+const _deviceLimiter = rateLimit({
   name: "global",
   windowMs: 60_000,
   max: 600,
   blockMs: 60_000,
+  key: (req) => "d:" + deviceKey(req),
+  skip: (req) => !isApi(req),
   // SSE oqimi uzoq turadi va bitta so'rov sifatida hisoblanadi — muammo yo'q.
 });
+const _ipCeiling = rateLimit({
+  name: "global-ip",
+  windowMs: 60_000,
+  max: 6000,
+  blockMs: 60_000,
+  key: (req) => clientIp(req),
+  skip: (req) => !isApi(req),
+});
+export function globalLimiter(req, res, next) {
+  _ipCeiling(req, res, (err) => {
+    if (err) return next(err);
+    _deviceLimiter(req, res, next);
+  });
+}
 
 /**
  * So'rovni yuborgan QURILMA kaliti — IP EMAS.

@@ -105,16 +105,19 @@
       studentName: null,
       mustChangePassword: false,
     };
+    if (window.__CRM_DEMO_USER__) demoUser = window.__CRM_DEMO_USER__;
     window.CRMAuth = {
-      login: function () { return Promise.resolve({ ok: true, user: demoUser }); },
+      // Demo foydalanuvchisi ham UI o'qiydigan sessiya yozuviga tushadi —
+      // aks holda getCurrentUser() bo'sh qolib, rol aniqlanmasdi.
+      login: function () { writeLegacyAuth(demoUser); return Promise.resolve({ ok: true, user: demoUser }); },
       logout: function () { return Promise.resolve(); },
       refresh: function () { return Promise.resolve(true); },
       getToken: function () { return Promise.resolve(null); },
       tokenSync: function () { return null; },
       updateCredentials: function () { return Promise.resolve({ ok: false, error: "Demo rejim" }); },
-      restore: function () { return Promise.resolve(demoUser); },
+      restore: function () { writeLegacyAuth(demoUser); return Promise.resolve(demoUser); },
       user: function () { return demoUser; },
-      role: function () { return "admin"; },
+      role: function () { return demoUser.role; },
       isLoggedIn: function () { return true; },
       streamUrl: function () { return Promise.resolve(""); },
       onExpired: function () {},

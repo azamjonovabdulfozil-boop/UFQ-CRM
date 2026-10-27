@@ -87,16 +87,31 @@ function preloadCSS(base, name) {
   document.head.appendChild(l);
 }
 
-function loadScript(coreBase, name) {
+function loadScriptOnce(coreBase, name, attempt) {
   return new Promise((resolve, reject) => {
     document.querySelector(`script[data-crm="${name}"]`)?.remove();
     const s = document.createElement("script");
-    s.src = v(coreBase + name);
+    // Qayta urinishda URL biroz o'zgaradi — brauzer xato javobni keshdan olmasin
+    s.src = v(coreBase + name) + (attempt ? "&r=" + attempt : "");
     s.setAttribute("data-crm", name);
     s.onload = resolve;
     s.onerror = () => reject(new Error("Yuklanmadi: " + name));
     document.body.appendChild(s);
   });
+}
+
+// Tarmoq uzilishi yoki server qayta ishga tushayotgan paytda bitta skript
+// yuklanmay qolsa — butun panel buzilmasin: bir necha marta qayta urinamiz.
+async function loadScript(coreBase, name) {
+  const delays = [600, 1500, 3000, 6000];
+  for (let i = 0; ; i++) {
+    try {
+      return await loadScriptOnce(coreBase, name, i);
+    } catch (e) {
+      if (i >= delays.length) throw e;
+      await new Promise((r) => setTimeout(r, delays[i]));
+    }
+  }
 }
 
 /**

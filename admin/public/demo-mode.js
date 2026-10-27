@@ -260,6 +260,20 @@
    * bilan qaytardi — `guardRole` esa uni darhol chiqarib yuborardi.
    * Shuning uchun bu portallarda admin hisobiga boshqa login beramiz.
    */
+  // secure-auth.js demo rejimida shu foydalanuvchi bilan "kiradi" — har bir
+  // portal o'z roliga tushsin (ilgari hammasi admin bo'lib, mentor/talaba
+  // portallari admin menyusi bilan ochilardi).
+  window.__CRM_DEMO_USER__ =
+    PORTAL === 'mentor'
+      ? { username: DEMO_LOGIN, name: MENTORS[0].name, role: 'mentor', legacyRole: 'Mentor',
+          mentorName: MENTORS[0].name, mentorId: String(MENTORS[0].id), studentId: null, studentName: null,
+          mustChangePassword: false }
+      : PORTAL === 'student'
+        ? { username: DEMO_LOGIN, name: STUDENTS[0].name, role: 'student', legacyRole: 'Talaba',
+            mentorName: null, studentId: STUDENTS[0].id, studentName: STUDENTS[0].name,
+            mustChangePassword: false }
+        : null;
+
   var ADMIN_CRED =
     PORTAL === 'admin'
       ? { login: DEMO_LOGIN, pass: DEMO_PASS }
