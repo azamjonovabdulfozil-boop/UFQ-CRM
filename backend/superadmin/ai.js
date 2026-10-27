@@ -20,6 +20,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { MODULES } from "./settings.js";
 import { REPORTS } from "./reports.js";
 import { prepareInput, MEDIA_COL, ensureMediaIndexes } from "./aiFiles.js";
+import { cleanDeep } from "../security/xssData.js";
 
 const MODEL = process.env.SUPER_AI_MODEL || "claude-opus-5-5";
 const CHATS_COL = "super_ai_chats";
@@ -252,7 +253,8 @@ export function createSuperAiRouter(deps) {
   async function saveCrm(prev, changed, reason) {
     await snapshotCrmData(prev, reason);
     const set = { _updatedAt: new Date() };
-    for (const k of Object.keys(changed)) set[k] = changed[k];
+    // AI yozgan qiymatlarda HTML/JS bo'lmasin (fayl orqali aldangan bo'lsa ham)
+    for (const k of Object.keys(changed)) set[k] = cleanDeep(changed[k]);
     await db().collection("crm_data").updateOne({ _type: "main" }, { $set: set });
     try {
       const kv = await db().collection("kv").findOne({ key: CRM_KV_KEY });

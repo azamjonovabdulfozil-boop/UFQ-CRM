@@ -62,8 +62,10 @@ function _debtStudents() {
 function debtorAmount(s) {
   try {
     if (typeof calcStudentAllMonthsDebt !== "function" || !s.groupId) return 0;
+    // Faqat to'liq (12 dars) va hali to'lanmagan oylar — «To'landi» aynan shu
+    // summani Moliyaga yozadi. Tugamagan joriy oy keyingi to'lovga qoladi.
     return calcStudentAllMonthsDebt(s.id, s.groupId).reduce(function (sum, m) {
-      return sum + (m.toPay || 0);
+      return sum + (m.isFullMonth ? m.toPay || 0 : 0);
     }, 0);
   } catch (e) {
     return 0;
@@ -630,9 +632,9 @@ function renderDebtors() {
         _debtEsc(g ? g.name : "Guruhsiz") +
         "</div>" +
         '<div class="li-tags">' +
-        '<span class="badge b-red">💰 ' +
-        _debtMoney(amount) +
-        " so'm</span>" +
+        (amount > 0
+          ? '<span class="badge b-red">💰 ' + _debtMoney(amount) + " so'm</span>"
+          : '<span class="badge b-gray" title="Qarzdor qo\'lda belgilangan: to\'liq (12 darslik) to\'lanmagan oy yo\'q yoki kurs narxi kiritilmagan">💰 Summa hisoblanmagan</span>') +
         tgBadge +
         smsBadge +
         botBadge +

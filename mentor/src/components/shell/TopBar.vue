@@ -58,13 +58,6 @@
             >
           </div>
         </div>
-        <button
-          class="btn btn-sm btn-warning"
-          onclick="resetData()"
-          id="btn-reset"
-        >
-          🔄 Reset
-        </button>
         <button class="btn btn-sm" onclick="exportData()" id="btn-export">
           ⬇ Export
         </button>

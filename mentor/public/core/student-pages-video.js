@@ -948,7 +948,7 @@ function renderVideoCard(v, isOwner) {
   if (isYt) {
     const ytId = extractYouTubeId(v.url);
     const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '';
-    thumbHtml = `<div style="position:relative;padding-bottom:56.25%;background:#000;border-radius:12px 12px 0 0;overflow:hidden;cursor:pointer" onclick="playYoutube('${v.url}','${v.id}')">
+    thumbHtml = `<div style="position:relative;padding-bottom:56.25%;background:#000;border-radius:12px 12px 0 0;overflow:hidden;cursor:pointer" onclick="playYoutube(${jsq(v.url)},${jsq(v.id)})">
       ${thumb ? `<img src="${thumb}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` : ''}
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3)">
         <div style="width:56px;height:56px;background:#ff0000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px">▶</div>
@@ -975,7 +975,7 @@ function renderVideoCard(v, isOwner) {
       ${isOwner ? `<div style="display:flex;gap:8px">
         <button class="btn" style="flex:1;font-size:12px;padding:7px" onclick="openVideoModal(${v.id})">✏️ ${editLbl}</button>
         <button class="btn btn-del-outline" style="font-size:12px;padding:7px 12px" onclick="deleteVideo(${v.id})">🗑</button>
-      </div>` : `<button class="btn btn-primary" style="width:100%;font-size:13px;padding:8px" onclick="${isYt ? `playYoutube('${v.url}','${v.id}')` : `playUploadedVideo(${v.id})`}">▶ ${watchLbl}</button>`}
+      </div>` : `<button class="btn btn-primary" style="width:100%;font-size:13px;padding:8px" onclick="${isYt ? `playYoutube(${jsq(v.url)},${jsq(v.id)})` : `playUploadedVideo(${v.id})`}">▶ ${watchLbl}</button>`}
     </div>
   </div>`;
 }

@@ -55,6 +55,7 @@ import {
 } from "./superadmin/settings.js";
 import { createSuperRouter } from "./superadmin/router.js";
 import { createSuperAiRouter } from "./superadmin/ai.js";
+import { cleanDeep, cleanDeepCached, cleanKvValue, cleanKvCached } from "./security/xssData.js";
 import { createWaPublicRouter, createWaSuperRouter, startWaMonitor } from "./webanalytics/router.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -421,7 +422,9 @@ app.post("/api/users/save", requireAdmin, writeLimiter, async (req, res) => {
 // ─── CRM Ma'lumotlari API ─────────────────────────────────────────────────────
 app.get("/api/data", requireAuth, async (req, res) => {
   try {
-    const doc = await readCrmData();
+    const raw = await readCrmData();
+    // HTML/JS in'yeksiyasi zararsizlanadi (bazada qolgan eski yozuvlar ham)
+    const doc = cleanDeepCached(raw);
     if (doc) {
       const { _id, _type, _migratedAt, ...data } = doc;
       // Super Admin yopgan bo'limlar (masalan Moliya) oddiy adminga berilmaydi
@@ -525,7 +528,9 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
     const { data: clean0, rejected } = applyCrmWritePolicy(req.user.role, raw, prev || {});
     // Super Admin yopgan modullarning bo'limlari serverdagi nusxadan tiklanadi
     const pol = await sectionPolicy(req.user);
-    const { data: clean, rejected: modRejected } = protectSections(clean0, prev || {}, pol.writeBlocked);
+    const { data: clean1, rejected: modRejected } = protectSections(clean0, prev || {}, pol.writeBlocked);
+    // Ism, nom, izoh va h.k. ichidagi HTML/JS bazaga yozilmaydi
+    const clean = cleanDeep(clean1);
     if (modRejected.length) {
       rejected.push(...modRejected);
       await audit("module.write_denied", { req, actor: req.user, meta: { sections: modRejected }, severity: "warn" });
@@ -990,7 +995,7 @@ app.get("/api/kv", requireAuth, async (req, res) => {
         return res.json({ ok: true, unchanged: true, sig, rev: revision });
     }
     const data = {};
-    for (const doc of all) if (!wanted || wanted.has(doc.key)) data[doc.key] = doc.value;
+    for (const doc of all) if (!wanted || wanted.has(doc.key)) data[doc.key] = kvOut(doc.key, doc.value);
     if (pol.readBlocked.size && typeof data[CRM_KV_KEY] === "string") {
       try {
         data[CRM_KV_KEY] = JSON.stringify(stripSections(JSON.parse(data[CRM_KV_KEY]), pol.readBlocked));
@@ -1029,6 +1034,18 @@ async function kvCrmHasData() {
 // Mentor/talaba ro'yxati KV'da faqat ko'rsatish uchun turadi — unda parol
 // bo'lmasligi shart. Eski brauzerlar parollar bilan yozib yuborsa ham tozalanadi.
 const PORTAL_USER_KV_KEYS = new Set(["edumanage_mentor_users_v8", "edumanage_student_users_v9"]);
+// AI suhbat tarixi o'z oynasida to'g'ri ekranlanadi — undagi kod
+// (masalan `<div>`) asl holicha qolsin
+const KV_XSS_SKIP = /^ai_history_|_ai_chats/;
+/** KV'dan o'qilgan qiymat: HTML/JS in'yeksiyasi zararsizlangan */
+function kvOut(key, value) {
+  return KV_XSS_SKIP.test(key) ? value : cleanKvCached(key, value);
+}
+/** KV'ga yoziladigan qiymat: parollar olib tashlanadi, HTML/JS zararsizlanadi */
+function kvIn(key, value) {
+  const v = scrubPortalUsersKv(key, value);
+  return v == null || KV_XSS_SKIP.test(key) ? v : cleanKvValue(typeof v === "string" ? v : String(v));
+}
 function scrubPortalUsersKv(key, value) {
   if (!PORTAL_USER_KV_KEYS.has(key) || value == null) return value;
   try {
@@ -1048,7 +1065,7 @@ function scrubPortalUsersKv(key, value) {
 
 app.post("/api/kv", requireAuth, blockUntilPasswordChanged, writeLimiter, async (req, res) => {
   try {
-    const value = scrubPortalUsersKv(String(req.body?.key || ""), req.body?.value);
+    const value = kvIn(String(req.body?.key || ""), req.body?.value);
     const key = safeKvKey(req.body?.key);
     if (!key)
       return res.status(400).json({ ok: false, error: "key kerak (harf/raqam/._:- , 200 belgigacha)" });
@@ -1155,7 +1172,7 @@ app.post("/api/kv/bulk", requireAuth, blockUntilPasswordChanged, writeLimiter, a
       }
       if (p.value != null && byteLength(p.value) > SEC.maxKvValueBytes)
         return res.status(413).json({ ok: false, code: "payload-too-large", error: "Qiymat juda katta: " + k });
-      p.value = scrubPortalUsersKv(k, p.value);
+      p.value = kvIn(k, p.value);
       if (k === "edumanage_crm_v8" && pol.writeBlocked.size && p.value != null) {
         try {
           const cur = await getDb().collection("kv").findOne({ key: k });

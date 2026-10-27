@@ -130,7 +130,7 @@ function validateRequired(fields) {
 }
 
 function formCourse(d = {}) {
-  return `<div class="fg"><label>Kurs nomi <span class="req">*</span></label><input id="f-name" value="${d.name || ""}" placeholder="Masalan: Frontend Development"></div><div class="form-row"><div class="fg"><label>Davomiyligi <span class="req">*</span></label><input id="f-dur" value="${d.duration || ""}" placeholder="11 oy"></div><div class="fg"><label>Narxi (so'm/oy) <span class="req">*</span></label><input id="f-price" value="${d.price || ""}" placeholder="1 200 000"></div></div><div class="fg" style="background:var(--accent-light);border-radius:var(--r-md);padding:10px 12px;font-size:12px;color:var(--accent-text)">💡 1 dars narxi = oylik narx ÷ ${LESSON_COUNT} · K/Y/S — uchalasi ham yechiladi · 12 dars = Qarzdor</div><div class="fg"><label>Holat</label><select id="f-status"><option ${!d.status || d.status === "Faol" ? "selected" : ""}>Faol</option><option ${d.status === "Arxiv" ? "selected" : ""}>Arxiv</option></select></div>`;
+  return `<div class="fg"><label>Kurs nomi <span class="req">*</span></label><input id="f-name" value="${d.name || ""}" placeholder="Masalan: Frontend Development"></div><div class="form-row"><div class="fg"><label>Davomiyligi <span class="req">*</span></label><input id="f-dur" value="${d.duration || ""}" placeholder="11 oy"></div><div class="fg"><label>Narxi (so'm/oy) <span class="req">*</span></label><input id="f-price" value="${d.price || ""}" placeholder="1 200 000"></div></div><div class="fg" style="background:var(--accent-light);border-radius:var(--r-md);padding:10px 12px;font-size:12px;color:var(--accent-text)">💡 1 dars narxi = oylik narx ÷ ${LESSON_COUNT} · K va Y — yechiladi · S (sababli) — ${typeof chargeExcused === "function" && !chargeExcused() ? "yechilmaydi" : "yechiladi"} · 12 dars = Qarzdor</div><div class="fg"><label>Holat</label><select id="f-status"><option ${!d.status || d.status === "Faol" ? "selected" : ""}>Faol</option><option ${d.status === "Arxiv" ? "selected" : ""}>Arxiv</option></select></div>`;
 }
 function formGroup(d = {}) {
   const firstCourseId = d.courseId ?? D.courses[0]?.id ?? "";
@@ -343,10 +343,25 @@ async function saveModal() {
     return;
   }
   if (type === "course") {
+    // Narx: "1 200 000", "1.200.000", "1,200,000" — hammasi bir xil son. Kasr
+    // yoki harf bo'lsa rad etiladi (ilgari "1 200 000,50" → 120 000 050 bo'lardi).
+    const priceRaw = document.getElementById("f-price").value.trim();
+    const priceDigits = priceRaw.replace(/[\s.,']/g, "");
+    if (!/^\d+$/.test(priceDigits) || /[.,]\d{1,2}$/.test(priceRaw)) {
+      toast("⚠️ Narxni faqat raqam bilan yozing, masalan: 1 200 000");
+      document.getElementById("f-price").focus();
+      return;
+    }
+    const priceNum = parseInt(priceDigits, 10);
+    if (priceNum < 1000 || priceNum > 1000000000) {
+      toast("⚠️ Narx 1 000 so'mdan 1 000 000 000 so'mgacha bo'lishi kerak");
+      document.getElementById("f-price").focus();
+      return;
+    }
     const d = {
       name,
       duration: document.getElementById("f-dur").value.trim(),
-      price: document.getElementById("f-price").value.trim(),
+      price: String(priceNum).replace(/\B(?=(\d{3})+(?!\d))/g, " "),
       status: document.getElementById("f-status").value,
     };
     if (isEdit)
@@ -557,7 +572,7 @@ function showCredentialsAlert(name, login, pass) {
     </div>
     <div style="font-size:11.5px;color:var(--amber-text);background:var(--amber-light);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:16px">⚠️ ${t("cred_saved_warning")}</div>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="_copyCreds('${login.replace(/'/g, "\\'")}','${pass.replace(/'/g, "\\'")}')">📋 ${t("copy_btn")}</button>
+      <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="_copyCreds(${jsq(login)},${jsq(pass)})">📋 ${t("copy_btn")}</button>
       <button class="btn btn-sm btn-primary" style="flex:1;justify-content:center" onclick="document.getElementById('cred-alert-overlay').remove()">${t("ok_btn")}</button>
     </div>
   </div>`;
@@ -887,6 +902,8 @@ function updateTopbar(tab) {
   document.getElementById("tb-sub").textContent = subs[tab] || "";
 }
 function go(tab, el) {
+  // Boshqa bo'limga o'tilganda oldingi bo'limning oynasi ochiq qolib ketmasin
+  closeAllModals();
   if (tab !== 'mentor-chat' && typeof stopChatPolling === 'function') stopChatPolling();
   if (tab !== 'student-chat' && typeof _studentChatPollTimer !== 'undefined' && _studentChatPollTimer) {
     clearInterval(_studentChatPollTimer); window._studentChatPollTimer = null;
@@ -1026,16 +1043,25 @@ function exportData() {
   a.click();
   toast("📥 Yuklab olindi!");
 }
+// Barcha ochiq oynalarni yopadi. Har biri alohida: bitta portalda oyna
+// elementi bo'lmasa, qolganlari baribir yopiladi.
+function closeAllModals() {
+  [
+    "closeModal", "closeDetail", "closeDelModal", "closeStatModal", "closeLightbox", "closeFinModal",
+    "closeMentorSalaryModal", "certCloseModal", "_debtCloseModal", "closeTestModal", "closeTestResultsModal", "closeVideoModal",
+  ].forEach(function (fn) {
+    try {
+      if (typeof window[fn] === "function") window[fn]();
+    } catch (e) {}
+  });
+  try {
+    var gm = document.getElementById("grade-modal-overlay");
+    if (gm) gm.remove();
+  } catch (e) {}
+}
+window.closeAllModals = closeAllModals;
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    closeModal();
-    closeDetail();
-    closeDelModal();
-    closeStatModal();
-    closeLightbox();
-    closeFinModal();
-    closeMentorSalaryModal();
-  }
+  if (e.key === "Escape") closeAllModals();
 });
 
 function initApp() {

@@ -1040,3 +1040,11 @@ body.accent-green  { --accent-2: #22c55e; }
 /* "UFQ CRM" nomi sidebarda bitta qatorda tursin */
 .logo-name { white-space: nowrap; }
 .logo > div:last-child { min-width: 0; }
+
+/* ===================== DASHBOARD STAT-KARTALAR — telefon =====================
+   Telefonda yon tomonga suriladigan qatorda 8 kartadan 2,5 tasi ko'rinardi va
+   qolganlari borligi bilinmasdi. Endi 2 ustunli to'r — hammasi bir qarashda. */
+@media (max-width: 600px) {
+  #dash-stats-row .dsh-chips-scroll { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  #dash-stats-row .dsh-chips-scroll > .dsh-chip { width: auto; min-width: 0; }
+}

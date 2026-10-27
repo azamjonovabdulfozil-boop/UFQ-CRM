@@ -20,7 +20,7 @@
                   class="btn sett-action-btn btn-warning"
                   onclick="resetData()"
                 >
-                  🔄 Barcha ma'lumotlarni tiklash (Demo)
+                  🗑 Barcha ma'lumotlarni o'chirish
                 </button>
               </div>
             </div>

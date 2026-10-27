@@ -22,8 +22,65 @@ const DEFAULT_DATA = {
   certTemplates: [],
 };
 
+// ================================================
+// XAVFSIZLIK: ma'lumotdagi HTML/JS in'yeksiyasi
+// Shablonlar ma'lumotni HTML'ga to'g'ridan qo'yadi. Shu sababli ism, nom, izoh
+// kabi satrlardagi HTML'ni buzadigan belgilar ko'rinishi bir xil, lekin teg
+// bo'lmaydigan belgilarga almashadi:  < → ‹   > → ›   " → ”
+// va javascript: havolalari o'chiriladi. Server ham xuddi shunday qiladi —
+// bu ikkinchi qatlam (brauzerda saqlangan eski nusxalar uchun).
+// ================================================
+var _XSS_RISKY = /[<>"]|script\s*:|data\s*:\s*text\/html/i;
+var _XSS_SCHEME = /^[\s\u0000-\u001f]*(javascript|vbscript|data\s*:\s*text\/html)/i;
+function crmCleanStr(s) {
+  if (typeof s !== "string" || !_XSS_RISKY.test(s)) return s;
+  var out = s.replace(/</g, "‹").replace(/>/g, "›").replace(/"/g, "”");
+  if (_XSS_SCHEME.test(out)) out = "#" + out.replace(_XSS_SCHEME, "").replace(/^\s*:?/, "");
+  return out;
+}
+function crmCleanDeep(v, depth) {
+  depth = depth || 0;
+  if (typeof v === "string") return crmCleanStr(v);
+  if (!v || typeof v !== "object" || depth > 40) return v;
+  if (Array.isArray(v)) {
+    for (var i = 0; i < v.length; i++) v[i] = crmCleanDeep(v[i], depth + 1);
+    return v;
+  }
+  Object.keys(v).forEach(function (k) {
+    var nk = crmCleanStr(k);
+    var nv = crmCleanDeep(v[k], depth + 1);
+    if (nk !== k) {
+      delete v[k];
+      v[nk] = nv;
+    } else if (nv !== v[k]) v[k] = nv;
+  });
+  return v;
+}
+/**
+ * onclick="f(${jsq(x)})" — qiymatni HTML atributi ichidagi JS satriga xavfsiz
+ * qo'yadi (qo'shtirnoqlari bilan). Apostrof (O'tkir), teskari chiziq va HTML
+ * belgilari kodni buza olmaydi.
+ */
+function jsq(x) {
+  return (
+    "'" +
+    String(x == null ? "" : x)
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\x27")
+      .replace(/"/g, "\\x22")
+      .replace(/&/g, "\\x26")
+      .replace(/</g, "\\x3c")
+      .replace(/>/g, "\\x3e")
+      .replace(/\r/g, "\\r")
+      .replace(/\n/g, "\\n") +
+    "'"
+  );
+}
+window.crmCleanDeep = crmCleanDeep;
+window.jsq = jsq;
+
 function _mergeData(p) {
-  const d = Object.assign({}, DEFAULT_DATA, p);
+  const d = Object.assign({}, DEFAULT_DATA, crmCleanDeep(p));
   if (!d.courses) d.courses = [];
   if (!d.groups) d.groups = [];
   if (!d.mentors) d.mentors = [];
@@ -294,6 +351,10 @@ function hideDataLockBanner() {
 
 function saveData(opts) {
   const force = !!(opts && opts.force);
+  // Formadan kiritilgan yangi qiymatlar ham darhol zararsizlansin
+  try {
+    crmCleanDeep(D);
+  } catch (e) {}
 
   if (!force) {
     if (window.__CRM_KV_LOADED__ === false) {
@@ -362,7 +423,18 @@ function updateStorageBadge(ok) {
   el.style.color = ok ? "var(--teal-text)" : "var(--amber-text)";
 }
 async function resetData() {
-  if (!(await crmConfirm("Barcha ma'lumotlar o'chiriladi?", { danger: true }))) return;
+  // Butun baza o'chadi — tasodifiy bosishdan himoya: so'zni qo'lda yozish kerak
+  const word = await crmPrompt(
+    "Bu amal BARCHA kurslar, guruhlar, mentorlar, talabalar, davomat va moliya yozuvlarini butunlay o'chiradi.\n\n" +
+      "Davom etish uchun katta harflar bilan O'CHIRISH deb yozing:",
+    { title: "⚠️ Barcha ma'lumotlarni o'chirish", placeholder: "O'CHIRISH", okText: "O'chirish" },
+  );
+  if (word == null) return;
+  const norm = String(word).trim().toUpperCase().replace(/[‘’ʻʼ`]/g, "'");
+  if (norm !== "O'CHIRISH") {
+    if (typeof toast === "function") toast("Bekor qilindi — so'z noto'g'ri yozildi", "error");
+    return;
+  }
   localStorage.removeItem(STORAGE_KEY);
   const empty = {
     nextId: 100,
@@ -443,10 +515,8 @@ function loadAttendanceRules() {
       // Qoida o'zgardi — qarz va to'lovlar qayta hisoblanib ko'rsatilsin
       if (changed) {
         try {
-          if (typeof renderAll === "function") renderAll();
-          // Mentor/talaba: ochiq turgan sahifa (masalan to'lov hisobi) ham yangilansin
-          if (typeof window.go === "function" && typeof currentTab !== "undefined" && currentTab)
-            window.go(currentTab, document.getElementById("nav-" + currentTab));
+          // Barcha panellar qayta chiziladi; ochiq oyna (forma) yopilmaydi
+          if (typeof renderCurrentView === "function") renderCurrentView();
         } catch (e) {}
       }
     })

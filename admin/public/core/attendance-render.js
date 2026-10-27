@@ -102,7 +102,7 @@ function _renderAttTable(gid,month,year){
     const marked=present+absent+excused;const payLessons=present+absent+(chargeExcused()?excused:0);// K, Y — har doim; S — Super Admin qoidasiga ko'ra
     const pct=marked>0?Math.round(present/marked*100):0;
     const pctColor=pct>=80?'var(--teal-text)':pct>=60?'var(--amber-text)':'var(--orange-text)';
-    const toPay=payLessons*lessonPrice;const isFullAtt=(marked>=LESSON_COUNT);
+    const toPay=sAtt.paid?0:payLessons*lessonPrice;const isFullAtt=(marked>=LESSON_COUNT);
     let cells='';
     for(let l=1;l<=LESSON_COUNT;l++){
       const v=sAtt['l'+l]||'';
@@ -116,7 +116,7 @@ function _renderAttTable(gid,month,year){
       const tooltipHtml=`<div class="att-tip" id="tip-${attKey}-${sKey}-l${l}"><div class="att-tip-row"><button class="att-tip-btn att-tip-k" onclick="event.stopPropagation();setAtt('${attKey}','${sKey}','l${l}','K')">K</button><button class="att-tip-btn att-tip-y" onclick="event.stopPropagation();setAtt('${attKey}','${sKey}','l${l}','Y')">Y</button><button class="att-tip-btn att-tip-s" onclick="event.stopPropagation();setAtt('${attKey}','${sKey}','l${l}','S')">S</button><button class="att-tip-btn att-tip-clear" onclick="event.stopPropagation();setAtt('${attKey}','${sKey}','l${l}','')">✕</button>${dateTip?`<span style="font-size:10px;color:var(--text3);margin-left:4px">${dateTip}</span>`:''}</div>${_coinSection}</div>`;
       cells+=`<td style="text-align:center;padding:5px 3px;border-bottom:1px solid var(--border)"><div class="att-cell-wrap" onclick="event.stopPropagation();toggleAttTip('tip-${attKey}-${sKey}-l${l}')"><button style="${styleMap[v]||styleMap['']};display:inline-flex;align-items:center;justify-content:center;width:34px;height:30px;border-radius:6px;border:1.5px solid;cursor:pointer;font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;transition:all .12s;" title="${dateTip}">${labelMap[v]||'·'}</button>${tooltipHtml}</div></td>`;
     }
-    const resultHtml=`<div style="font-size:12px;font-weight:800;color:${pctColor};margin-bottom:4px">${pct}% davomat</div><div style="display:flex;justify-content:center;gap:4px;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--teal-light);color:var(--teal-text);font-weight:700">K:${present}</span><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--amber-light);color:var(--amber-text);font-weight:700">Y:${absent}</span><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--purple-light);color:var(--purple-text);font-weight:700">S:${excused}</span><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg4);color:var(--text2);font-weight:700">📚${marked}/${LESSON_COUNT}</span></div>${isFullAtt?`<div style="font-size:10px;padding:3px 8px;border-radius:10px;background:var(--orange-light);color:var(--orange-text);font-weight:700;margin-bottom:5px">💸 Qarzdor</div>`:''}${lessonPrice>0?`<div style="font-size:10px;color:var(--text3);font-weight:500;margin-bottom:2px">${payLessons} dars × ${fmtMoney(lessonPrice)} so'm</div><div style="font-size:13px;font-weight:800;color:${toPay>0?'var(--orange-text)':'var(--teal-text)'}">💰 ${fmtMoney(toPay)} so'm</div>`:''}`;
+    const resultHtml=`<div style="font-size:12px;font-weight:800;color:${pctColor};margin-bottom:4px">${pct}% davomat</div><div style="display:flex;justify-content:center;gap:4px;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--teal-light);color:var(--teal-text);font-weight:700">K:${present}</span><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--amber-light);color:var(--amber-text);font-weight:700">Y:${absent}</span><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--purple-light);color:var(--purple-text);font-weight:700">S:${excused}</span><span style="font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg4);color:var(--text2);font-weight:700">📚${marked}/${LESSON_COUNT}</span></div>${isFullAtt?`<div style="font-size:10px;padding:3px 8px;border-radius:10px;background:var(--orange-light);color:var(--orange-text);font-weight:700;margin-bottom:5px">💸 Qarzdor</div>`:''}${lessonPrice>0?`<div style="font-size:10px;color:var(--text3);font-weight:500;margin-bottom:2px">${payLessons} dars × ${fmtMoney(lessonPrice)} so'm</div><div style="font-size:13px;font-weight:800;color:${toPay>0?'var(--orange-text)':'var(--teal-text)'}">💰 ${fmtMoney(toPay)} so'm</div>`:''}${sAtt.paid?`<div style="margin-top:4px;font-size:11px;font-weight:800;color:var(--teal-text)">✅ To'langan</div>`:''}`;
     const _sBalRow = _cs.getStudentBal(s.id);
     const _coinBg = idx%2===0 ? 'var(--bg2)' : 'var(--bg3)';
     // Compact coin cell — faqat bitta joy: balans + input + tugma
@@ -135,7 +135,7 @@ function _renderAttTable(gid,month,year){
   });
 
   let footTotalToPay=0;
-  students.forEach(s=>{const sKey='s'+s.id;const sAtt=(D.attendance[attKey][sKey])||{};let pay=0;for(let l=1;l<=LESSON_COUNT;l++){const v=sAtt['l'+l]||'';if(isPaidMark(v))pay++;}footTotalToPay+=pay*lessonPrice;});
+  students.forEach(s=>{const sKey='s'+s.id;const sAtt=(D.attendance[attKey][sKey])||{};if(sAtt.paid)return;let pay=0;for(let l=1;l<=LESSON_COUNT;l++){const v=sAtt['l'+l]||'';if(isPaidMark(v))pay++;}footTotalToPay+=pay*lessonPrice;});
   const footRow=lessonPrice>0?`<tr style="background:var(--bg3)"><td colspan="${LESSON_COUNT+4}" style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text2);border-top:2px solid var(--border2)">📊 ${monthLabel} · 1 dars = <b style="color:var(--accent-text)">${fmtMoney(lessonPrice)} so'm</b> · Jami: <b style="color:var(--orange-text)">${fmtMoney(footTotalToPay)} so'm</b></td></tr>`:'';
   document.getElementById('att-table-wrap').innerHTML=`<div class="att-table-scroll"><table style="width:100%;border-collapse:collapse;min-width:${minW}px;background:var(--bg2)"><thead style="position:sticky;top:0;z-index:4;background:var(--bg2)"><tr>${th}</tr></thead><tbody>${rows}${footRow}</tbody></table></div>`;
 }
@@ -160,7 +160,8 @@ function calcStudentMonthStats(studentId,groupId,year,month){
   let present=0,absent=0,excused=0;
   for(let l=1;l<=LESSON_COUNT;l++){const v=sAtt['l'+l]||'';if(v==='K')present++;else if(v==='Y')absent++;else if(v==='S')excused++;}
   const marked=present+absent+excused;const payLessons=present+absent+(chargeExcused()?excused:0);// S — Super Admin qoidasiga ko'ra
-  return{present,absent,excused,marked,payLessons};
+  // paid — shu oy uchun to'lov qabul qilingan (davomat tarixi saqlanib qoladi)
+  return{present,absent,excused,marked,payLessons,paid:!!sAtt.paid};
 }
 function calcStudentAllMonthsDebt(studentId,groupId){
   const results=[];
@@ -171,7 +172,8 @@ function calcStudentAllMonthsDebt(studentId,groupId){
     for(let m=0;m<12;m++){
       const stats=calcStudentMonthStats(studentId,groupId,yr,m);
       if(stats.marked>0){
-        const toPay=stats.payLessons*lessonPrice;
+        // To'langan oy qarzga qo'shilmaydi
+        const toPay=stats.paid?0:stats.payLessons*lessonPrice;
         const isFullMonth=(stats.marked>=LESSON_COUNT);
         results.push({month:m,year:yr,label:getMonthName(m,false)+' '+yr,...stats,coursePrice,lessonPrice,toPay,isFullMonth});
       }
@@ -187,7 +189,7 @@ function _studentHasFullAttendanceMonth(studentId,groupId){
   for(let yr=2025;yr<=new Date().getFullYear()+1;yr++){
     for(let month=0;month<12;month++){
       const stats=calcStudentMonthStats(studentId,groupId,yr,month);
-      if(stats.marked>=LESSON_COUNT)return true;
+      if(stats.marked>=LESSON_COUNT&&!stats.paid)return true;
     }
   }
   return false;
@@ -235,7 +237,9 @@ function markStudentPaid(studentId){
   const s=D.students.find(x=>x.id===studentId);if(!s)return;
   const grp=D.groups.find(x=>x.id===s.groupId);
   if(grp){
-    const totalToPay=calcStudentAllMonthsDebt(s.id,s.groupId).reduce((sum,m)=>sum+m.toPay,0);
+    // Faqat to'liq (12 dars) va hali to'lanmagan oylar — joriy, tugamagan oy keyingi to'lovga qoladi.
+    // Ilgari bu yerda joriy oy ham qo'shilardi, lekin u tozalanmasdi — keyingi to'lovda ikkinchi marta hisoblanardi.
+    const totalToPay=calcStudentAllMonthsDebt(s.id,s.groupId).filter(m=>m.isFullMonth).reduce((sum,m)=>sum+m.toPay,0);
     if(totalToPay>0&&!D.finance)D.finance=[];
     if(totalToPay>0){
       D.finance.push({
@@ -254,7 +258,8 @@ function markStudentPaid(studentId){
       const attKey='att_'+s.groupId+'_'+yr+'_'+month;const sKey='s'+studentId;
       if(!D.attendance[attKey]||!D.attendance[attKey][sKey])continue;
       const stats=calcStudentMonthStats(studentId,s.groupId,yr,month);
-      if(stats.marked>=LESSON_COUNT)D.attendance[attKey][sKey]={};
+      // Davomat o'chirilmaydi (statistika va mentor daromadi buzilmasin) — oy «to'langan» deb belgilanadi
+      if(stats.marked>=LESSON_COUNT&&!stats.paid){D.attendance[attKey][sKey].paid=true;D.attendance[attKey][sKey].paidAt=new Date().toISOString();}
     }
   }
   s.isDebtor=false;s.status='Aktiv';
@@ -297,7 +302,7 @@ function renderCourses(){
       </div>
       <div class="card-foot">
         <button class="btn btn-sm" onclick="editItem('course',${c.id})">✏️ Tahrirlash</button>
-        <button class="btn btn-sm btn-del-outline" onclick="showDelModal('${c.name.replace(/'/g,"\\'")}',()=>execDelCourse(${c.id}))">🗑 O'chirish</button>
+        <button class="btn btn-sm btn-del-outline" onclick="showDelModal(${jsq(c.name)},()=>execDelCourse(${c.id}))">🗑 O'chirish</button>
       </div>
     </div>`;
   }).join('');
@@ -934,7 +939,7 @@ function openDetailMentor(id){
   document.getElementById('detail-title').textContent='🎓 Mentor profili';
   document.getElementById('detail-foot').innerHTML=`<button class="btn" onclick="closeDetail()">${L==='ru'?'Закрыть':L==='en'?'Close':'Yopish'}</button><button class="btn btn-primary" onclick="closeDetail();editItem('mentor',${id})">✏️ Tahrirlash</button>`;
   const photoSrc=mentorPhotoSrc(m);
-  let profileAvatarHtml=photoSrc?`<img class="av-photo-lg" src="${photoSrc}" alt="${m.name}" onclick="openLightbox('${photoSrc}')" style="cursor:zoom-in">`:`<div class="detail-av ${AV_CLS[idx%5]}" style="font-size:24px;width:68px;height:68px;border-radius:50%">${ini(m.name)}</div>`;
+  let profileAvatarHtml=photoSrc?`<img class="av-photo-lg" src="${photoSrc}" alt="${m.name}" onclick="openLightbox(${jsq(photoSrc)})" style="cursor:zoom-in">`:`<div class="detail-av ${AV_CLS[idx%5]}" style="font-size:24px;width:68px;height:68px;border-radius:50%">${ini(m.name)}</div>`;
   let fileHtml='';
   if(m.resumeFile){
     const isImg=m.resumeFile.type&&m.resumeFile.type.startsWith('image/');
@@ -1018,8 +1023,8 @@ function openDetailStudent(id){
     const monthRows=visibleMonthData.map(m=>{
       const pct=m.marked>0?Math.round(m.present/m.marked*100):0;
       const isCurrent=(m.month===_curM&&m.year===_curY);
-      const rowAccent=m.isFullMonth?'pay-row-full':m.payLessons>0?'pay-row-partial':'pay-row-empty';
-      const monthBadge=m.isFullMonth?`<span class="pay-badge-debtor">💸 Qarzdor</span>`:isCurrent?`<span class="pay-badge-debtor" style="background:var(--accent-light);color:var(--accent)">📍 ${t('current_month')}</span>`:'';
+      const rowAccent=m.paid?'pay-row-empty':m.isFullMonth?'pay-row-full':m.payLessons>0?'pay-row-partial':'pay-row-empty';
+      const monthBadge=m.paid?`<span class="pay-badge-debtor" style="background:var(--teal-light);color:var(--teal-text)">✅ To'langan</span>`:m.isFullMonth?`<span class="pay-badge-debtor">💸 Qarzdor</span>`:isCurrent?`<span class="pay-badge-debtor" style="background:var(--accent-light);color:var(--accent)">📍 ${t('current_month')}</span>`:'';
       return `<div class="pay-month-card ${rowAccent}"><div class="pay-mc-top"><span class="pay-mc-month">📅 ${m.label}</span>${monthBadge}<span class="pay-mc-pct" style="color:${pct>=80?'var(--teal-text)':pct>=50?'var(--amber-text)':'var(--orange-text)'}">${pct}%</span></div><div class="pay-mc-pills"><span class="pay-pill-k">✅ K: <b>${m.present}</b></span><span class="pay-pill-y">⚠️ Y: <b>${m.absent}</b></span><span class="pay-pill-s">💬 S: <b>${m.excused}</b></span><span class="pay-pill-info">📚 ${m.marked}/${LESSON_COUNT}</span></div><div class="pay-mc-calc"><div class="pay-mc-formula"><span class="pay-formula-chip pay-fc-ky">${m.payLessons} dars (${chargeExcused()?'K+Y+S':'K+Y'})</span><span style="font-size:13px;color:var(--text3)">×</span><span class="pay-formula-chip pay-fc-price">${fmtMoney(m.lessonPrice)} so'm</span><span style="font-size:13px;color:var(--text3)">=</span><span class="pay-formula-chip pay-fc-total" style="color:${m.toPay>0?'var(--orange-text)':'var(--teal-text)'}">💰 ${fmtMoney(m.toPay)} so'm</span></div></div></div>`;
     }).join('');
     debtHtml=`<div class="pay-block"><div class="pay-header"><div class="pay-header-left"><div class="pay-header-title">💰 To'lov hisobi</div><div class="pay-header-status ${s.isDebtor?'pay-status-debtor':'pay-status-paid'}">${s.isDebtor?L==='ru'?'💸 Должник':L==='en'?'💸 Debtor':'💸 Qarzdor':'✅ To\'lagan'}</div></div><div class="pay-header-rule"><div class="pay-rule-item">📚 ${LESSON_COUNT} dars/oy</div><div class="pay-rule-item">💵 ${fmtMoney(lessonPrice)} so'm/dars</div></div></div><div class="pay-formula-explain"><div class="pfe-item pfe-k"><div class="pfe-icon">✅</div><div><div class="pfe-title">K — Keldi</div><div class="pfe-desc">Yechiladi</div></div></div><div class="pfe-item pfe-y"><div class="pfe-icon">⚠️</div><div><div class="pfe-title">Y — Yo'q</div><div class="pfe-desc">Yechiladi</div></div></div><div class="pfe-item pfe-s"><div class="pfe-icon">💬</div><div><div class="pfe-title">S — Sababli</div><div class="pfe-desc">${chargeExcused()?'Yechiladi':'Yechilmaydi'}</div></div></div><div class="pfe-item pfe-full"><div class="pfe-icon">💸</div><div><div class="pfe-title">12 dars = Qarzdor</div><div class="pfe-desc">Probatsiya</div></div></div></div>${visibleMonthData.length>0?`<div class="pay-total-stats"><div class="pay-ts-item pay-ts-k"><div class="pay-ts-num">${totalPresent}</div><div class="pay-ts-lbl">✅ Keldi</div></div><div class="pay-ts-item pay-ts-y"><div class="pay-ts-num">${totalAbsent}</div><div class="pay-ts-lbl">⚠️ Yo'q</div></div><div class="pay-ts-item pay-ts-s"><div class="pay-ts-num">${totalExcused}</div><div class="pay-ts-lbl">💬 Sababli</div></div><div class="pay-ts-item pay-ts-ky"><div class="pay-ts-num">${totalKY}</div><div class="pay-ts-lbl">📚 To'lanadigan</div></div></div>`:''}<div class="pay-info-grid"><div class="pay-info-item"><div class="pay-info-lbl">🎓 Mentor</div><div class="pay-info-val">${mentorName||'—'}</div></div><div class="pay-info-item pay-info-accent"><div class="pay-info-lbl">👥 Guruh</div><div class="pay-info-val">${grp.name}</div></div><div class="pay-info-item pay-info-teal"><div class="pay-info-lbl">💰 Oylik</div><div class="pay-info-val">${fmtMoney(coursePrice)} so'm</div></div></div><div class="pay-months-wrap">${visibleMonthData.length===0?`<div class="pay-nodata">Hali davomat kiritilmagan</div>`:monthRows}</div>${visibleMonthData.length>0?`<div class="pay-summary-bar"><span>Jami (${chargeExcused()?'K+Y+S':'K+Y'}): <b style="color:var(--text)">${totalKY} dars</b></span><span>To'lash kerak: <b style="color:var(--orange-text)">${fmtMoney(totalToPay)} so'm</b></span></div>`:''} ${s.isDebtor?`<button class="pay-main-btn" onclick="markStudentPaid(${id})">✅ To'landi — Qarzdorlikni yopish</button>`:''}</div>`;

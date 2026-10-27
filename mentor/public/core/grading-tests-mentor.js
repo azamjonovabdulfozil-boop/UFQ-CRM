@@ -1755,7 +1755,7 @@ function renderMentorChat(){
         <button class="btn btn-sm" title="${t('attach_file')}" onclick="document.getElementById('chat-file-input').click()" style="flex-shrink:0;padding:9px 11px">📎</button>
         <button class="btn btn-sm" title="Emoji" onclick="const p=document.getElementById('chat-emoji-picker');p.style.display=p.style.display==='none'?'flex':'none'" style="flex-shrink:0;padding:9px 11px">😊</button>
         <textarea id="chat-input-text" placeholder="${L==='ru'?'Написать сообщение...':L==='en'?'Type a message...':'Xabar yozing...'}" rows="1" style="flex:1;resize:none;padding:10px 14px;border:1.5px solid var(--border2);border-radius:12px;background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;outline:none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMentorMessage('${mname}',${selSt.id});}"></textarea>
-        <button class="btn btn-primary" onclick="sendMentorMessage('${mname}',${selSt.id})" style="padding:10px 18px;align-self:stretch;flex-shrink:0">${L==='ru'?'➤':L==='en'?'➤':'➤'}</button>
+        <button class="btn btn-primary" onclick="sendMentorMessage(${jsq(mname)},${selSt.id})" style="padding:10px 18px;align-self:stretch;flex-shrink:0">${L==='ru'?'➤':L==='en'?'➤':'➤'}</button>
       </div>
     </div>
   </div>`;
