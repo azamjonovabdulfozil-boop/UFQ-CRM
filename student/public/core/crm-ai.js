@@ -452,6 +452,7 @@
   var STORE_KEY = "admin_private_ai_chats_v1";
   var MAX_CHATS = 60;
   var MAX_STORE_BYTES = 2 * 1024 * 1024;
+  var MAX_DELETED = 300; // o'chirilgan suhbatlar belgisi (qayta tiklanmasligi uchun)
   var _memParts = {}; // xabar kaliti → shu sessiyada yuborilgan fayl qismlari
 
   /* Admin tarixi localStorage orqali serverga sinxronlanadi (admin_private_*).
@@ -526,6 +527,7 @@
       return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
     st.chats = st.chats.slice(0, MAX_CHATS);
+    if (Array.isArray(st.deleted)) st.deleted = st.deleted.slice(-MAX_DELETED);
     var json = JSON.stringify(st);
     // Juda kattalashsa — eng eski suhbatlar o'chadi (joriysi qoladi)
     while (json.length > MAX_STORE_BYTES && st.chats.length > 1) {
@@ -591,14 +593,31 @@
       .then(function (d) {
         if (!d || !d.ok || !d.store) return;
         var local = loadStore();
+        // Qaysi qurilmada o'chirilgan bo'lsa ham — hamma joyda o'chgan bo'lsin
+        var gone = {};
+        var delChanged = false;
+        (local.deleted || []).forEach(function (id) {
+          gone[id] = 1;
+        });
+        (Array.isArray(d.store.deleted) ? d.store.deleted : []).forEach(function (id) {
+          if (!gone[id]) {
+            gone[id] = 1;
+            delChanged = true;
+          }
+        });
         var byId = {};
         local.chats.forEach(function (c) {
-          byId[c.id] = c;
+          if (gone[c.id]) delChanged = true;
+          else byId[c.id] = c;
         });
-        var changed = false;
+        var changed = delChanged;
         var localNewer = false;
         var serverHas = {};
         (d.store.chats || []).forEach(function (c) {
+          if (gone[c.id]) {
+            localNewer = true; // serverda hali bor — o'chirilgani serverga yetsin
+            return;
+          }
           serverHas[c.id] = 1;
           var mine = byId[c.id];
           if (!mine || (c.updatedAt || 0) > (mine.updatedAt || 0)) {
@@ -615,7 +634,9 @@
         local.chats = Object.keys(byId).map(function (k) {
           return byId[k];
         });
-        if (!local.current && d.store.current) local.current = d.store.current;
+        local.deleted = Object.keys(gone);
+        if (local.current && (gone[local.current] || !byId[local.current])) local.current = null;
+        if (!local.current && d.store.current && byId[d.store.current]) local.current = d.store.current;
         saveStore(local); // birlashma serverga ham qaytadi
         if (!_busy) renderMessages();
       })
@@ -1183,8 +1204,11 @@
       ".aai-hi-t{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
       ".aai-hi.cur .aai-hi-t{color:var(--accent-text,var(--accent))}",
       ".aai-hi-s{font-size:11px;color:var(--text3);margin-top:1px}",
-      ".aai-hi-del{width:28px;height:28px;border-radius:8px;border:0;background:transparent;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.15s}",
+      ".aai-hi-del{width:28px;height:28px;flex-shrink:0;border-radius:8px;border:0;background:transparent;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.5;transition:.15s}",
       ".aai-hi:hover .aai-hi-del{opacity:1}.aai-hi-del:hover{background:var(--red-light,#fee2e2);color:#dc2626}",
+      ".aai-hist-top-r{display:flex;align-items:center;gap:8px}",
+      ".aai-hist-clear{display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:#dc2626;font:inherit;font-size:11px;font-weight:700;text-transform:none;letter-spacing:0;cursor:pointer;transition:.15s}",
+      ".aai-hist-clear:hover{background:var(--red-light,#fee2e2);border-color:#fca5a5}",
       ".aai-hist-empty{padding:26px 14px;text-align:center;font-size:12.5px;color:var(--text3)}",
       /* xabarlar */
       ".aai-body{flex:1;min-height:0;overflow-y:auto;padding:20px max(20px,calc((100% - 920px)/2));display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;" +
@@ -1701,7 +1725,11 @@
     });
     box.innerHTML =
       '<div class="aai-hist" onclick="event.stopPropagation()">' +
-      '<div class="aai-hist-top"><span>Suhbatlar tarixi</span><span>' + list.length + " ta</span></div>" +
+      '<div class="aai-hist-top"><span>Suhbatlar tarixi</span><span class="aai-hist-top-r"><span>' + list.length + " ta</span>" +
+      (list.length
+        ? '<button class="aai-hist-clear" onclick="event.stopPropagation();adminAiClearAll()" title="Barcha suhbatlarni o\'chirish">' + ICON.trash + "Hammasini o'chirish</button>"
+        : "") +
+      "</span></div>" +
       '<div class="aai-hist-list">' +
       (list.length
         ? list
@@ -1713,7 +1741,7 @@
                 '<div class="aai-hi' + (c.id === st.current ? " cur" : "") + '" onclick="adminAiOpen(\'' + c.id + '\')">' +
                 '<div class="aai-hi-main"><div class="aai-hi-t">' + esc(chatTitle(c)) + "</div>" +
                 '<div class="aai-hi-s">' + esc(fmtWhen(c.updatedAt)) + " · " + n + " ta savol</div></div>" +
-                (role() === "student" ? "" : '<button class="aai-hi-del" onclick="event.stopPropagation();adminAiDel(\'' + c.id + '\')" title="O\'chirish">' + ICON.trash + "</button>") + "</div>"
+                '<button class="aai-hi-del" onclick="event.stopPropagation();adminAiDel(\'' + c.id + '\')" title="O\'chirish">' + ICON.trash + "</button></div>"
               );
             })
             .join("")
@@ -2997,16 +3025,53 @@
     var inp = document.getElementById("aai-input");
     if (inp) inp.focus();
   };
+  /* O'chirilgan suhbatlar id si `deleted` ro'yxatida qoladi — boshqa qurilma
+     yoki brauzerdagi eski nusxa ularni serverga qaytarib tiklab qo'ymasin. */
+  function markDeleted(st, ids) {
+    var list = Array.isArray(st.deleted) ? st.deleted : [];
+    ids.forEach(function (id) {
+      if (id && list.indexOf(id) < 0) list.push(id);
+    });
+    st.deleted = list.slice(-MAX_DELETED);
+  }
+  async function askConfirm(text) {
+    if (typeof crmConfirm === "function") return !!(await crmConfirm(text, { okText: "O'chirish" }));
+    return window.confirm(text);
+  }
+  function afterDelete() {
+    stopSpeak();
+    _lastError = "";
+    renderHist();
+    renderMessages();
+  }
   window.adminAiDel = async function (id) {
-    if (typeof crmConfirm === "function" && !(await crmConfirm("Bu suhbat o'chirilsinmi?", { okText: "O'chirish" }))) return;
+    if (!(await askConfirm("Bu suhbat o'chirilsinmi?"))) return;
     var st = loadStore();
     st.chats = st.chats.filter(function (c) {
       return c.id !== id;
     });
+    markDeleted(st, [id]);
     if (st.current === id) st.current = null;
     saveStore(st);
-    renderHist();
-    renderMessages();
+    afterDelete();
+  };
+  window.adminAiClearAll = async function () {
+    var st = loadStore();
+    if (!st.chats.length) return;
+    if (!(await askConfirm("AI bilan barcha suhbatlar tarixi o'chirilsinmi? Buni qaytarib bo'lmaydi."))) return;
+    markDeleted(
+      st,
+      st.chats.map(function (c) {
+        return c.id;
+      }),
+    );
+    st.chats = [];
+    st.current = null;
+    _memParts = {};
+    saveStore(st);
+    _histOpen = false;
+    afterDelete();
+    if (typeof toast === "function") toast("AI suhbatlar tarixi tozalandi");
   };
   window.renderMentorAI = renderAdminAI;
   window.renderStudentAI = renderAdminAI;

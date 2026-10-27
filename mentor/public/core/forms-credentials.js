@@ -687,6 +687,12 @@ function updateTopbar(tab) {
       L === "ru" ? "🧭 Методология" : L === "en" ? "🧭 Methodology" : "🧭 Metodologiya",
     "mentor-method":
       L === "ru" ? "🧭 Методология" : L === "en" ? "🧭 Methodology" : "🧭 Metodologiya",
+    "mentor-ai":
+      L === "ru" ? "🤖 AI Ассистент" : L === "en" ? "🤖 AI Assistant" : "🤖 AI Yordamchi",
+    "student-ai":
+      L === "ru" ? "🤖 AI Ассистент" : L === "en" ? "🤖 AI Assistant" : "🤖 AI Yordamchi",
+    "mentor-students-ai":
+      L === "ru" ? "👁 AI студентов" : L === "en" ? "👁 Students' AI" : "👁 Talabalar AI",
     dashboard: t("dashboard_title"),
     courses: t("courses_title"),
     groups: t("groups_title"),

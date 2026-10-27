@@ -735,6 +735,12 @@ function updateTopbar(tab) {
       L === "ru" ? "Должники" : L === "en" ? "Debtors" : "Qarzdorlar",
     "admin-ai":
       L === "ru" ? "🤖 AI Ассистент" : L === "en" ? "🤖 AI Assistant" : "🤖 AI Yordamchi",
+    "mentor-ai":
+      L === "ru" ? "🤖 AI Ассистент" : L === "en" ? "🤖 AI Assistant" : "🤖 AI Yordamchi",
+    "student-ai":
+      L === "ru" ? "🤖 AI Ассистент" : L === "en" ? "🤖 AI Assistant" : "🤖 AI Yordamchi",
+    "mentor-students-ai":
+      L === "ru" ? "👁 AI студентов" : L === "en" ? "👁 Students' AI" : "👁 Talabalar AI",
     finance: t("finance_title"),
     certificates:
       L === "ru" ? "🎖 Сертификаты" : L === "en" ? "🎖 Certificates" : "🎖 Sertifikatlar",

@@ -514,13 +514,18 @@ export function initAiPortal({ app, getDb, readCrmData, readAllKv, ROLES, requir
         updatedAt: Number(c.updatedAt) || Date.now(),
         messages: (Array.isArray(c.messages) ? c.messages : []).slice(-200),
       }));
+      // O'chirilgan suhbatlar belgisi — boshqa qurilmadagi eski nusxa ularni qaytarmasin
+      const deleted = (Array.isArray(store.deleted) ? store.deleted : [])
+        .filter((x) => typeof x === "string" && x)
+        .slice(-300)
+        .map((x) => x.slice(0, 40));
       await db()
         .collection(CHATS_COL)
         .updateOne(
           { _id: chatKey(req.user) },
           {
             $set: {
-              store: { chats, current: store.current ? String(store.current).slice(0, 40) : null },
+              store: { chats, deleted, current: store.current ? String(store.current).slice(0, 40) : null },
               role: req.user.role,
               studentId: req.user.studentId ?? null,
               ownerName: req.user.studentName || req.user.mentorName || req.user.name,

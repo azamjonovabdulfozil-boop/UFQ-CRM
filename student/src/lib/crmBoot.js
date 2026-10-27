@@ -84,6 +84,23 @@ function preloadCSS(base, name) {
   document.head.appendChild(l);
 }
 
+// ⚡ TEZLIK: barcha core skriptlarni boshidanoq PARALLEL yuklab olamiz.
+// Ilgari ular ~20 ta navbatli guruhda yuklanardi: har guruh oldingisini
+// kutgani uchun uzoq serverda (Render) har guruhga bitta to'liq so'rov
+// vaqti ketardi. Endi fayllar bir vaqtda keladi, BAJARILISH tartibi esa
+// avvalgidek guruhma-guruh qoladi (preload faqat yuklab qo'yadi).
+function preloadScripts(coreBase) {
+  SCRIPT_GROUPS.flat().forEach((name) => {
+    if (document.querySelector(`link[data-crm-js="${name}"]`)) return;
+    const l = document.createElement("link");
+    l.rel = "preload";
+    l.as = "script";
+    l.href = v(coreBase + name);
+    l.setAttribute("data-crm-js", name);
+    document.head.appendChild(l);
+  });
+}
+
 function loadScriptOnce(coreBase, name, attempt) {
   return new Promise((resolve, reject) => {
     document.querySelector(`script[data-crm="${name}"]`)?.remove();
@@ -160,6 +177,7 @@ export function useCrmBoot({ role, portalLabel, logTag }) {
   onMounted(async () => {
     try {
       STYLESHEETS.forEach((name) => preloadCSS(base, name));
+      preloadScripts(coreBase);
 
       // onMounted da farzand komponentlar allaqachon DOM da —
       // core skriptlar kerakli elementlarni darrov topadi.

@@ -149,8 +149,28 @@ app.use(createModuleApiGuard({ resolveUser, audit }));
 // shuning uchun ularni uzoq keshlash mumkin emas — kod yangilansa ham brauzer
 // bir kun davomida ESKI nusxani ishlatib turardi. Endi ular har safar
 // tekshiriladi (no-cache), qolgan (hash nomli) fayllar esa keshlanadi.
+//
+// ⚡ TEZLIK: crmBoot core skriptlar va CSS ni har doim build belgisi bilan
+// so'raydi (`?v=<build>`). Bunday manzil faqat yangi build'da o'zgaradi —
+// demak uni uzoq keshlash xavfsiz. Ilgari har yangilashda ~25 fayl bittadan
+// serverdan qayta tekshirilardi (Render'gacha har biri ~1 s) va sahifa
+// 20+ soniyada ochilardi. Endi ular brauzer keshidan darhol olinadi.
+// `/assets/` dagi fayllar nomida hash bor — ular ham o'zgarmaydi.
 app.use((req, res, next) => {
   const ext = (req.path.split(".").pop() || "").toLowerCase();
+  const versioned =
+    typeof req.query?.v === "string" && /^[a-z0-9]{4,20}$/i.test(req.query.v) && (ext === "js" || ext === "css");
+  const hashed = req.path.includes("/assets/") && ["js", "css", "png", "jpg", "webp", "svg", "woff2", "woff"].includes(ext);
+  if (versioned || hashed) {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    // Xato javob (404/5xx) keshga tushib qolmasin
+    const writeHead = res.writeHead;
+    res.writeHead = function (code, ...rest) {
+      if ((code || res.statusCode) >= 400) res.setHeader("Cache-Control", "no-store");
+      return writeHead.call(this, code, ...rest);
+    };
+    return next();
+  }
   const noCache =
     req.path.includes("/core/") || ext === "css" || req.path.endsWith(".html");
   if (noCache) {
