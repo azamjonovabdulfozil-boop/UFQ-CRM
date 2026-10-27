@@ -31,15 +31,6 @@
               <AppearanceCard />
             </section>
 
-            <section v-show="tab === 'brand'" class="sett-pane">
-              <header class="sett-pane-head">
-                <h2 data-t="sett_sec_brand">Brending</h2>
-                <p data-t="sett_sec_brand_sub">CRM nomi va logotipi — hamma foydalanuvchilarga ko'rinadi</p>
-              </header>
-              <CrmNameCard />
-              <LogoCard />
-            </section>
-
             <section v-show="tab === 'access'" class="sett-pane">
               <header class="sett-pane-head">
                 <h2 data-t="sett_sec_access">Hisoblar</h2>
@@ -74,8 +65,15 @@
               <NavVisibilityCard />
             </section>
 
-            <!-- Talaba uchun eski karta — core skriptlar uni topishi uchun DOM'da qoladi -->
-            <div hidden><StudentMotivationCard /></div>
+            <!-- CRM nomi va logotipini endi faqat Super Admin («Tizim sozlamalari»)
+                 o'zgartiradi — admin panelida ko'rsatilmaydi. Kartalar core
+                 skriptlar ularni id bo'yicha topishi uchun DOM'da yashirin qoladi.
+                 Talaba uchun eski karta ham shu sababli shu yerda. -->
+            <div hidden>
+              <CrmNameCard />
+              <LogoCard />
+              <StudentMotivationCard />
+            </div>
           </div>
         </div>
       </div>
@@ -97,7 +95,6 @@ import { SETT_ICONS, useSettingsTab, settingsMenuAllowed } from "./settingsNav.j
 
 const sections = [
   { id: "look", t: "sett_sec_look", label: "Ko'rinish", sub: "Mavzu, rang, matn", icon: SETT_ICONS.look },
-  { id: "brand", t: "sett_sec_brand", label: "Brending", sub: "Nom va logotip", icon: SETT_ICONS.brand },
   { id: "access", t: "sett_sec_access", label: "Hisoblar", sub: "Login va parollar", icon: SETT_ICONS.access },
   { id: "devices", t: "sett_sec_devices", label: "Xavfsizlik", sub: "Bloklangan qurilmalar", icon: SETT_ICONS.devices },
   { id: "data", t: "sett_sec_data", label: "Ma'lumotlar", sub: "Zaxira va tozalash", icon: SETT_ICONS.data },

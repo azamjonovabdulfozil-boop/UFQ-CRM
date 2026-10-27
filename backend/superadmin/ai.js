@@ -64,7 +64,8 @@ Asboblar:
   /api/super/modules — admin menyusi/modullar holati va sozlamalardagi «Menyu bo'limlari» (settingsMenu)
   /api/super/settings — tizim sozlamalari
   /api/super/monitor — server, baza, xatolar
-  /api/super/activity — faoliyat jurnali; query: from, to (ISO), category, role, severity, actor, q, page, limit
+  /api/super/activity — faoliyat tarixi (standart: admin va mentorlar); query: from, to (ISO), scope (staff|admin|mentor|all — Super Admin va tizim yozuvlari uchun all), person (hisob id), kind (login|data|warn), category, severity, actor (login), q, page, limit. Javobda people — har bir admin/mentor: ism, login, kirishlar soni, oxirgi kirish, amallar soni; events — kim (ism, rol), qachon, nima qildi (title, details), IP, qurilma
+  /api/super/activity/person/{id} — bitta admin yoki mentor: qachon kirgan/chiqqan (vaqt, IP, qurilma), hozir ochiq sessiyalari, barcha amallari
   /api/super/reports, /api/super/reports/{kind}?format=json — hisobot ma'lumoti (kind: ${Object.keys(REPORTS).join(", ")})
   /api/super/backups — zaxira nusxalari
   /api/super/wa/overview — ulangan saytlar analitikasi (barcha saytlar; query: period = today|yesterday|7|30|90|month|prevmonth|custom, from/to, site)
@@ -72,7 +73,7 @@ Asboblar:
   /api/super/wa/sites/{id}/realtime — hozir faol sessiyalar; /api/super/wa/alerts?site={id} — ogohlantirishlar
 - super_post — Super Admin amallari (POST):
   /api/super/data/{students|groups|mentors|courses}/{id} body {fields:{...}} — tahrir (students: status, groupId, phone, parentName, parentPhone, notes; groups: status, mentorId, days; mentors: phone, telegram, email; courses: name, price)
-  /api/super/admins body {username, name} — yangi admin (parol o'rnatish havolasi qaytadi)
+  /api/super/admins body {username, firstName, lastName} — yangi admin (parol o'rnatish havolasi qaytadi); /api/super/admins/{id}/profile body {firstName, lastName} — ism-familiyani o'zgartirish. Adminni butunlay o'chirish faqat panelda parol bilan tasdiqlanadi (Administratorlar → O'chirish)
   /api/super/admins/{id}/status body {status:"active"|"disabled"}; /api/super/admins/{id}/sessions/revoke; /api/super/admins/{id}/reset-link; /api/super/admins/{id}/restrictions body {modules:{key:{menu,api}}}
   /api/super/modules body {modules:{key:{menu,api}}, settingsMenu:{admin,mentor,student}} — modul kalitlari: ${MODULES.map((m) => m.key).join(", ")}. DIQQAT: modules ichida HAMMA modullarni joriy holati bilan yubor (avval GET /api/super/modules ni o'qi), aks holda yuborilmaganlari ochiladi.
   /api/super/settings/{general|notifications|ranking}; /api/super/teachers/criteria; /api/super/branding body {crmName}; /api/super/backups/create

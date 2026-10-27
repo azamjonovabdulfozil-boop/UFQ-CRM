@@ -8,16 +8,16 @@ import { fmtDay } from "./util.js";
 export const REPORTS = {
   overview: "Umumiy CRM hisoboti",
   teachers: "O'qituvchilar samaradorligi",
-  groups: "Sinflar (guruhlar) natijalari",
+  groups: "Guruhlar natijalari",
   attendance: "Davomat",
   homework: "Uy vazifalari",
   students: "O'quvchilar natijalari",
-  admins: "Administratorlar faoliyati",
+  admins: "Admin va mentorlar faoliyati",
   system: "Tizim monitoringi",
 };
 
 const CONF = { high: "ishonchli", low: "taxminiy", none: "ma'lumot yetarli emas" };
-const SRC_CRM = "CRM bazasi (crm_data): talabalar, guruhlar, davomat jurnali, baholar, test natijalari";
+const SRC_CRM = "CRM ma'lumotlari: talabalar, guruhlar, davomat, baholar va testlar";
 
 /**
  * @param {string} kind
@@ -53,7 +53,7 @@ export function buildReport(kind, p) {
     rep.method =
       "Ball = mezonlarning og'irlikli o'rtachasi (" +
       CRITERIA.map((c) => `${c.label} ${ranking.weights[c.key] || 0}`).join(", ") +
-      "). Hisoblanmagan mezon tashlab ketiladi. Reyting tahlil uchun — kadrlar bo'yicha qaror avtomatik qabul qilinmaydi.";
+      "). Ma'lumoti yo'q mezon hisobga olinmaydi. Reyting faqat tahlil uchun.";
   } else if (kind === "groups") {
     rep.columns = [
       "Guruh", "Kurs", "O'qituvchi", "Talaba", "Davomat %", "Davomat o'zgarishi (p.p.)", "O'rtacha baho", "Baho o'zgarishi",
@@ -63,29 +63,29 @@ export function buildReport(kind, p) {
       g.name, g.course, g.mentorName, g.size, g.att.marked ? g.att.pct : null, g.attDelta, g.avgGrade, g.gradeDelta,
       g.gradeN, g.avgTest, g.lessons.held, g.lessons.plannedPast, g.lessons.missed, g.needHelp.length,
     ]);
-    rep.method = `O'zgarish — oldingi teng davrga (${all.prevRange.label}) nisbatan. Davomat = K/(K+Y+S).`;
+    rep.method = `«O'zgarish» — oldingi xuddi shunday davrga (${all.prevRange.label}) nisbatan. Davomat % — belgilangan darslarning nechtasiga talaba kelgani.`;
   } else if (kind === "attendance") {
     rep.columns = ["Talaba", "Guruh", "O'qituvchi", "Keldi (K)", "Kelmadi (Y)", "Sababli (S)", "Davomat %", "Oldingi davr %"];
     for (const g of groups)
       for (const m of g.members)
         rep.rows.push([m.name, g.name, g.mentorName, m.att.K, m.att.Y, m.att.S, m.att.pct, m.prevAtt.pct]);
-    rep.method = "Davomat = K / (K + Y + S) × 100 — davr ichidagi darslar bo'yicha (dars sanasi guruh jadvalidan).";
+    rep.method = "K — darsga keldi, Y — kelmadi, S — sababli. Davomat % = kelgan darslar ÷ belgilangan darslar × 100.";
   } else if (kind === "students") {
     rep.columns = ["Talaba", "Guruh", "Holat", "Baholar soni", "O'rtacha baho", "Baho o'zgarishi", "Testlar soni", "Test o'rtacha %", "Davomat %", "E'tibor sababi"];
     for (const g of groups)
       for (const m of g.members)
         rep.rows.push([m.name, g.name, m.status, m.gradeN, m.avgGrade, m.gradeDelta, m.testN, m.avgTest, m.att.pct, m.reasons.join("; ")]);
-    rep.method = "Baholar — baholash jurnali (0–100), testlar — davr ichida topshirilgan natijalar (%). O'zgarish — oldingi teng davrga nisbatan.";
+    rep.method = "Baho — 0 dan 100 gacha. Test — topshirilgan testlar natijasi (%). «O'zgarish» — oldingi xuddi shunday davrga nisbatan.";
   } else if (kind === "homework") {
     rep.columns = ["Holat", "Izoh"];
     rep.rows = [["Mavjud emas", HOMEWORK_INFO.reason], ...HOMEWORK_INFO.plan.map((x, i) => [`Reja ${i + 1}`, x])];
     rep.method = "Hisoblanmadi — CRM'da uy vazifalari ma'lumoti saqlanmaydi.";
   } else if (kind === "admins") {
     const ev = (p.extra && p.extra.activity) || [];
-    rep.source = "Xavfsizlik jurnali (security_audit) — administratorlar va Super Admin amallari";
-    rep.columns = ["Vaqt", "Foydalanuvchi", "Rol", "Hodisa", "Toifa", "Tavsif", "Natija", "IP"];
-    rep.rows = ev.map((e) => [e.atText, e.actor, e.role, e.event, e.category, e.text, e.severity === "info" ? "muvaffaqiyatli" : e.severity, e.ip]);
-    rep.method = "Davr ichidagi jurnal yozuvlari, eng yangisi birinchi. Parol, token va maxfiy maydonlar jurnalga yozilmaydi.";
+    rep.source = "Faoliyat tarixi — adminlar va mentorlarning tizimdagi barcha amallari";
+    rep.columns = ["Vaqt", "Ism familiya", "Login", "Rol", "Nima qildi", "Natija", "Qurilma", "IP"];
+    rep.rows = ev.map((e) => [e.atText, e.name, e.login, e.role, e.text, e.ok ? "bajarildi" : "rad etildi / ogohlantirish", e.device, e.ip]);
+    rep.method = "Tanlangan davrdagi har bir kirish, chiqish va o'zgarish — eng yangisi birinchi. Parollar jurnalga yozilmaydi.";
   } else if (kind === "system") {
     const m = p.extra && p.extra.monitor;
     rep.source = "Server xotirasidagi so'rov hisoblagichlari va xavfsizlik jurnali";
@@ -94,24 +94,23 @@ export function buildReport(kind, p) {
     rep.rows = m ? m.rows : [];
     rep.method = "So'rov hisoblagichlari server qayta ishga tushganda nollanadi; server xatolari — jurnaldan. Hosting bermaydigan CPU/disk ko'rsatkichlari kiritilmagan.";
   } else {
-    rep.columns = ["Ko'rsatkich", "Shu davr", "Oldingi davr", "Formula"];
+    rep.columns = ["Ko'rsatkich", "Shu davr", "Oldingi davr", "Izoh"];
     const s = all.students;
     rep.rows = [
-      ["Jami talabalar", s.total, null, "barcha yozuvlar (joriy holat)"],
-      ["Aktiv talabalar", s.active, null, "holati Aktiv yoki Probatsiya"],
-      ["Yangi talabalar", s.newInPeriod, s.newPrev, "qo'shilgan sana davr ichida"],
-      ["Faol bo'lmagan talabalar", s.inactive.length, null, "Faolsiz/Muzlatilgan yoki ≥3 belgida 0% davomat"],
-      ["O'qituvchilar", all.teachers.length, null, "mentorlar ro'yxati"],
-      ["Faol guruhlar", all.groups.filter((g) => !g.archived).length, null, "arxivda emas"],
-      ["O'tilgan darslar", all.lessons.held, all.prevLessons.held, "kamida bitta davomat belgisi bor"],
-      ["Rejadagi darslar (o'tgan)", all.lessons.plannedPast, all.prevLessons.plannedPast, "guruh jadvali bo'yicha"],
-      ["Belgilanmagan darslar", all.lessons.missed, all.prevLessons.missed, "sanasi o'tgan, belgi yo'q"],
-      ["Davomat %", all.att.pct, all.prevAtt.pct, "K/(K+Y+S)"],
-      ["O'rtacha baho", all.grades.avg, all.grades.prevAvg, "baholar jurnali o'rtachasi"],
-      ["Test o'rtacha %", all.tests.avg, all.tests.prevAvg, "test natijalari o'rtachasi"],
-      ["Uy vazifalari", "mavjud emas", null, "CRM'da modul yo'q"],
+      ["Jami talabalar", s.total, null, "hozir bazadagi barcha talabalar"],
+      ["Aktiv talabalar", s.active, null, "hozir o'qiyotganlar"],
+      ["Yangi talabalar", s.newInPeriod, s.newPrev, "shu davrda qo'shilganlar"],
+      ["Faol bo'lmagan talabalar", s.inactive.length, null, "muzlatilgan yoki darslarga umuman kelmayotganlar"],
+      ["O'qituvchilar", all.teachers.length, null, "mentorlar soni"],
+      ["Faol guruhlar", all.groups.filter((g) => !g.archived).length, null, "arxivga o'tkazilmagan guruhlar"],
+      ["O'tilgan darslar", all.lessons.held, all.prevLessons.held, "davomat belgilangan darslar"],
+      ["Jadval bo'yicha darslar", all.lessons.plannedPast, all.prevLessons.plannedPast, "guruh jadvali bo'yicha bo'lishi kerak bo'lgan darslar"],
+      ["Davomat belgilanmagan darslar", all.lessons.missed, all.prevLessons.missed, "kuni o'tgan, lekin mentor davomat qilmagan"],
+      ["Davomat %", all.att.pct, all.prevAtt.pct, "darslarga kelganlar ulushi"],
+      ["O'rtacha baho", all.grades.avg, all.grades.prevAvg, "qo'yilgan baholarning o'rtachasi (0–100)"],
+      ["Test o'rtacha %", all.tests.avg, all.tests.prevAvg, "topshirilgan testlar natijasi"],
     ];
-    rep.method = `Oldingi davr: ${all.prevRange.label}. Bo'sh katak — ma'lumot yetarli emas.`;
+    rep.method = `«Oldingi davr» — ${all.prevRange.label}. «—» belgisi: bu ko'rsatkich uchun ma'lumot yo'q.`;
   }
   return rep;
 }

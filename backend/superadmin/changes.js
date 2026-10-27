@@ -66,6 +66,40 @@ function diffMapKeys(prev, next) {
   return out;
 }
 
+/**
+ * Davomat jadvalida qaysi darslar o'zgarganini topadi:
+ * [{ groupId, year, month, lesson, marks: {K, Y, S} }] — faqat sonlar,
+ * talabalarning ismi yoki boshqa shaxsiy ma'lumot yozilmaydi.
+ */
+function attendanceLessons(prev, next, keys) {
+  const out = [];
+  for (const key of keys) {
+    const m = /^att_(\d+)_(\d{4})_(\d{1,2})$/.exec(key);
+    if (!m) continue;
+    const ns = (next && next[key]) || {};
+    const ps = (prev && prev[key]) || {};
+    for (let l = 1; l <= 31; l++) {
+      const lk = "l" + l;
+      const col = (sheet) =>
+        JSON.stringify(
+          Object.keys(sheet || {})
+            .sort()
+            .map((sid) => [sid, (sheet[sid] || {})[lk] || ""])
+            .filter((x) => x[1]),
+        );
+      if (col(ns) === col(ps)) continue;
+      const marks = { K: 0, Y: 0, S: 0 };
+      for (const row of Object.values(ns)) {
+        const v = row && row[lk];
+        if (v === "K" || v === "Y" || v === "S") marks[v]++;
+      }
+      out.push({ groupId: Number(m[1]), year: Number(m[2]), month: Number(m[3]), lesson: l, marks });
+      if (out.length >= 30) return out;
+    }
+  }
+  return out;
+}
+
 /** @returns {null | {sections, summary, ids}} */
 export function summarizeCrmChange(prev, next) {
   if (!next || typeof next !== "object") return null;
@@ -96,6 +130,9 @@ export function summarizeCrmChange(prev, next) {
     const keys = diffMapKeys(p[k], next[k]);
     if (!keys.length) continue;
     sections[k] = { changedItems: keys.length };
+    // Faoliyat tarixida «qaysi guruh, qaysi dars» va «kimga baho» ko'rinsin
+    if (k === "attendance") sections[k].lessons = attendanceLessons(p[k], next[k], keys);
+    if (k === "simpleGrades") sections[k].students = keys.slice(0, 40);
     if (k === "simpleGrades") for (const sid of keys.slice(0, 40)) ids.push("students:" + sid);
     if (k === "attendance")
       for (const key of keys.slice(0, 40)) {

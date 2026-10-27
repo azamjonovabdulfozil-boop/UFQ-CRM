@@ -2,59 +2,61 @@
   <div class="stack">
     <div class="page-head">
       <p>
-        Administratorlar ro'yxati, holati, oxirgi kirish vaqti va faol sessiyalari. Parol hech qachon ko'rsatilmaydi — tiklash uchun bir
-        martalik havola yaratiladi. Barcha amallar faoliyat tarixiga yoziladi.
+        Administratorlar ro'yxati: ism-familiyasi, holati va oxirgi kirish vaqti. Parol hech qachon ko'rsatilmaydi — tiklash uchun bir
+        martalik havola yaratiladi. Har bir admin nima qilgani «Faoliyat tarixi» bo'limida ko'rinadi.
       </p>
       <button class="btn pri" @click="newOpen = true"><Icon name="plus" :size="15" /> Yangi administrator</button>
     </div>
     <div class="card">
       <div class="card-b">
         <State :loading="loading && !d" :error="error" :retry="reload" :empty="d && !d.admins.length">
-          <div v-if="d" class="tw">
-            <table class="t">
-              <thead>
-                <tr><th>Login</th><th>Rol</th><th>Holat</th><th>2FA</th><th>Oxirgi kirish</th><th class="r">Sessiya</th><th class="r">Xato urinish</th><th>Cheklovlar</th><th></th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="a in d.admins" :key="a.id">
-                  <td><b>{{ a.username }}</b><div class="small muted">{{ a.name }}</div></td>
-                  <td><span class="badge" :class="a.isSuper ? 'b-acc' : 'b-mute'"><Icon v-if="a.isSuper" name="crown" :size="12" />{{ a.isSuper ? "Super Admin" : "Admin" }}</span></td>
-                  <td>
-                    <span class="badge" :class="a.status === 'disabled' ? 'b-bad' : 'b-good'">
-                      <Icon :name="a.status === 'disabled' ? 'lock' : 'check'" :size="12" />{{ a.status === "disabled" ? "Bloklangan" : "Faol" }}
-                    </span>
-                  </td>
-                  <td>{{ a.twoFactor ? "yoqilgan" : "—" }}</td>
-                  <td class="nowrap" :title="fmt.dt(a.lastLoginAt)">{{ fmt.ago(a.lastLoginAt) }}</td>
-                  <td class="r">{{ a.activeSessions }}</td>
-                  <td class="r" :class="{ down: a.failedAttempts >= 5 }">{{ a.failedAttempts }}</td>
-                  <td class="small">{{ restrictText(a) }}</td>
-                  <td>
-                    <div class="row" style="gap: 6px; flex-wrap: nowrap">
-                      <button class="btn sm" @click="openDetail(a)">Batafsil</button>
-                      <template v-if="!a.isSuper">
-                        <button class="btn sm" @click="perm = { a, mods: modsOf(a) }">Ruxsatlar</button>
-                        <button class="btn sm" @click="askReset = a">Parolni tiklash</button>
-                        <button class="btn sm" :class="a.status === 'disabled' ? '' : 'danger'" @click="askStatus = a">
-                          {{ a.status === "disabled" ? "Faollashtirish" : "Bloklash" }}
-                        </button>
-                      </template>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="d" class="admins">
+            <div v-for="a in d.admins" :key="a.id" class="adm" :class="{ off: a.status === 'disabled' }">
+              <div class="adm-top">
+                <span class="adm-av" :class="{ sup: a.isSuper }">{{ initials(a) }}</span>
+                <div class="adm-who">
+                  <b v-if="a.fullName">{{ a.fullName }}</b>
+                  <b v-else class="muted">Ism-familiya kiritilmagan</b>
+                  <span class="small muted">login: <span class="mono">{{ a.username }}</span></span>
+                </div>
+                <span class="badge" :class="a.isSuper ? 'b-acc' : 'b-mute'"><Icon v-if="a.isSuper" name="crown" :size="12" />{{ a.isSuper ? "Super Admin" : "Admin" }}</span>
+                <span class="badge" :class="a.status === 'disabled' ? 'b-bad' : 'b-good'">
+                  <Icon :name="a.status === 'disabled' ? 'lock' : 'check'" :size="12" />{{ a.status === "disabled" ? "Bloklangan" : "Faol" }}
+                </span>
+              </div>
+              <div class="adm-facts">
+                <span><Icon name="clock" :size="13" /> Oxirgi kirish: <b :title="fmt.dt(a.lastLoginAt)">{{ fmt.ago(a.lastLoginAt) }}</b></span>
+                <span>Ochiq qurilmalar: <b>{{ a.activeSessions }}</b></span>
+                <span :class="{ down: a.failedAttempts >= 5 }">Xato urinishlar: <b>{{ a.failedAttempts }}</b></span>
+                <span>2 bosqichli himoya: <b>{{ a.twoFactor ? "yoqilgan" : "yo'q" }}</b></span>
+                <span v-if="!a.isSuper">Cheklovlar: <b>{{ restrictText(a) }}</b></span>
+              </div>
+              <div class="adm-acts">
+                <button class="btn sm" @click="openDetail(a)"><Icon name="eye" :size="13" /> Batafsil</button>
+                <template v-if="!a.isSuper">
+                  <button class="btn sm" @click="openName(a)"><Icon name="edit" :size="13" /> Ism-familiya</button>
+                  <button class="btn sm" @click="perm = { a, mods: modsOf(a) }"><Icon name="key" :size="13" /> Ruxsatlar</button>
+                  <button class="btn sm" @click="askReset = a"><Icon name="lock" :size="13" /> Parolni tiklash</button>
+                  <span class="grow"></span>
+                  <button class="btn sm" :class="a.status === 'disabled' ? '' : 'danger'" @click="askStatus = a">
+                    {{ a.status === "disabled" ? "Faollashtirish" : "Bloklash" }}
+                  </button>
+                  <button class="btn sm danger" @click="askDelete = a"><Icon name="close" :size="13" /> O'chirish</button>
+                </template>
+              </div>
+            </div>
           </div>
         </State>
       </div>
     </div>
 
     <!-- Batafsil: sessiyalar va faoliyat -->
-    <Modal v-if="det" :title="det.a.username + ' — batafsil'" wide @close="det = null">
+    <Modal v-if="det" :title="(det.a.fullName || det.a.username) + ' — batafsil'" wide @close="det = null">
       <State :loading="det.loading" :error="det.err">
         <template v-if="det.data">
           <dl class="kv" style="margin-bottom: 14px">
-            <dt>Ism</dt><dd>{{ det.data.account.name }}</dd>
+            <dt>Ism familiya</dt><dd>{{ det.a.fullName || "kiritilmagan" }}</dd>
+            <dt>Login</dt><dd class="mono">{{ det.data.account.username }}</dd>
             <dt>Rol</dt><dd>{{ det.data.account.isSuper ? "Super Admin" : "Admin" }}</dd>
             <dt>Yaratilgan</dt><dd>{{ fmt.dt(det.data.account.createdAt) }}</dd>
             <dt>Oxirgi kirish</dt><dd>{{ fmt.dt(det.data.account.lastLoginAt) }}</dd>
@@ -133,11 +135,39 @@
       </template>
     </Modal>
 
+    <!-- Ism-familiyani o'zgartirish -->
+    <Modal v-if="nameEdit" :title="nameEdit.a.username + ' — ism familiya'" @close="nameEdit = null">
+      <div class="stack">
+        <label class="fld">Ism<input v-model="nameEdit.firstName" class="inp" autocomplete="off" /></label>
+        <label class="fld">Familiya<input v-model="nameEdit.lastName" class="inp" autocomplete="off" /></label>
+        <div class="note">Ism-familiya «Faoliyat tarixi» va hisobotlarda shu admin nomi bilan ko'rinadi (eski yozuvlarda ham).</div>
+      </div>
+      <template #foot>
+        <button class="btn" @click="nameEdit = null">Bekor qilish</button>
+        <button class="btn pri" :disabled="busy || nameEdit.firstName.trim().length < 2 || nameEdit.lastName.trim().length < 2" @click="saveName">Saqlash</button>
+      </template>
+    </Modal>
+
+    <!-- O'chirish -->
+    <ReauthDialog
+      v-if="askDelete"
+      title="Administratorni o'chirish"
+      ok-text="Butunlay o'chirish"
+      danger
+      confirm-word="O'CHIRISH"
+      :need-otp="!!me?.twoFactor"
+      :warning="`${askDelete.fullName || askDelete.username} (login: ${askDelete.username}) butunlay o'chiriladi: u endi tizimga kira olmaydi, ochiq sessiyalari darhol yopiladi. Uning faoliyat tarixi saqlanib qoladi. Buni qaytarib bo'lmaydi.`"
+      :action="doDelete"
+      @close="askDelete = null"
+      @done="afterDelete"
+    />
+
     <!-- Yangi admin -->
     <Modal v-if="newOpen" title="Yangi administrator" @close="closeNew">
       <div v-if="!created" class="stack">
-        <label class="fld">Login<input v-model="nu.username" class="inp" placeholder="masalan: admin2" autocomplete="off" /></label>
-        <label class="fld">Ism<input v-model="nu.name" class="inp" placeholder="Ism Familiya" /></label>
+        <label class="fld">Ism<input v-model="nu.firstName" class="inp" placeholder="masalan: Aziz" autocomplete="off" /></label>
+        <label class="fld">Familiya<input v-model="nu.lastName" class="inp" placeholder="masalan: Karimov" autocomplete="off" /></label>
+        <label class="fld">Login (kirish uchun)<input v-model="nu.username" class="inp" placeholder="masalan: aziz" autocomplete="off" /></label>
         <div class="note">Parolni administratorning o'zi bir martalik havola orqali o'rnatadi — hech kim uni bilmaydi.</div>
       </div>
       <div v-else class="stack">
@@ -146,7 +176,7 @@
       </div>
       <template #foot>
         <button class="btn" @click="closeNew">Yopish</button>
-        <button v-if="!created" class="btn pri" :disabled="busy || !nu.username" @click="createAdmin">Yaratish</button>
+        <button v-if="!created" class="btn pri" :disabled="busy || !nu.username.trim() || nu.firstName.trim().length < 2 || nu.lastName.trim().length < 2" @click="createAdmin">Yaratish</button>
         <button v-else class="btn pri" @click="copy(created.url)"><Icon name="copy" :size="14" /> Nusxa olish</button>
       </template>
     </Modal>
@@ -154,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from "vue";
+import { ref, reactive, computed } from "vue";
 import { api, portalUrl } from "../api.js";
 import { fmt, toast } from "../store.js";
 import { useLoad } from "../useLoad.js";
@@ -162,8 +192,51 @@ import State from "../components/State.vue";
 import Modal from "../components/Modal.vue";
 import DataTable from "../components/DataTable.vue";
 import Icon from "../components/Icon.vue";
+import ReauthDialog from "../components/ReauthDialog.vue";
 
 const { data: d, loading, error, reload } = useLoad(() => api("/api/super/admins"));
+function initials(a) {
+  const p = String(a.fullName || a.username || "?").trim().split(/s+/);
+  return ((p[0] || "")[0] || "?").toUpperCase() + ((p[1] || "")[0] || "").toUpperCase();
+}
+const me = computed(() => (d.value ? d.value.admins.find((a) => a.self) : null));
+
+// Ism-familiya
+const nameEdit = ref(null);
+function openName(a) {
+  const parts = String(a.fullName || "").split(" ");
+  nameEdit.value = { a, firstName: a.firstName || parts[0] || "", lastName: a.lastName || parts.slice(1).join(" ") || "" };
+}
+async function saveName() {
+  busy.value = true;
+  try {
+    await api(`/api/super/admins/${nameEdit.value.a.id}/profile`, {
+      method: "POST",
+      body: { firstName: nameEdit.value.firstName.trim(), lastName: nameEdit.value.lastName.trim() },
+    });
+    toast("Ism-familiya saqlandi");
+    nameEdit.value = null;
+    reload();
+  } catch (e) {
+    toast(e.message, "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+// O'chirish (Super Admin paroli bilan tasdiqlanadi)
+const askDelete = ref(null);
+async function doDelete({ password, otp }) {
+  return api(`/api/super/admins/${askDelete.value.id}/delete`, {
+    method: "POST",
+    body: { password, otp, confirm: askDelete.value.username },
+  });
+}
+function afterDelete() {
+  toast("Administrator o'chirildi");
+  askDelete.value = null;
+  reload();
+}
 const busy = ref(false);
 const actCols = [
   { key: "at", label: "Vaqt", fmt: (v) => fmt.dt(v), nowrap: true }, { key: "category", label: "Toifa" }, { key: "text", label: "Amal" },
@@ -260,7 +333,7 @@ function closeReset() {
 }
 
 const newOpen = ref(false);
-const nu = reactive({ username: "", name: "" });
+const nu = reactive({ username: "", firstName: "", lastName: "" });
 const created = ref(null);
 async function createAdmin() {
   busy.value = true;
@@ -277,7 +350,7 @@ async function createAdmin() {
 function closeNew() {
   newOpen.value = false;
   created.value = null;
-  nu.username = nu.name = "";
+  nu.username = nu.firstName = nu.lastName = "";
 }
 async function copy(t) {
   try {
@@ -290,5 +363,16 @@ async function copy(t) {
 </script>
 
 <style scoped>
+.admins { display: grid; gap: 12px; }
+.adm { border: 1px solid var(--border); border-radius: var(--r); background: var(--surface-2); padding: 14px; display: grid; gap: 12px; }
+.adm.off { opacity: 0.85; }
+.adm-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adm-who { flex: 1; min-width: 160px; display: grid; }
+.adm-av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: var(--info); flex-shrink: 0; }
+.adm-av.sup { background: var(--accent); }
+.adm-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--text-2); }
+.adm-facts span { display: inline-flex; align-items: center; gap: 5px; }
+.adm-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; }
+.grow { flex: 1; }
 .linkbox { padding: 10px 12px; border: 1px solid var(--border-2); border-radius: 9px; background: var(--surface-2); word-break: break-all; user-select: all; }
 </style>

@@ -32,6 +32,8 @@ import {
 import { buildReport, REPORTS, reportFileName } from "./reports.js";
 import { render, MIME } from "./exporters.js";
 import { summarizeCrmChange, LESSON_MARKS_COL } from "./changes.js";
+import { describeEvent, deviceText, kindOf, crmLookups, ROLE_TEXT, STAFF_ROLES } from "./activityView.js";
+import { DELETED_ACCOUNTS_DOC } from "../security/bootstrap.js";
 import { parseRange, prevRange, todayIn, dayOf, escRe, maskPhone, clip, addDays, dayStartUtc } from "./util.js";
 
 const eld = monitorEventLoopDelay({ resolution: 20 });
@@ -85,6 +87,8 @@ const EVENT_TEXT = {
   "super.branding.update": "CRM nomi/logotipi o'zgartirildi",
   "super.admin.status": "Administrator holati o'zgartirildi",
   "super.admin.create": "Yangi administrator yaratildi",
+  "super.admin.delete": "Administrator o'chirildi",
+  "super.admin.profile": "Administrator ism-familiyasi o'zgartirildi",
   "super.admin.restrictions": "Administrator ruxsatlari o'zgartirildi",
   "super.admin.reset_link": "Parolni tiklash havolasi yaratildi",
   "super.admin.sessions_revoked": "Administrator sessiyalari bekor qilindi",
@@ -862,6 +866,9 @@ export function createSuperRouter(deps) {
         modules: MODULES.map((m) => ({ key: m.key, label: m.label })),
         admins: accs.map((a) => ({
           ...sec.publicView(a),
+          firstName: a.firstName || "",
+          lastName: a.lastName || "",
+          fullName: displayName(a),
           failedAttempts: a.failedAttempts || 0,
           lastFailedAt: a.lastFailedAt || null,
           restrictions: a.restrictions || null,
@@ -876,17 +883,50 @@ export function createSuperRouter(deps) {
     }
   });
 
+  /** Ism yoki familiya: harflar, bo'sh joy, apostrof, chiziqcha (2–40 belgi). */
+  function personName(v) {
+    const x = String(v || "").replace(/\s+/g, " ").trim();
+    if (x.length < 2 || x.length > 40) return null;
+    if (!/^[\p{L}][\p{L}\p{M}' ʻʼ‘’`.-]*$/u.test(x)) return null;
+    return x;
+  }
+  function namesFrom(body) {
+    let first = personName(body?.firstName);
+    let last = personName(body?.lastName);
+    // Eski mijozlar (va AI) faqat "name" yuborishi mumkin: "Ism Familiya"
+    if ((!first || !last) && body?.name) {
+      const parts = String(body.name).replace(/\s+/g, " ").trim().split(" ");
+      first = first || personName(parts[0]);
+      last = last || personName(parts.slice(1).join(" "));
+    }
+    return first && last ? { first, last } : null;
+  }
+  async function forgetDeleted(username) {
+    await db()
+      .collection("system_settings")
+      .updateOne({ _id: DELETED_ACCOUNTS_DOC }, { $unset: { ["usernames." + username]: "" } })
+      .catch(() => {});
+  }
+
   r.post("/api/super/admins", S, sensitiveLimiter, async (req, res) => {
     const username = sec.safeUsername(req.body?.username);
     if (!username) return res.status(400).json({ ok: false, error: "Login yaroqsiz (3–64 belgi: a-z 0-9 . _ - @ +)" });
+    const nm = namesFrom(req.body);
+    if (!nm) return res.status(400).json({ ok: false, error: "Ism va familiyani kiriting (har biri 2–40 harf)" });
     if (await db().collection(sec.ACCOUNTS_COL).findOne({ username }))
       return res.status(400).json({ ok: false, error: "Bu login band" });
     // Vaqtinchalik tasodifiy parol hech kimga ko'rsatilmaydi — admin parolini
     // bir martalik havola orqali o'zi o'rnatadi.
-    const out = await sec.upsertAccount({ username, role: "admin", name: clip(req.body?.name || username, 120), password: sec.randomToken(24) });
+    const name = clip(nm.first + " " + nm.last, 120);
+    const out = await sec.upsertAccount({ username, role: "admin", name, password: sec.randomToken(24) });
     if (!out.ok) return res.status(400).json(out);
+    await db()
+      .collection(sec.ACCOUNTS_COL)
+      .updateOne({ _id: out.account._id }, { $set: { firstName: nm.first, lastName: nm.last } });
+    // Shu login avval o'chirilgan bo'lsa — endi qayta ishlatilmoqda
+    await forgetDeleted(username);
     const link = await makeResetLink(out.account, req);
-    await audit("super.admin.create", { req, actor: req.user, target: { username }, severity: "warn" });
+    await audit("super.admin.create", { req, actor: req.user, target: { username, name }, severity: "warn" });
     res.json({ ok: true, account: sec.publicView(out.account), reset: link });
   });
 
@@ -915,6 +955,52 @@ export function createSuperRouter(deps) {
       sessions: await sec.listSessions(String(acc._id)),
       activity: activity.map((e) => ({ at: e.at, event: e.event, text: eventText(e), category: categoryOf(e.event), ip: e.ip, severity: e.severity })),
     });
+  });
+
+  r.post("/api/super/admins/:id/profile", S, async (req, res) => {
+    const acc = await targetAdmin(req, res);
+    if (!acc) return;
+    const nm = namesFrom(req.body);
+    if (!nm) return res.status(400).json({ ok: false, error: "Ism va familiyani kiriting (har biri 2–40 harf)" });
+    const name = clip(nm.first + " " + nm.last, 120);
+    await db()
+      .collection(sec.ACCOUNTS_COL)
+      .updateOne({ _id: acc._id }, { $set: { firstName: nm.first, lastName: nm.last, name, updatedAt: new Date() } });
+    sec.invalidateAccount(String(acc._id), acc.username);
+    await audit("super.admin.profile", { req, actor: req.user, target: { username: acc.username, name } });
+    res.json({ ok: true, name });
+  });
+
+  /**
+   * Administratorni BUTUNLAY o'chirish. Xavfli amal — Super Admin paroli
+   * bilan qayta tasdiqlanadi. Hisob va sessiyalari o'chadi; faoliyat tarixi
+   * (jurnal) saqlanib qoladi va unda ism-familiya ko'rinishda davom etadi.
+   * Login «o'chirilganlar» ro'yxatiga yoziladi — server qayta ishga tushganda
+   * ENV yoki boshlang'ich admin qoidasi uni qayta yaratib qo'ymaydi.
+   */
+  r.post("/api/super/admins/:id/delete", S, sensitiveLimiter, async (req, res) => {
+    const acc = await targetAdmin(req, res);
+    if (!acc) return;
+    if (acc.role === "superadmin" || String(acc._id) === req.user.sub)
+      return res.status(400).json({ ok: false, error: "Super Admin hisobini o'chirib bo'lmaydi" });
+    if (String(req.body?.confirm || "").trim().toLowerCase() !== acc.username)
+      return res.status(400).json({ ok: false, error: "Tasdiqlash uchun administrator loginini aynan yozing" });
+    if (!(await reauth(req, res))) return;
+    const id = String(acc._id);
+    const name = displayName(acc);
+    await sec.revokeAllForAccount(id, "super-deleted").catch(() => 0);
+    await sec.bumpTokenVersion(id).catch(() => {});
+    await db()
+      .collection("system_settings")
+      .updateOne(
+        { _id: DELETED_ACCOUNTS_DOC },
+        { $set: { ["usernames." + acc.username]: { id, name, role: acc.role, at: new Date(), by: req.user.username } } },
+        { upsert: true },
+      );
+    await db().collection(sec.ACCOUNTS_COL).deleteOne({ _id: acc._id });
+    sec.invalidateAccount(id, acc.username);
+    await audit("super.admin.delete", { req, actor: req.user, target: { username: acc.username, name }, severity: "critical" });
+    res.json({ ok: true });
   });
 
   r.post("/api/super/admins/:id/status", S, async (req, res) => {
@@ -1148,16 +1234,121 @@ export function createSuperRouter(deps) {
     }
   };
 
+  // ── Xodimlar ma'lumotnomasi: hisob id / login → ism, rol ─────────────────
+  // Jurnalda faqat login turadi. Ism-familiya hisobdan olinadi — admin keyin
+  // ism kiritsa ham eski yozuvlarda to'g'ri ism ko'rinadi. O'chirilgan
+  // administratorlar nomi `deleted_accounts` dan olinadi.
+  const PLACEHOLDER_NAMES = new Set(["administrator", "admin", ""]);
+  function displayName(acc) {
+    const n = String(acc?.name || "").trim();
+    if (!n || PLACEHOLDER_NAMES.has(n.toLowerCase()) || n === acc?.username) return "";
+    return n.split(" — ")[0];
+  }
+  async function staffDirectory() {
+    const accs = await db()
+      .collection(sec.ACCOUNTS_COL)
+      .find({}, { projection: { username: 1, name: 1, role: 1, status: 1, lastLoginAt: 1, mentorName: 1, studentName: 1 } })
+      .toArray();
+    const byId = new Map();
+    const byName = new Map();
+    for (const a of accs) {
+      const p = {
+        id: String(a._id),
+        username: a.username,
+        name: displayName(a) || (a.role === "mentor" && a.mentorName) || (a.role === "student" && String(a.studentName || "").split(" — ")[0]) || "",
+        role: a.role,
+        roleText: ROLE_TEXT[a.role] || a.role,
+        status: a.status || "active",
+        lastLoginAt: a.lastLoginAt || null,
+        deleted: false,
+      };
+      byId.set(p.id, p);
+      byName.set(p.username, p);
+    }
+    const tomb = await db().collection("system_settings").findOne({ _id: DELETED_ACCOUNTS_DOC }).catch(() => null);
+    for (const [username, t] of Object.entries(tomb?.usernames || {})) {
+      if (byName.has(username)) continue;
+      const role = (t && t.role) || "admin";
+      const p = { id: (t && t.id) || "", username, name: (t && t.name) || "", role, roleText: ROLE_TEXT[role] || role, status: "deleted", lastLoginAt: null, deleted: true };
+      byName.set(username, p);
+      if (p.id) byId.set(p.id, p);
+    }
+    return {
+      byId,
+      byName,
+      person(e) {
+        const p = (e.actorId && byId.get(String(e.actorId))) || (e.actorName && byName.get(e.actorName));
+        if (p) return p;
+        if (!e.actorName && !e.actorRole) return { id: "", username: "", name: "Tizim", role: "system", roleText: "Tizim", deleted: false };
+        return { id: e.actorId || "", username: e.actorName || "", name: "", role: e.actorRole || "", roleText: ROLE_TEXT[e.actorRole] || e.actorRole || "", deleted: false };
+      },
+      nameOf(username) {
+        const p = byName.get(username);
+        return p ? (p.name ? `${p.name} (${p.username})` : p.username) : username;
+      },
+    };
+  }
+  async function crmNames() {
+    const D = (await db().collection("crm_data").findOne({ _type: "main" }, { projection: { groups: 1, students: 1 } })) || {};
+    return crmLookups(D);
+  }
+  function viewEvent(e, dir, lookups) {
+    const d = describeEvent(e, { lookups, nameOf: dir.nameOf, fallback: eventText });
+    const p = dir.person(e);
+    return {
+      id: String(e._id),
+      at: e.at,
+      kind: kindOf(e.event),
+      title: d.title,
+      details: d.details,
+      person: { id: p.id, name: p.name, username: p.username || e.actorName || "", role: p.role, roleText: p.roleText, deleted: !!p.deleted },
+      ip: e.ip || "",
+      device: deviceText(e.ua),
+      severity: e.severity,
+      event: e.event,
+      category: categoryOf(e.event),
+    };
+  }
+  /** scope: staff (admin + mentor, standart) | admin | mentor | all */
+  function scopeRoles(scope) {
+    if (scope === "admin") return ["admin"];
+    if (scope === "mentor") return ["mentor"];
+    if (scope === "all") return null;
+    return STAFF_ROLES;
+  }
+  const LOGIN_EVENTS = ["auth.login.success", "auth.logout", "auth.login.failed", "auth.revoke_all"];
+  const KIND_MATCH = {
+    login: { event: { $in: LOGIN_EVENTS } },
+    data: {
+      event: {
+        $in: [
+          "data.change", "admin.accounts.sync", "admin.accounts.remove", "admin.accounts.rename", "admin.account.upsert",
+          "admin.account.status", "admin.account.delete", "settings.change", "blob.delete", "notify.sms", "report.export",
+        ],
+      },
+    },
+    warn: { severity: { $in: ["warn", "critical"] } },
+  };
+
   r.get("/api/super/activity", S, async (req, res) => {
     try {
       const tz = (await getSettings()).general.timezone;
       const { match, from, to } = await activityQuery(req.query, tz);
-      const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+      const roles = scopeRoles(String(req.query.scope || "staff"));
+      if (roles && !match.actorRole) match.actorRole = { $in: roles };
+      const personId = sec.safeObjectIdHex(req.query.person);
+      if (personId) match.actorId = personId;
+      const kind = KIND_MATCH[String(req.query.kind || "")];
+      if (kind) Object.assign(match, kind);
+      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 200);
       const page = Math.max(Number(req.query.page) || 1, 1);
       const col = db().collection("security_audit");
-      const [total, events, byDay, byEvent, byActor] = await Promise.all([
+      // Xodimlar kartochkalari uchun — tanlangan shaxs va tur filtrisiz (faqat davr va rol)
+      const peopleMatch = { at: match.at, actorId: { $ne: null } };
+      if (roles) peopleMatch.actorRole = { $in: roles };
+      const [total, events, byDay, stats, dir, lookups] = await Promise.all([
         col.countDocuments(match),
-        col.find(match, { projection: { ua: 0 } }).sort({ at: -1 }).skip((page - 1) * limit).limit(limit).toArray(),
+        col.find(match).sort({ at: -1 }).skip((page - 1) * limit).limit(limit).toArray(),
         col
           .aggregate([
             { $match: match },
@@ -1171,35 +1362,118 @@ export function createSuperRouter(deps) {
             { $sort: { _id: 1 } },
           ])
           .toArray(),
-        col.aggregate([{ $match: match }, { $group: { _id: "$event", n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 40 }]).toArray(),
         col
           .aggregate([
-            { $match: { ...match, actorName: { $ne: null } } },
-            { $group: { _id: { name: "$actorName", role: "$actorRole" }, n: { $sum: 1 }, last: { $max: "$at" } } },
-            { $sort: { n: -1 } },
-            { $limit: 15 },
+            { $match: peopleMatch },
+            { $sort: { at: 1 } },
+            {
+              $group: {
+                _id: "$actorId",
+                n: { $sum: 1 },
+                logins: { $sum: { $cond: [{ $eq: ["$event", "auth.login.success"] }, 1, 0] } },
+                failed: { $sum: { $cond: [{ $eq: ["$event", "auth.login.failed"] }, 1, 0] } },
+                changes: { $sum: { $cond: [{ $eq: ["$event", "data.change"] }, 1, 0] } },
+                actions: { $sum: { $cond: [{ $in: ["$event", LOGIN_EVENTS] }, 0, 1] } },
+                lastLogin: { $max: { $cond: [{ $eq: ["$event", "auth.login.success"] }, "$at", null] } },
+                lastAt: { $max: "$at" },
+                name: { $last: "$actorName" },
+                role: { $last: "$actorRole" },
+              },
+            },
           ])
           .toArray(),
+        staffDirectory(),
+        crmNames(),
       ]);
-      const categories = {};
-      for (const e of byEvent) categories[categoryOf(e._id)] = (categories[categoryOf(e._id)] || 0) + e.n;
+      // Faol sessiyalar — hozir kim tizimda
+      const ids = [...dir.byId.values()].filter((p) => !p.deleted && (!roles || roles.includes(p.role))).map((p) => p.id);
+      const sess = await db()
+        .collection("auth_sessions")
+        .aggregate([
+          { $match: { accountId: { $in: ids }, revokedAt: null, usedAt: null, expiresAt: { $gt: new Date() } } },
+          { $group: { _id: "$accountId", n: { $sum: 1 }, last: { $max: "$lastUsedAt" } } },
+        ])
+        .toArray()
+        .catch(() => []);
+      const sm = new Map(sess.map((s) => [s._id, s]));
+      const st = new Map(stats.map((s) => [String(s._id), s]));
+      const people = [];
+      const seen = new Set();
+      const allowed = roles || ["admin", "mentor", "superadmin"];
+      for (const p of dir.byId.values()) {
+        if (p.deleted || !allowed.includes(p.role)) continue;
+        const s = st.get(p.id) || {};
+        seen.add(p.id);
+        people.push({
+          ...p,
+          events: s.n || 0, logins: s.logins || 0, failed: s.failed || 0, changes: s.changes || 0, actions: s.actions || 0,
+          lastLoginInRange: s.lastLogin || null, lastAt: s.lastAt || null,
+          activeSessions: sm.get(p.id)?.n || 0, lastSeen: sm.get(p.id)?.last || null,
+        });
+      }
+      // O'chirilgan, lekin shu davrda harakati bo'lgan xodimlar
+      for (const s of stats) {
+        const id = String(s._id);
+        if (seen.has(id) || !allowed.includes(s.role)) continue;
+        const p = dir.byId.get(id) || dir.byName.get(s.name);
+        // Hisob bor, faqat roli o'zgargan (masalan Super Admin'ga ko'tarilgan) — o'chirilgan emas
+        if (p && !p.deleted) continue;
+        people.push({
+          ...(p || { id, username: s.name || "", name: "", role: s.role, roleText: ROLE_TEXT[s.role] || s.role, status: "deleted" }),
+          id,
+          deleted: true,
+          events: s.n, logins: s.logins, failed: s.failed, changes: s.changes, actions: s.actions,
+          lastLoginInRange: s.lastLogin || null, lastAt: s.lastAt || null, activeSessions: 0, lastSeen: null,
+        });
+      }
+      const ord = { admin: 0, mentor: 1, superadmin: 2 };
+      people.sort(
+        (a, b) =>
+          (a.deleted ? 1 : 0) - (b.deleted ? 1 : 0) ||
+          (ord[a.role] ?? 9) - (ord[b.role] ?? 9) ||
+          (b.events || 0) - (a.events || 0) ||
+          String(a.name || a.username).localeCompare(String(b.name || b.username)),
+      );
       res.json({
         ok: true,
         from, to, total, page, limit,
-        categoryList: CATEGORIES.map((c) => c[0]),
-        events: events.map((e) => ({
-          id: String(e._id), at: e.at, event: e.event, text: eventText(e), category: categoryOf(e.event), severity: e.severity,
-          result: e.severity === "info" ? "muvaffaqiyatli" : e.event.includes("denied") || e.event.includes("failed") ? "rad etilgan" : "ogohlantirish",
-          actor: e.actorName, role: e.actorRole, ip: e.ip, path: e.path, method: e.method, target: e.target, meta: e.meta,
-        })),
+        people,
+        events: events.map((e) => viewEvent(e, dir, lookups)),
         byDay: byDay.map((d) => ({ day: d._id, n: d.n, warn: d.warn })),
-        byEvent: byEvent.map((e) => ({ event: e._id, text: EVENT_TEXT[e._id] || e._id, category: categoryOf(e._id), n: e.n })),
-        byActor: byActor.map((a) => ({ name: a._id.name, role: a._id.role, n: a.n, last: a.last })),
-        categories,
         retentionDays: sec.CONFIG.auditRetentionDays,
       });
     } catch (e) {
       fail(res, e, "Jurnal o'qilmadi");
+    }
+  });
+
+  // Bitta xodim: qachon kirgan (soat, qurilma, IP), hozir qaysi qurilmalarda ochiq va nima qilgan
+  r.get("/api/super/activity/person/:id", S, async (req, res) => {
+    try {
+      const id = sec.safeObjectIdHex(req.params.id);
+      if (!id) return res.status(400).json({ ok: false, error: "Noto'g'ri id" });
+      const tz = (await getSettings()).general.timezone;
+      const { from, to } = await activityQuery(req.query, tz);
+      const [dir, lookups] = await Promise.all([staffDirectory(), crmNames()]);
+      const p = dir.byId.get(id) || { id, username: "", name: "", role: "", roleText: "", deleted: true };
+      const col = db().collection("security_audit");
+      const base = { actorId: id, at: { $gte: from, $lte: to } };
+      const [logins, actions, sessions] = await Promise.all([
+        col.find({ ...base, event: { $in: LOGIN_EVENTS } }).sort({ at: -1 }).limit(200).toArray(),
+        col.find({ ...base, event: { $nin: LOGIN_EVENTS } }).sort({ at: -1 }).limit(300).toArray(),
+        p.deleted ? [] : sec.listSessions(id),
+      ]);
+      if (!p.username && (logins[0] || actions[0])) p.username = (logins[0] || actions[0]).actorName || "";
+      res.json({
+        ok: true,
+        from, to,
+        person: p,
+        logins: logins.map((e) => viewEvent(e, dir, lookups)),
+        actions: actions.map((e) => viewEvent(e, dir, lookups)),
+        sessions: sessions.map((s) => ({ id: s.id, createdAt: s.createdAt, lastUsedAt: s.lastUsedAt, ip: s.ip, device: deviceText(s.ua) })),
+      });
+    } catch (e) {
+      fail(res, e, "Ma'lumot o'qilmadi");
     }
   });
 
@@ -1221,11 +1495,25 @@ export function createSuperRouter(deps) {
           { from: dayStartUtc(L.range.from, L.tz).toISOString(), to: new Date(dayStartUtc(addDays(L.range.to, 1), L.tz).getTime() - 1).toISOString() },
           L.tz,
         );
-        match.actorRole = { $in: ["admin", "superadmin"] };
-        const ev = await db().collection("security_audit").find(match, { projection: { ua: 0 } }).sort({ at: -1 }).limit(5000).toArray();
-        extra.activity = ev.map((e) => ({
-          atText: fmtAt(e.at, L.tz), actor: e.actorName, role: e.actorRole, event: e.event, category: categoryOf(e.event), text: eventText(e), severity: e.severity, ip: e.ip,
-        }));
+        match.actorRole = { $in: STAFF_ROLES };
+        const [ev, dir, lookups] = await Promise.all([
+          db().collection("security_audit").find(match).sort({ at: -1 }).limit(5000).toArray(),
+          staffDirectory(),
+          crmNames(),
+        ]);
+        extra.activity = ev.map((e) => {
+          const v = viewEvent(e, dir, lookups);
+          return {
+            atText: fmtAt(e.at, L.tz),
+            name: v.person.name || "—",
+            login: v.person.username,
+            role: v.person.roleText,
+            text: [v.title, ...v.details].join("; "),
+            ok: v.kind !== "warn",
+            ip: v.ip,
+            device: v.device,
+          };
+        });
       }
       if (kind === "system") {
         const m = await systemSnapshot();
