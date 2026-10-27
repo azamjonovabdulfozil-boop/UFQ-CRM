@@ -1954,33 +1954,45 @@ async function crmNameHints() {
 }
 
 /**
- * WAV (PCM 16-bit) ovozining tavsifi: balandlik (rms) va nol kesishish ulushi (zcr).
- * Jimlik — rms juda past; oq shovqin — zcr juda yuqori (nutqda ~0.05–0.2).
- * null — WAV emas (tekshirib bo'lmaydi).
+ * WAV (PCM 16-bit) ichida nutq bormi: 20 ms bo'laklarga bo'lib, fon shovqinidan
+ * aniq baland bo'laklar («ovozli» qism) necha soniya ekanini hisoblaydi.
+ * Pauza va mikrofon shovqini nutqni rad ettirmaydi — faqat butunlay jim yozuv
+ * (ovozli qism 0.25 s dan kam) rad etiladi. null — WAV emas (tekshirilmaydi).
  */
-function wavStats(buf) {
+function wavVoiced(buf) {
   if (buf.length < 64 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") return null;
   let off = 12;
   let bits = 16;
+  let rate = 16000;
+  let ch = 1;
   while (off + 8 <= buf.length) {
     const id = buf.toString("ascii", off, off + 4);
     const size = buf.readUInt32LE(off + 4);
-    if (id === "fmt ") bits = buf.readUInt16LE(off + 22);
+    if (id === "fmt ") {
+      ch = buf.readUInt16LE(off + 10) || 1;
+      rate = buf.readUInt32LE(off + 12) || 16000;
+      bits = buf.readUInt16LE(off + 22);
+    }
     if (id === "data") {
       if (bits !== 16) return null;
       const end = Math.min(buf.length, off + 8 + size);
-      let sum = 0;
-      let n = 0;
-      let zc = 0;
-      let prev = 0;
-      for (let i = off + 8; i + 1 < end; i += 2) {
-        const x = buf.readInt16LE(i) / 32768;
-        sum += x * x;
-        if ((x >= 0) !== (prev >= 0) && Math.abs(x - prev) > 0.002) zc++;
-        prev = x;
-        n++;
+      const frame = Math.max(1, Math.round(rate * 0.02)) * 2 * ch;
+      const rms = [];
+      for (let i = off + 8; i + frame <= end; i += frame) {
+        let sum = 0;
+        for (let j = i; j + 1 < i + frame; j += 2) {
+          const x = buf.readInt16LE(j) / 32768;
+          sum += x * x;
+        }
+        rms.push(Math.sqrt(sum / (frame / 2)));
       }
-      return n ? { rms: Math.sqrt(sum / n), zcr: zc / n } : { rms: 0, zcr: 0 };
+      if (!rms.length) return { voicedSec: 0, peak: 0 };
+      const sorted = rms.slice().sort((x, y) => x - y);
+      const floor = sorted[Math.floor(sorted.length * 0.1)];
+      const peak = sorted[sorted.length - 1];
+      const thr = Math.max(0.01, floor * 2.5);
+      const voiced = rms.filter((v) => v > thr).length;
+      return { voicedSec: voiced * 0.02, peak };
     }
     off += 8 + size + (size % 2);
   }
@@ -1992,42 +2004,104 @@ function isPromptEcho(t, prompt) {
   const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9Ѐ-ӿ]+/g, " ").trim();
   const a = norm(t);
   if (!a) return true;
-  if (/uchrashi mumkin|lotin yozuvida|rus tili aralash|so.zma.so.z aniq/.test(a)) return true;
-  return a.length > 12 && norm(prompt).includes(a);
+  if (/uchrashi mumkin bo.lgan nomlar|lotin yozuvida.*so.zma.so.z|ba.zan rus tili aralash/.test(a)) return true;
+  return a.length > 40 && norm(prompt).includes(a);
+}
+
+/** Zaxira yo'l: Google Gemini'ning o'zi (GEMINI_API_KEY) ovozni matnga aylantiradi. */
+async function transcribeGemini(f, prompt) {
+  const key = String(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+  if (!key || key.includes("your_")) return "";
+  const mime = String(f.mime || "audio/wav").split(";")[0];
+  const models = [...new Set([process.env.GEMINI_STT_MODEL, "gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"].filter(Boolean))];
+  for (const model of models) {
+    try {
+      const r = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { inline_data: { mime_type: mime, data: f.data } },
+                  {
+                    text:
+                      prompt +
+                      " Faqat aytilgan gaplarning o'zini qaytar — izoh, tarjima, qo'shtirnoq yoki sarlavha qo'shma. " +
+                      "Agar yozuvda umuman nutq bo'lmasa, faqat NO_SPEECH deb yoz.",
+                  },
+                ],
+              },
+            ],
+            generationConfig: { temperature: 0 },
+          }),
+        },
+        45000,
+      );
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        console.warn("⚠️  [stt] gemini " + model + ": HTTP " + r.status + " " + String(d?.error?.message || "").slice(0, 160));
+        continue;
+      }
+      const t = String(d.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "").trim();
+      if (/^NO_SPEECH.?$/i.test(t)) return "";
+      if (t && !isPromptEcho(t, prompt)) return t.slice(0, 8000);
+    } catch (e) {
+      console.warn("⚠️  [stt] gemini " + model + ":", e?.message);
+    }
+  }
+  return "";
 }
 
 async function transcribeAudio(f, hints) {
-  if (!lovableReady()) return "";
-  // Jimlik: ovozda gap yo'q — modelga yubormaymiz (u matn o'ylab topishi mumkin)
-  const st = wavStats(Buffer.from(f.data, "base64"));
-  if (st && (st.rms < 0.004 || st.zcr > 0.35)) return "";
+  // Butunlay jim yozuv — modelga yubormaymiz (u matn o'ylab topishi mumkin)
+  const st = wavVoiced(Buffer.from(f.data, "base64"));
+  if (st && st.voicedSec < 0.25) {
+    console.warn("⚠️  [stt] ovozda nutq yo'q (ovozli qism " + st.voicedSec.toFixed(2) + " s, cho'qqi " + st.peak.toFixed(3) + ")");
+    return "";
+  }
   // CRM'dagi nomlar (guruh, mentor, talaba) — model ularni to'g'ri yozsin
   const hintText = Array.isArray(hints) && hints.length
     ? " Uchrashi mumkin bo'lgan nomlar: " + hints.join(", ").slice(0, 700) + "."
     : "";
+  const prompt = "O'zbek tilidagi (ba'zan rus tili aralash) nutq. O'zbek lotin yozuvida, so'zma-so'z aniq yozing." + hintText;
   const buf = Buffer.from(f.data, "base64");
-  const ext = f.format === "mpeg" ? "mp3" : f.format || "wav";
-  for (const model of [process.env.LOVABLE_STT_MODEL, "google/gemini-3.5-transcribe", "openai/gpt-4o-transcribe"].filter(Boolean)) {
-    try {
-      const fd = new FormData();
-      fd.append("file", new Blob([buf], { type: f.mime || "audio/wav" }), "ovoz." + ext);
-      fd.append("model", model);
-      // OpenAI "uz" kodini tanimaydi — tilni ko'rsatma orqali aytamiz
-      if (model.startsWith("google/")) fd.append("language", "uz");
-      const prompt = "O'zbek tilidagi (ba'zan rus tili aralash) nutq. O'zbek lotin yozuvida, so'zma-so'z aniq yozing." + hintText;
-      fd.append("prompt", prompt);
-      const r = await fetchWithTimeout(
-        "https://ai.gateway.lovable.dev/v1/audio/transcriptions",
-        { method: "POST", headers: { "Lovable-API-Key": lovableKey() }, body: fd },
-        40000,
-      );
-      if (!r.ok) continue;
-      const d = await r.json().catch(() => ({}));
-      const t = String(d.text || "").trim();
-      if (t && !isPromptEcho(t, prompt)) return t.slice(0, 8000);
-    } catch {}
+  const ext = f.format === "mpeg" ? "mp3" : String(f.format || "wav").split(";")[0];
+  if (lovableReady()) {
+    for (const model of [process.env.LOVABLE_STT_MODEL, "google/gemini-3.5-transcribe", "openai/gpt-4o-transcribe"].filter(Boolean)) {
+      try {
+        const fd = new FormData();
+        fd.append("file", new Blob([buf], { type: String(f.mime || "audio/wav").split(";")[0] }), "ovoz." + ext);
+        fd.append("model", model);
+        // OpenAI "uz" kodini tanimaydi — tilni ko'rsatma orqali aytamiz
+        if (model.startsWith("google/")) fd.append("language", "uz");
+        fd.append("prompt", prompt);
+        const r = await fetchWithTimeout(
+          "https://ai.gateway.lovable.dev/v1/audio/transcriptions",
+          { method: "POST", headers: { "Lovable-API-Key": lovableKey() }, body: fd },
+          40000,
+        );
+        if (!r.ok) {
+          const e = await r.text().catch(() => "");
+          console.warn("⚠️  [stt] " + model + ": HTTP " + r.status + " " + e.slice(0, 160));
+          continue;
+        }
+        const d = await r.json().catch(() => ({}));
+        const t = String(d.text || "").trim();
+        if (t && !isPromptEcho(t, prompt)) return t.slice(0, 8000);
+        console.warn("⚠️  [stt] " + model + ": bo'sh matn qaytdi");
+      } catch (e) {
+        console.warn("⚠️  [stt] " + model + ":", e?.message);
+      }
+    }
   }
-  return "";
+  // Gateway ishlamadi yoki matn bermadi — Gemini'ning o'zi bilan urinamiz
+  const g = await transcribeGemini(f, prompt);
+  if (!g) console.warn("⚠️  [stt] ovoz matnga aylanmadi (" + (f.mime || "?") + ", " + Math.round(buf.length / 1024) + " KB)");
+  return g;
 }
 
 async function aiChatCore(req, res) {
