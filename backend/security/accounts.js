@@ -61,6 +61,31 @@ export function initAccounts(getDb) {
 }
 const db = () => _getDb();
 
+/**
+ * Bazada qolgan eski parollarni (tuzsiz sha256 yoki ochiq matn) scrypt ichiga
+ * o'raydi. Foydalanuvchi paroli o'zgarmaydi — u avvalgidek kiraveradi, lekin
+ * bazada zaif xesh qolmaydi. Har ishga tushishda chaqiriladi; ishi bo'lmasa
+ * hech narsa qilmaydi.
+ */
+export async function wrapLegacyHashes() {
+  const col = db().collection(COL);
+  const list = await col
+    .find({ legacyPassword: { $nin: [null, ""] } }, { projection: { _id: 1, username: 1, legacyPassword: 1, passwordHash: 1 } })
+    .toArray();
+  let n = 0;
+  for (const a of list) {
+    const s = String(a.legacyPassword);
+    const set = { legacyPassword: null };
+    // Haqiqiy scrypt paroli bor bo'lsa — eski nusxa shunchaki o'chiriladi
+    if (!a.passwordHash) set.wrappedHash = await hashPassword(/^[a-f0-9]{64}$/i.test(s) ? s.toLowerCase() : sha256(s));
+    await col.updateOne({ _id: a._id, legacyPassword: a.legacyPassword }, { $set: set });
+    invalidateAccount(String(a._id), a.username);
+    n++;
+  }
+  if (n) console.log(`🔐  ${n} ta eski parol scrypt ichiga o'raldi`);
+  return n;
+}
+
 export async function ensureAccountIndexes() {
   const col = db().collection(COL);
   await col.createIndex({ username: 1 }, { unique: true, name: "username_unique" });
@@ -86,7 +111,7 @@ export function publicView(acc) {
     isSuper: acc.role === SUPERADMIN_ROLE,
     twoFactor: !!(acc.totp && acc.totp.enabled),
     mustChangePassword: !!acc.mustChangePassword,
-    passwordIsLegacy: !!acc.legacyPassword,
+    passwordIsLegacy: !!(acc.legacyPassword || acc.wrappedHash),
     lastLoginAt: acc.lastLoginAt || null,
     createdAt: acc.createdAt || null,
   };
@@ -168,14 +193,18 @@ export async function upsertAccount(p) {
     set.passwordHash = await hashPassword(p.password);
     set.passwordChangedAt = now;
     set.legacyPassword = null;
+    set.wrappedHash = null;
     set.mustChangePassword = p.mustChangePassword === true;
   } else if (p.legacyPassword) {
-    // Ko'chirish rejimi: eski parol xeshlanmagan holda kelgan. Uni ochiq
-    // saqlamaymiz — sha256 qilib qo'yamiz, kirishda tekshirib scrypt'ga
-    // o'tkazamiz. Shu bilan "baza sizsa parollar ochiq" holati yo'qoladi.
-    set.legacyPassword = /^[a-f0-9]{64}$/i.test(p.legacyPassword)
+    // Ko'chirish rejimi: eski parol ochiq yoki tuzsiz sha256 ko'rinishida
+    // kelgan. U bazada shu holicha saqlanmaydi: sha256 ham scrypt ichiga
+    // o'raladi (wrappedHash = scrypt(sha256(parol))). Baza sizib ketsa ham
+    // parolni tez tanlab bo'lmaydi; birinchi kirishda oddiy scrypt'ga o'tadi.
+    const legacyHex = /^[a-f0-9]{64}$/i.test(p.legacyPassword)
       ? String(p.legacyPassword).toLowerCase()
       : sha256(p.legacyPassword);
+    set.wrappedHash = await hashPassword(legacyHex);
+    set.legacyPassword = null;
     // Admin yangi parol berdi — eski scrypt xeshi o'chiriladi, aks holda
     // ESKI parol ham ishlayverardi.
     set.passwordHash = null;
@@ -309,6 +338,29 @@ export async function authenticate(username, password, req) {
   let upgraded = false;
 
   if (acc.passwordHash) ok = await verifyPassword(pw, acc.passwordHash);
+
+  // Eski parol scrypt ichiga o'ralgan: scrypt(sha256(parol))
+  if (!ok && !acc.passwordHash && acc.wrappedHash) {
+    ok = await verifyPassword(sha256(pw), acc.wrappedHash);
+    if (ok) {
+      upgraded = true;
+      (async () => {
+        try {
+          const hash = await hashPassword(pw);
+          await db()
+            .collection(COL)
+            .updateOne(
+              { _id: acc._id, wrappedHash: acc.wrappedHash },
+              { $set: { passwordHash: hash, wrappedHash: null, legacyPassword: null, passwordChangedAt: new Date() } },
+            );
+          invalidateAccount(String(acc._id), acc.username);
+        } catch (e) {
+          console.warn("⚠️  Parolni ko'chirish bajarilmadi:", e.message);
+        }
+      })();
+      audit("auth.password.upgraded", { req, actor: { sub: String(acc._id), username: u } });
+    }
+  }
 
   if (!ok && acc.legacyPassword && CONFIG.allowLegacyPasswords) {
     ok = verifyLegacyPassword(pw, acc.legacyPassword);
@@ -468,6 +520,7 @@ async function applyNewPassword(acc, newPassword, req, event, actor = null, must
         $set: {
           passwordHash: hash,
           legacyPassword: null,
+          wrappedHash: null,
           passwordHistory: history,
           passwordChangedAt: new Date(),
           mustChangePassword: mustChange,

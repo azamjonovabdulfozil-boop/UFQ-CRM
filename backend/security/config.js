@@ -96,7 +96,7 @@ export const CONFIG = {
   passwordHistory: int(process.env.PASSWORD_HISTORY, 0),
   // Eski (ochiq matnli / sha256) parollar bilan kirishga ruxsat. Birinchi
   // muvaffaqiyatli kirishda parol avtomatik scrypt'ga ko'chiriladi.
-  allowLegacyPasswords: bool(process.env.ALLOW_LEGACY_PASSWORDS, true),
+  allowLegacyPasswords: bool(process.env.ALLOW_LEGACY_PASSWORDS, false),
 
   // ── Brute-force himoyasi ───────────────────────────────────────────────
   // ⚠️ Blok QURILMAGA qo'yiladi (security/devices.js), IP yoki Wi-Fi ga emas:

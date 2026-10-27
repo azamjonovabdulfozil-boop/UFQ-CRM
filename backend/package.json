@@ -9,7 +9,7 @@
     "dev": "node --watch server.js",
     "build": "bash build.sh",
     "postinstall": "node scripts/build-portals.mjs",
-    "test": "node tests/calc.test.mjs && node tests/pager.test.mjs && node tests/webanalytics.test.mjs",
+    "test": "node tests/calc.test.mjs && node tests/pager.test.mjs && node tests/webanalytics.test.mjs && node tests/legacywrap.test.mjs",
     "test:integration": "node tests/superadmin.itest.mjs",
     "test:ai": "node --env-file=.env tests/superai.itest.mjs",
     "test:wa": "node tests/webanalytics.itest.mjs"
@@ -23,6 +23,6 @@
     "read-excel-file": "^5.8.5"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   }
 }

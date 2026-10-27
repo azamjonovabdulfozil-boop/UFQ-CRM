@@ -6,6 +6,9 @@ services:
     buildCommand: bash build.sh
     startCommand: node server.js
     envVars:
+      # Panellar Vite 8 bilan yig'iladi — Node 22.12+ kerak
+      - key: NODE_VERSION
+        value: "22.12.0"
       - key: PORT
         value: 10000
       - key: NODE_ENV
@@ -84,11 +87,10 @@ services:
       - key: SUPER_ADMIN_IDLE_TIMEOUT
         value: "7200"
 
-      # Eski (xeshlanmagan) parollar bilan kirishga ruxsat. Barcha foydalanuvchi
-      # bir marta kirib bo'lgach 0 ga o'zgartiring — o'shanda parollar
-      # to'liq scrypt'ga ko'chgan bo'ladi.
+      # Eski (xeshlanmagan) parollar bilan kirish — o'chiq. Qolgan eski parollar
+      # server ishga tushganda scrypt ichiga o'raladi, ular avvalgidek ishlaydi.
       - key: ALLOW_LEGACY_PASSWORDS
-        value: "1"
+        value: "0"
 
       # ─── QURILMA BLOKI (brute-force) ───────────────────────────────────
       # Parol necha marta xato kiritilsa QURILMA bloklanadi va necha soniya

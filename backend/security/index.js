@@ -14,7 +14,7 @@ import { cookieParser } from "./middleware.js";
 import { sanitizeRequest } from "./sanitize.js";
 import { globalLimiter } from "./rateLimit.js";
 import { initAudit, ensureAuditIndexes, audit } from "./audit.js";
-import { initAccounts, ensureAccountIndexes } from "./accounts.js";
+import { initAccounts, ensureAccountIndexes, wrapLegacyHashes } from "./accounts.js";
 import { initSessions, ensureSessionIndexes } from "./sessions.js";
 import { initDevices, ensureDeviceIndexes, deviceId } from "./devices.js";
 import { bootstrapSecurity } from "./bootstrap.js";
@@ -142,6 +142,8 @@ export async function initSecurityStore(getDb) {
   await ensureSessionIndexes();
   await ensureDeviceIndexes();
   await bootstrapSecurity(getDb);
+  // Bazada qolgan tuzsiz sha256 parollar scrypt ichiga o'raladi
+  await wrapLegacyHashes().catch((e) => console.warn("⚠️  Eski parollar o'ralmadi:", e.message));
 
   await audit("server.start", { meta: { prod: CONFIG.isProd } });
 }
