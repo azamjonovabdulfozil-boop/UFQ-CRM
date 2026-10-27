@@ -263,7 +263,8 @@ function setupMentorView() {
   const uName = document.querySelector('.u-name');
   const uRole = document.querySelector('.u-role');
   if (uName) uName.textContent = cu.name || 'Mentor';
-  if (uRole) uRole.textContent = 'Mentor';
+  // data-t ni almashtiramiz — aks holda tarjima uni yana "Administrator" qilib qo'yadi
+  if (uRole) { uRole.setAttribute('data-t', 'role_mentor'); uRole.textContent = t('role_mentor'); uRole.style.display = ''; }
   const av = document.querySelector('.u-av');
   if (av) av.textContent = (cu.name || 'M').substring(0, 2).toUpperCase();
   const mentorTabs=['mentor-dash','mentor-groups','mentors-my','mentor-chat','mentor-ai','tests-mentor','grades-mentor','mentor-videos','mentor-method','settings','tests','grades'];
@@ -305,9 +306,9 @@ function setupStudentView() {
   const studentId2 = cu.studentId ? parseInt(cu.studentId) : null;
   const savedDisplay = _uiSettings['studentDisplayName_' + (studentId2 || '')];
   const showName = savedDisplay || (cu.studentName || cu.name || 'Talaba');
-  const roleLbl = LANG === 'ru' ? 'Студент' : LANG === 'en' ? 'Student' : 'Talaba';
   if (uName) uName.textContent = showName;
-  if (uRole) uRole.textContent = roleLbl;
+  // Talabada faqat ism-familiya ko'rinadi, rol yozuvi yashiriladi
+  if (uRole) { uRole.removeAttribute('data-t'); uRole.textContent = ''; uRole.style.display = 'none'; }
   const av = document.querySelector('.u-av');
   if (av) av.textContent = showName.substring(0, 2).toUpperCase();
   const tab = currentTab || 'student-my';
