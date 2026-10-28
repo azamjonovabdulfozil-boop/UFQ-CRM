@@ -38,8 +38,11 @@ import {
   setPasswordInternal,
   ROLES,
   SUPERADMIN_ROLE,
+  isAdminLike,
+  fromLegacyRole,
   COL as ACCOUNTS_COL,
 } from "./accounts.js";
+import { kickAccount } from "./kick.js";
 import { createSession, rotateSession, revokeSession, revokeAllForAccount, listSessions } from "./sessions.js";
 import {
   setRefreshCookie,
@@ -84,9 +87,25 @@ async function checkSecondFactor(acc, otp) {
 /** Oddiy admin Super Admin hisobiga tegishi mumkin emas. */
 async function guardSuperTarget(req, res, id) {
   const target = await findById(id);
-  if (target && target.role === SUPERADMIN_ROLE && !req.user.isSuper) {
+  // Administrator hisoblarini (yaratish, parol, bloklash, o'chirish) faqat
+  // Super Admin boshqaradi. Aks holda oddiy admin Super Admin o'chirgan
+  // adminni qayta tiklab qo'yishi mumkin edi.
+  if (target && isAdminLike(target.role) && !req.user.isSuper) {
     await audit("authz.super_target_denied", { req, actor: req.user, target: { id }, severity: "critical" });
-    res.status(403).json({ ok: false, code: "forbidden", error: "Bu hisob himoyalangan" });
+    res.status(403).json({ ok: false, code: "forbidden", error: "Administrator hisoblarini faqat Super Admin boshqaradi" });
+    return false;
+  }
+  return true;
+}
+
+/** POST /admin/accounts: admin roli berish yoki admin hisobini o'zgartirish — faqat Super Admin. */
+async function guardAdminRoleWrite(req, res, b) {
+  if (req.user.isSuper) return true;
+  const role = Object.values(ROLES).includes(b.role) ? b.role : fromLegacyRole(b.role);
+  const existing = await findByUsername(b.username ?? b.login).catch(() => null);
+  if (isAdminLike(role) || (existing && isAdminLike(existing.role))) {
+    await audit("authz.super_target_denied", { req, actor: req.user, target: { username: String(b.username ?? b.login ?? "").slice(0, 64) }, severity: "critical" });
+    res.status(403).json({ ok: false, code: "forbidden", error: "Administrator hisoblarini faqat Super Admin boshqaradi" });
     return false;
   }
   return true;
@@ -380,6 +399,7 @@ export function createAuthRouter() {
 
   r.post("/admin/accounts", admin, async (req, res) => {
     const b = req.body || {};
+    if (!(await guardAdminRoleWrite(req, res, b))) return;
     const out = await upsertAccount({
       username: b.username ?? b.login,
       password: b.password || undefined,
@@ -411,6 +431,7 @@ export function createAuthRouter() {
     const out = await adminResetPassword(id, password, req, req.user);
     if (!out.ok) return res.status(400).json(out);
     await revokeAllForAccount(id, "admin-password-reset");
+    kickAccount(id, "password");
     res.json({ ok: true });
   });
 
@@ -424,7 +445,10 @@ export function createAuthRouter() {
 
     const out = await setStatus(id, status);
     if (!out.ok) return res.status(404).json(out);
-    if (status === "disabled") await revokeAllForAccount(id, "admin-disabled");
+    if (status === "disabled") {
+      await revokeAllForAccount(id, "admin-disabled");
+      kickAccount(id, "disabled");
+    }
     await audit("admin.account.status", { req, actor: req.user, target: { id, status }, severity: "warn" });
     res.json({ ok: true });
   });
@@ -438,6 +462,7 @@ export function createAuthRouter() {
     const out = await deleteAccount(id);
     if (!out.ok) return res.status(400).json(out);
     await revokeAllForAccount(id, "account-deleted");
+    kickAccount(id, "deleted");
     await audit("admin.account.delete", { req, actor: req.user, target: out.account, severity: "critical" });
     res.json({ ok: true });
   });
@@ -532,6 +557,7 @@ export async function removePortalAccounts(logins, role, actor, req) {
     const out = await deleteAccount(String(acc._id));
     if (out.ok) {
       await revokeAllForAccount(String(acc._id)).catch(() => {});
+      kickAccount(String(acc._id), "deleted");
       removed.push(acc.username);
     }
   }

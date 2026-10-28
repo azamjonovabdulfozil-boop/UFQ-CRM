@@ -34,6 +34,7 @@ import { render, MIME } from "./exporters.js";
 import { summarizeCrmChange, LESSON_MARKS_COL } from "./changes.js";
 import { describeEvent, deviceText, kindOf, crmLookups, ROLE_TEXT, STAFF_ROLES } from "./activityView.js";
 import { DELETED_ACCOUNTS_DOC } from "../security/bootstrap.js";
+import { kickAccount } from "../security/kick.js";
 import { parseRange, prevRange, todayIn, dayOf, escRe, maskPhone, clip, addDays, dayStartUtc } from "./util.js";
 
 const eld = monitorEventLoopDelay({ resolution: 20 });
@@ -1001,6 +1002,7 @@ export function createSuperRouter(deps) {
       );
     await db().collection(sec.ACCOUNTS_COL).deleteOne({ _id: acc._id });
     sec.invalidateAccount(id, acc.username);
+    kickAccount(id, "deleted");
     await audit("super.admin.delete", { req, actor: req.user, target: { username: acc.username, name }, severity: "critical" });
     res.json({ ok: true });
   });
@@ -1011,7 +1013,10 @@ export function createSuperRouter(deps) {
     if (acc.role === "superadmin") return res.status(400).json({ ok: false, error: "Super Admin hisobini bloklab bo'lmaydi" });
     const status = req.body?.status === "disabled" ? "disabled" : "active";
     await sec.setStatus(String(acc._id), status);
-    if (status === "disabled") await sec.revokeAllForAccount(String(acc._id), "super-disabled");
+    if (status === "disabled") {
+      await sec.revokeAllForAccount(String(acc._id), "super-disabled");
+      kickAccount(String(acc._id), "disabled");
+    }
     await audit("super.admin.status", { req, actor: req.user, target: { username: acc.username, status }, severity: "warn" });
     res.json({ ok: true });
   });
@@ -1023,6 +1028,7 @@ export function createSuperRouter(deps) {
     if (req.body?.all) {
       n = await sec.revokeAllForAccount(String(acc._id), "super-revoke-all");
       await sec.bumpTokenVersion(String(acc._id)); // ochiq access tokenlar ham darhol o'ladi
+      kickAccount(String(acc._id), "revoked");
     } else if (await sec.revokeSessionById(String(acc._id), String(req.body?.sessionId || ""))) n = 1;
     await audit("super.admin.sessions_revoked", { req, actor: req.user, target: { username: acc.username }, meta: { count: n, all: !!req.body?.all }, severity: "warn" });
     res.json({ ok: true, revoked: n });
@@ -1040,6 +1046,7 @@ export function createSuperRouter(deps) {
     const out = await sec.setPasswordInternal(String(acc._id), password, req, "super.admin.password_set", req.user);
     if (!out.ok) return res.status(400).json(out);
     await sec.revokeAllForAccount(String(acc._id), "super-password-set").catch(() => 0);
+    kickAccount(String(acc._id), "password");
     res.json({ ok: true });
   });
 

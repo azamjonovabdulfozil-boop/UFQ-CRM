@@ -375,6 +375,50 @@
     });
   }
 
+  // ── Hisob o'chirildi / bloklandi / paroli almashtirildi ───────────────────
+  // Server bunday hisobning har bir so'rovini rad etadi. Sahifada qolgan
+  // ma'lumot (ochiq oyna, saqlanmagan o'zgarish) bilan ishlashni davom
+  // ettirib bo'lmasin: sessiya tozalanadi va sahifa qayta yuklanadi —
+  // xotiradagi hamma narsa yo'qoladi, faqat login ekrani qoladi.
+  var KICK_KEY = "edu_kicked_reason";
+  var KICK_TEXT = {
+    deleted: "Hisobingiz o'chirildi. Tizimga kira olmaysiz.",
+    disabled: "Hisobingiz bloklandi. Administratorga murojaat qiling.",
+    password: "Parolingiz almashtirildi. Yangi parol bilan qayta kiring.",
+    revoked: "Sessiyangiz yopildi. Qaytadan kiring.",
+  };
+  var KICK_CODES = { "account-missing": "deleted", "account-disabled": "disabled", "token-stale": "revoked" };
+  var kicked = false;
+  function kick(reason) {
+    if (kicked) return;
+    kicked = true;
+    try { sessionStorage.setItem(KICK_KEY, KICK_TEXT[reason] ? reason : "revoked"); } catch (e) {}
+    handleExpired();
+    try { location.reload(); } catch (e) {}
+  }
+  function kickIfAccountGone(r) {
+    if (!r || r.status !== 401 || !r.clone) return;
+    r.clone().json().then(function (d) {
+      var reason = d && KICK_CODES[d.code];
+      if (reason) kick(reason);
+    }, function () {});
+  }
+  // Qayta yuklangandan keyin login ekranida sababini ko'rsatamiz
+  (function showKickNotice() {
+    var reason;
+    try { reason = sessionStorage.getItem(KICK_KEY); } catch (e) {}
+    if (!reason) return;
+    var tries = 0;
+    var t = setInterval(function () {
+      var el = document.getElementById("login-err");
+      if (el || ++tries > 100) clearInterval(t);
+      if (!el) return;
+      try { sessionStorage.removeItem(KICK_KEY); } catch (e) {}
+      el.textContent = KICK_TEXT[reason] || KICK_TEXT.revoked;
+      el.style.display = "block";
+    }, 100);
+  })();
+
   // ── fetch o'ramasi: har bir /api/ so'roviga token qo'shiladi ────────────────
   //
   // Bu qatlam backend-storage.js ning o'ramasidan OLDIN o'rnatiladi, shuning
@@ -416,6 +460,7 @@
           if (r.status === 401 && token) {
             return refresh().then(function (ok) {
               if (!ok) {
+                kickIfAccountGone(r);
                 handleExpired();
                 return r;
               }
@@ -487,6 +532,8 @@
     onExpired: function (cb) {
       if (typeof cb === "function") onExpiredCbs.push(cb);
     },
+    /** Server hisob o'chirilgani/bloklangani haqida xabar berdi (live-sync). */
+    kick: kick,
     _clear: clearSession,
   };
 })();

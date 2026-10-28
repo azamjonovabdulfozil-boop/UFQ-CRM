@@ -56,6 +56,7 @@ import {
 import { createSuperRouter } from "./superadmin/router.js";
 import { createSuperAiRouter } from "./superadmin/ai.js";
 import { cleanDeep, cleanDeepCached, cleanKvValue, cleanKvCached } from "./security/xssData.js";
+import { setKickHandler } from "./security/kick.js";
 import { createWaPublicRouter, createWaSuperRouter, startWaMonitor } from "./webanalytics/router.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -235,6 +236,22 @@ function broadcast(keys, origin) {
   }
 }
 
+// Hisob o'chirildi/bloklandi — shu hisobning ochiq oqimlariga xabar yuborib,
+// ularni yopamiz. Brauzer xabarni olib darhol login ekraniga qaytadi.
+setKickHandler((accountId, reason) => {
+  let n = 0;
+  for (const res of [...sseClients]) {
+    if (res.__accountId !== accountId) continue;
+    sseSend(res, { kicked: reason || "revoked", ts: Date.now() });
+    sseClients.delete(res);
+    try {
+      res.end();
+    } catch (e) {}
+    n++;
+  }
+  return n;
+});
+
 // So'rovni yuborgan brauzerning identifikatori (echo'ni to'sish uchun)
 const originOf = (req) => req.get("x-client-id") || null;
 
@@ -252,6 +269,7 @@ app.get("/api/events", requireAuth, (req, res) => {
   // Uzilib qolsa brauzer 3 soniyada qayta ulanadi
   res.write("retry: 3000\n\n");
   sseSend(res, { rev: revision, keys: [], hello: true, ts: Date.now() });
+  res.__accountId = req.user.sub;
   sseClients.add(res);
 
   // Ba'zi proxy'lar jim turgan ulanishni yopadi — 25s da bir "ping"

@@ -417,6 +417,12 @@
         return;
       }
       if (!msg || msg.hello) return;
+      // Hisob o'chirildi / bloklandi — darhol chiqarib yuboriladi
+      if (msg.kicked) {
+        stop();
+        if (window.CRMAuth && typeof window.CRMAuth.kick === "function") window.CRMAuth.kick(msg.kicked);
+        return;
+      }
       // O'z yozuvimiz qaytib keldi — qayta yuklash shart emas.
       if (msg.origin && CLIENT_ID && msg.origin === CLIENT_ID) return;
       // Super Admin davomat qoidasini o'zgartirdi — KV emas, alohida yuklanadi
