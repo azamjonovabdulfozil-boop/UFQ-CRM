@@ -86,9 +86,11 @@
     ".cx-row span:first-child{color:var(--text2,#4a5568)}" +
     ".cx-row b{text-align:right}" +
     /* Chek ko'rinishi (oynada) */
-    ".cx-rc{background:#fff;color:#111;border:1px dashed #cbd5e1;border-radius:12px;padding:16px 16px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}" +
     ".fin-tx-rc{background:none;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:4px 7px;cursor:pointer;margin-right:4px;font-size:13px}" +
-    ".fin-tx-rc:hover{background:var(--accent-light,#eff6ff)}";
+    ".fin-tx-rc:hover{background:var(--accent-light,#eff6ff)}" +
+    // Katta summalar (1 250 000 so'm) ikki qatorga bo'linmasin; chek tugmasi uchun joy
+    "@media(min-width:901px){.fin-tx-header,.fin-tx-row{grid-template-columns:48px 1fr 150px 110px 170px 96px}}" +
+    ".fin-tx-amount-income,.fin-tx-amount-expense,.fin-tx-amount-salary{white-space:nowrap}";
 
   function ensureStyle() {
     if (document.getElementById("cx-style")) return;
@@ -157,73 +159,125 @@
       course: g ? g.course || "" : "",
       mentor: g ? g.mentor || "" : "",
       period: (extra && extra.period) || tx.period || "",
-      title: tx.title || "",
       note: tx.description || "",
       amount: Number(tx.amount) || 0,
       by: tx.createdBy || me(),
     };
   }
 
-  function receiptRows(r) {
+  // Summani so'z bilan: 1 250 000 → «bir million ikki yuz ellik ming»
+  var ONES = ["", "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz"];
+  var TENS = ["", "o'n", "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson"];
+  var SCALES = ["", "ming", "million", "milliard"];
+  function words3(n) {
+    var out = [];
+    var h = Math.floor(n / 100), t = Math.floor((n % 100) / 10), o = n % 10;
+    if (h) out.push(ONES[h] + " yuz");
+    if (t) out.push(TENS[t]);
+    if (o) out.push(ONES[o]);
+    return out.join(" ");
+  }
+  function amountWords(num) {
+    var n = Math.round(Math.abs(Number(num) || 0));
+    if (!n) return "nol so'm";
+    var parts = [];
+    for (var i = 0; n > 0 && i < SCALES.length; i++) {
+      var chunk = n % 1000;
+      if (chunk) parts.unshift(words3(chunk) + (SCALES[i] ? " " + SCALES[i] : ""));
+      n = Math.floor(n / 1000);
+    }
+    var s = parts.join(" ") + " so'm";
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  var dateOnly = function (iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? "—" : pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear();
+  };
+  var timeOnly = function (iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? "" : pad(d.getHours()) + ":" + pad(d.getMinutes());
+  };
+
+  /**
+   * Chekning to'liq HTML hujjati. Oynadagi ko'rinish ham, chop etish ham
+   * AYNAN shu hujjatdan — ekranda nima ko'rinsa, qog'ozga ham shu chiqadi.
+   * @param {"80"|"a4"} mode  80 mm chek printeri yoki oddiy A4 printer
+   */
+  function receiptDoc(r, mode) {
+    var b = brand();
+    var a4 = mode === "a4";
     var rows = [
-      ["Chek №", r.no],
-      ["Sana", dateText(r.at)],
       ["Talaba", r.student],
       ["Guruh", r.group],
       ["Kurs", r.course],
       ["Mentor", r.mentor],
       ["To'lov davri", r.period],
-      ["Qabul qildi", r.by],
-    ];
-    return rows.filter(function (x) {
-      return x[1];
-    });
-  }
-
-  /** Chop etish uchun alohida, mustaqil HTML (80 mm chek printeri va A4 uchun mos). */
-  function receiptPrintHtml(r) {
-    var b = brand();
-    var rows = receiptRows(r)
+      ["Izoh", r.note && r.note !== r.group + " guruhi · " + r.course ? r.note : ""],
+    ]
+      .filter(function (x) {
+        return x[1];
+      })
       .map(function (x) {
-        return "<tr><td>" + esc(x[0]) + "</td><td>" + esc(x[1]) + "</td></tr>";
+        return '<div class="row"><span>' + esc(x[0]) + "</span><b>" + esc(x[1]) + "</b></div>";
       })
       .join("");
+    var css =
+      "@page{" + (a4 ? "size:A4;margin:18mm" : "size:80mm auto;margin:3mm") + "}" +
+      "*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+      "html,body{margin:0;background:#fff}" +
+      "body{font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;font-size:" + (a4 ? "14px" : "12px") + ";line-height:1.35}" +
+      ".rc{width:" + (a4 ? "130mm" : "74mm") + ";margin:0 auto;padding:" + (a4 ? "10mm 11mm 9mm" : "3mm 2mm 4mm") + ";" + (a4 ? "border:1px solid #e2e8f0;border-radius:4mm;margin-top:6mm" : "") + "}" +
+      ".hd{text-align:center}" +
+      ".logo{width:" + (a4 ? "20mm" : "15mm") + ";height:" + (a4 ? "20mm" : "15mm") + ";object-fit:contain;display:block;margin:0 auto 1.5mm}" +
+      ".brand{font-size:" + (a4 ? "22px" : "17px") + ";font-weight:800;letter-spacing:.2px}" +
+      ".kind{display:inline-block;margin-top:2mm;padding:.8mm 3mm;border:1.5px solid #0f172a;border-radius:10mm;font-size:" + (a4 ? "11px" : "9.5px") + ";font-weight:800;letter-spacing:1.6px}" +
+      ".meta{display:flex;justify-content:space-between;margin-top:3.5mm;font-size:" + (a4 ? "12px" : "10.5px") + ";color:#475569}" +
+      ".meta b{color:#0f172a;font-variant-numeric:tabular-nums}" +
+      ".cut{border:0;border-top:1.5px dashed #94a3b8;margin:3mm 0}" +
+      ".row{display:flex;justify-content:space-between;gap:4mm;padding:1.1mm 0}" +
+      ".row span{color:#64748b;white-space:nowrap}" +
+      ".row b{text-align:right;font-weight:650;word-break:break-word}" +
+      ".total{margin-top:1mm;padding:" + (a4 ? "4mm 5mm" : "2.6mm 3mm") + ";border-radius:2.5mm;background:#f1f5f9;border:1px solid #e2e8f0}" +
+      ".total .lbl{font-size:" + (a4 ? "11px" : "9.5px") + ";font-weight:800;letter-spacing:1.2px;color:#475569}" +
+      ".total .sum{font-size:" + (a4 ? "28px" : "21px") + ";font-weight:800;font-variant-numeric:tabular-nums;margin-top:.5mm;white-space:nowrap}" +
+      ".total .sum small{font-size:.55em;font-weight:700;margin-left:1mm}" +
+      ".total .wrd{font-size:" + (a4 ? "11.5px" : "9.5px") + ";color:#475569;margin-top:.6mm;font-style:italic}" +
+      ".paid{display:flex;align-items:center;justify-content:center;gap:1.5mm;margin:3mm auto 0;width:max-content;padding:1mm 3.5mm;border:2px solid #15803d;color:#15803d;border-radius:1.5mm;font-weight:800;letter-spacing:2px;font-size:" + (a4 ? "13px" : "11px") + ";transform:rotate(-3deg)}" +
+      ".sign{display:flex;gap:6mm;margin-top:" + (a4 ? "12mm" : "8mm") + "}" +
+      ".sign div{flex:1;border-top:1px solid #0f172a;padding-top:1mm;text-align:center;font-size:" + (a4 ? "11px" : "9.5px") + ";color:#475569}" +
+      ".sign div b{display:block;color:#0f172a;font-weight:650;margin-bottom:.3mm}" +
+      ".ft{text-align:center;margin-top:4mm;font-size:" + (a4 ? "12px" : "10.5px") + ";font-weight:650}" +
+      ".ft small{display:block;font-weight:400;color:#94a3b8;margin-top:.8mm;font-size:.85em}";
     return (
-      '<!doctype html><html><head><meta charset="utf-8"><title>Chek №' + esc(r.no) + "</title><style>" +
-      "@page{size:80mm auto;margin:4mm}" +
-      "*{box-sizing:border-box}body{margin:0;font-family:ui-monospace,Menlo,Consolas,'Courier New',monospace;color:#000;font-size:12px}" +
-      ".rc{width:72mm;margin:0 auto;padding:2mm 0}" +
-      ".c{text-align:center}.logo{max-width:22mm;max-height:22mm;display:block;margin:0 auto 2mm}" +
-      ".brand{font-size:15px;font-weight:800}.ttl{font-weight:800;letter-spacing:1px;margin:3mm 0 2mm}" +
-      ".hr{border-top:1px dashed #000;margin:2.5mm 0}" +
-      "table{width:100%;border-collapse:collapse}td{padding:1mm 0;vertical-align:top}td:last-child{text-align:right;font-weight:700;padding-left:3mm;word-break:break-word}" +
-      ".sum{display:flex;justify-content:space-between;font-size:16px;font-weight:800;margin:1mm 0}" +
-      ".sign{display:flex;justify-content:space-between;gap:6mm;margin-top:7mm;font-size:11px}.sign div{flex:1;border-top:1px solid #000;padding-top:1mm;text-align:center}" +
-      ".thx{margin-top:5mm;font-size:11px}" +
-      "</style></head><body><div class='rc'>" +
-      (b.logo ? "<img class='logo' src='" + esc(b.logo) + "' onerror='this.remove()'>" : "") +
-      "<div class='c brand'>" + esc(b.name) + "</div>" +
-      "<div class='c ttl'>TO'LOV CHEKI</div><div class='hr'></div>" +
-      "<table>" + rows + "</table><div class='hr'></div>" +
-      "<div class='sum'><span>JAMI:</span><span>" + money(r.amount) + " so'm</span></div>" +
-      (r.note ? "<div style='font-size:11px;margin-top:1mm'>" + esc(r.note) + "</div>" : "") +
-      "<div class='hr'></div>" +
-      "<div class='sign'><div>Qabul qildi</div><div>To'lovchi</div></div>" +
-      "<div class='c thx'>To'lovingiz uchun rahmat!</div>" +
+      '<!doctype html><html><head><meta charset="utf-8"><title>Chek №' + esc(r.no) + "</title><style>" + css + "</style></head><body><div class='rc'>" +
+      "<div class='hd'>" +
+      (b.logo ? "<img class='logo' src='" + esc(b.logo) + "' alt=''>" : "") +
+      "<div class='brand'>" + esc(b.name) + "</div>" +
+      "<div class='kind'>TO'LOV CHEKI</div>" +
+      "</div>" +
+      "<div class='meta'><span>Chek № <b>" + esc(r.no) + "</b></span><span><b>" + dateOnly(r.at) + "</b> · <b>" + timeOnly(r.at) + "</b></span></div>" +
+      "<hr class='cut'>" + rows + "<hr class='cut'>" +
+      "<div class='total'><div class='lbl'>JAMI TO'LANDI</div><div class='sum'>" + money(r.amount) + "<small>so'm</small></div><div class='wrd'>" + esc(amountWords(r.amount)) + "</div></div>" +
+      "<div class='paid'>✓ TO'LANDI</div>" +
+      "<div class='sign'><div><b>" + esc(r.by || "—") + "</b>Qabul qildi</div><div><b>&nbsp;</b>To'lovchi imzosi</div></div>" +
+      "<div class='ft'>To'lovingiz uchun rahmat!<small>Chekni saqlab qo'ying</small></div>" +
       "</div></body></html>"
     );
   }
 
-  function printReceipt(r) {
+  function printReceipt(r, mode) {
     var fr = document.createElement("iframe");
     fr.setAttribute("aria-hidden", "true");
     fr.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
     document.body.appendChild(fr);
     var doc = fr.contentWindow.document;
     doc.open();
-    doc.write(receiptPrintHtml(r));
+    doc.write(receiptDoc(r, mode));
     doc.close();
+    var done = false;
     var go = function () {
+      if (done) return;
+      done = true;
       try {
         fr.contentWindow.focus();
         fr.contentWindow.print();
@@ -234,44 +288,59 @@
         fr.remove();
       }, 60000);
     };
-    // Logo yuklanishini kutamiz (bo'lmasa ham 700 ms dan keyin chop etiladi)
+    // Logo yuklanishini kutamiz (yuklanmasa ham 800 ms dan keyin chop etiladi)
     var img = doc.querySelector("img");
     if (img && !img.complete) {
-      var done = false;
-      var once = function () {
-        if (done) return;
-        done = true;
+      img.addEventListener("load", go);
+      img.addEventListener("error", function () {
+        img.remove();
         go();
-      };
-      img.addEventListener("load", once);
-      img.addEventListener("error", once);
-      setTimeout(once, 700);
-    } else setTimeout(go, 50);
+      });
+      setTimeout(go, 800);
+    } else setTimeout(go, 60);
   }
+
+  var RC_CSS =
+    ".cx-box.rcx{max-width:440px}" +
+    ".rcx .cx-b{background:var(--bg3,#f6f9fc);gap:14px}" +
+    ".rcx-ok{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#16a34a,#0d9488);color:#fff;box-shadow:0 8px 20px rgba(22,163,74,.25)}" +
+    ".rcx-ok i{flex-shrink:0;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center;font-style:normal;font-size:20px;font-weight:800}" +
+    ".rcx-ok b{display:block;font-size:15px}" +
+    ".rcx-ok span{font-size:12.5px;opacity:.92}" +
+    ".rcx-ok .amt{margin-left:auto;font-size:17px;font-weight:800;white-space:nowrap}" +
+    ".rcx-paper{position:relative;background:#fff;border-radius:6px;box-shadow:0 10px 30px rgba(15,23,42,.12),0 1px 0 rgba(15,23,42,.04);padding:6px 0}" +
+    ".rcx-paper:before,.rcx-paper:after{content:'';position:absolute;left:0;right:0;height:10px;background-size:14px 10px;background-repeat:repeat-x}" +
+    ".rcx-paper:before{top:-9px;background-image:radial-gradient(circle at 7px 0,transparent 6px,#fff 6.5px)}" +
+    ".rcx-paper:after{bottom:-9px;background-image:radial-gradient(circle at 7px 10px,transparent 6px,#fff 6.5px)}" +
+    ".rcx-paper iframe{display:block;width:100%;border:0;height:520px}" +
+    ".rcx-fmt{display:flex;align-items:center;gap:8px;justify-content:center;font-size:12.5px;color:var(--text2,#4a5568)}" +
+    ".rcx-seg{display:inline-flex;background:var(--bg2,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:3px}" +
+    ".rcx-seg button{border:0;background:none;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12.5px;color:var(--text2,#4a5568);cursor:pointer}" +
+    ".rcx-seg button.on{background:var(--accent,#3b82f6);color:#fff}";
 
   /** Chek oynasi. tx — D.finance dagi kirim yozuvi. */
   function showReceipt(tx, extra) {
     if (!tx) return;
+    if (!document.getElementById("cx-rc-style")) {
+      var st = document.createElement("style");
+      st.id = "cx-rc-style";
+      st.textContent = RC_CSS;
+      document.head.appendChild(st);
+    }
     var r = receiptData(tx, extra);
-    var b = brand();
-    var rows = receiptRows(r)
-      .map(function (x) {
-        return '<div class="cx-row"><span>' + esc(x[0]) + "</span><b>" + esc(x[1]) + "</b></div>";
-      })
-      .join("");
+    var mode = "80";
+    try {
+      mode = localStorage.getItem("cx_rc_mode") === "a4" ? "a4" : "80";
+    } catch (e) {}
+    var fresh = extra && extra.fresh;
     var html =
-      (extra && extra.fresh ? '<div class="cx-note">✅ To\'lov qabul qilindi. Chekni chop eting yoki PDF qilib saqlang.</div>' : "") +
-      '<div class="cx-rc">' +
-      '<div style="text-align:center;font-weight:800;font-size:15px">' + esc(b.name) + "</div>" +
-      '<div style="text-align:center;font-weight:800;letter-spacing:1px;margin:6px 0 8px">TO\'LOV CHEKI</div>' +
-      '<div style="border-top:1px dashed #94a3b8;margin:6px 0"></div>' +
-      '<div style="display:grid;gap:5px">' + rows + "</div>" +
-      '<div style="border-top:1px dashed #94a3b8;margin:8px 0"></div>' +
-      '<div class="cx-row" style="font-size:17px;font-weight:800"><span style="color:#111">JAMI:</span><b>' + money(r.amount) + " so'm</b></div>" +
-      (r.note ? '<div style="font-size:12px;color:#475569;margin-top:4px">' + esc(r.note) + "</div>" : "") +
-      "</div>";
-    modal({
-      title: "🧾 To'lov cheki",
+      (fresh
+        ? '<div class="rcx-ok"><i>✓</i><div><b>To\'lov qabul qilindi</b><span>' + esc(r.student) + (r.group ? " · " + esc(r.group) : "") + '</span></div><div class="amt">' + money(r.amount) + " so'm</div></div>"
+        : "") +
+      '<div class="rcx-paper"><iframe title="Chek" class="rcx-frame"></iframe></div>' +
+      '<div class="rcx-fmt">Printer: <span class="rcx-seg"><button type="button" data-m="80">Chek (80 mm)</button><button type="button" data-m="a4">A4 qog\'oz</button></span></div>';
+    var m = modal({
+      title: fresh ? "🧾 Chek tayyor" : "🧾 To'lov cheki",
       html: html,
       buttons: [
         { text: "Yopish" },
@@ -279,11 +348,49 @@
           text: "🖨 Chop etish",
           primary: true,
           onClick: function () {
-            printReceipt(r);
+            printReceipt(r, mode);
           },
         },
       ],
     });
+    m.el.querySelector(".cx-box").classList.add("rcx");
+    var frame = m.el.querySelector(".rcx-frame");
+    // Oynada har doim chek ko'rinishi (A4 da ham — faqat chop etish formati o'zgaradi)
+    frame.srcdoc = receiptDoc(r, "80");
+    frame.addEventListener("load", function () {
+      try {
+        var fit = function () {
+          var h = frame.contentDocument.documentElement.scrollHeight;
+          if (h) frame.style.height = h + "px";
+        };
+        fit();
+        var im = frame.contentDocument.querySelector("img");
+        if (im) {
+          im.addEventListener("load", fit);
+          im.addEventListener("error", function () {
+            im.remove();
+            fit();
+          });
+        }
+      } catch (e) {}
+    });
+    var seg = m.el.querySelectorAll(".rcx-seg button");
+    var paint = function () {
+      seg.forEach(function (bt) {
+        bt.classList.toggle("on", bt.getAttribute("data-m") === mode);
+      });
+    };
+    seg.forEach(function (bt) {
+      bt.addEventListener("click", function () {
+        mode = bt.getAttribute("data-m");
+        try {
+          // Faqat shu brauzer sozlamasi — serverga sinxronlanmaydi
+          Storage.prototype.setItem.call(localStorage, "cx_rc_mode", mode);
+        } catch (e) {}
+        paint();
+      });
+    });
+    paint();
   }
   window.crmReceipt = function (txId) {
     var tx = (D.finance || []).find(function (t) {
@@ -511,6 +618,7 @@
     });
   };
 
+  ensureStyle();
   wrapPayments();
   // Boshqa skriptlar funksiyani keyinroq qayta e'lon qilsa ham o'ram saqlansin
   setTimeout(wrapPayments, 1500);
