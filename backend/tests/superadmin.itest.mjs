@@ -139,20 +139,21 @@ await sup.req("/api/super/modules", { method: "POST", body: { modules: original 
 const me2 = await admin.req("/api/modules/me");
 check("9. Qayta yoqildi — asl holat tiklandi", me2.d?.modules.every((m) => JSON.stringify({ menu: m.menu, api: m.api }) === JSON.stringify(original[m.key])));
 
-// 10. Parolni tiklash (sinov admini bilan)
+// 10. Admin yaratish (login+parolni Super Admin beradi) va parolni almashtirish
 const tUser = "itest_admin_" + Date.now().toString(36);
-const cr = await sup.req("/api/super/admins", { method: "POST", body: { username: tUser, name: "Sinov admin" } });
-check("10. Yangi admin yaratildi (parol faqat havola orqali)", cr.d?.ok && /reset=/.test(cr.d.reset?.path || ""));
-const token = decodeURIComponent((cr.d?.reset?.path || "").split("reset=")[1] || "");
-const rp = await anon.req("/api/auth/reset-password", { method: "POST", body: { token, newPassword: "YangiParol2026" } });
-check("10. Bir martalik havola bilan parol o'rnatildi", rp.d?.ok && rp.d.username === tUser);
-const rp2 = await anon.req("/api/auth/reset-password", { method: "POST", body: { token, newPassword: "BoshqaParol2026" } });
-check("10. Havola ikkinchi marta ishlamaydi", rp2.status === 400);
+const noPw = await sup.req("/api/super/admins", { method: "POST", body: { username: tUser, firstName: "Sinov", lastName: "Admin" } });
+check("10. Parolsiz admin yaratilmaydi", noPw.status === 400);
+const cr = await sup.req("/api/super/admins", { method: "POST", body: { username: tUser, firstName: "Sinov", lastName: "Admin", password: "BoshParol2026" } });
+check("10. Yangi admin login+parol bilan yaratildi (havolasiz)", cr.d?.ok && !cr.d.reset && !JSON.stringify(cr.d).includes("BoshParol2026"), cr.d?.error);
+const tc0 = new Client();
+check("10. Berilgan parol bilan kirish ishlaydi", (await tc0.login(tUser, "BoshParol2026")).d?.ok);
+const tid = cr.d?.account?.id;
+const sp = await sup.req(`/api/super/admins/${tid}/password`, { method: "POST", body: { password: "YangiParol2026" } });
+check("10. Super Admin parolni almashtirdi", sp.d?.ok, sp.d?.error);
+check("10. Eski sessiya yopildi", (await tc0.req("/api/kv?keys=x")).status === 401);
+check("10. Eski parol ishlamaydi", !(await new Client().login(tUser, "BoshParol2026")).d?.ok);
 const tc = new Client();
 check("10. Yangi parol bilan kirish ishlaydi", (await tc.login(tUser, "YangiParol2026")).d?.ok);
-const tid = cr.d?.account?.id;
-const link2 = await sup.req(`/api/super/admins/${tid}/reset-link`, { method: "POST" });
-check("10. Javobda eski parol yo'q", link2.d?.ok && !JSON.stringify(link2.d).includes("YangiParol2026"));
 // Bloklash sessiyani darhol bekor qiladi
 await sup.req(`/api/super/admins/${tid}/status`, { method: "POST", body: { status: "disabled" } });
 check("10. Bloklangan admin sessiyasi darhol yopildi", (await tc.req("/api/kv?keys=x")).status === 401);

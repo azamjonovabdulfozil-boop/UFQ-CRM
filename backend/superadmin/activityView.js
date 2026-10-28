@@ -235,6 +235,8 @@ export function describeEvent(e, ctx) {
       return { title: `Administrator ruxsatlarini o'zgartirdi: ${who(t.username) || t.username || ""}`, details: [] };
     case "super.admin.reset_link":
       return { title: `Parol tiklash havolasini yaratdi: ${who(t.username) || t.username || ""}`, details: [] };
+    case "super.admin.password_set":
+      return { title: `Administrator parolini almashtirdi: ${who(t.username) || t.username || ""}`, details: [] };
     case "super.admin.sessions_revoked":
       return { title: `Administratorni qurilmalardan chiqarib yubordi: ${who(t.username) || t.username || ""}`, details: [] };
     case "super.modules.update":

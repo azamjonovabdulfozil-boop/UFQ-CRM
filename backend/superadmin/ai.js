@@ -47,7 +47,7 @@ const PROTECTED_FIELDS = new Set(["id", "photo", "resumeFile", "resumeData", "av
 const POST_ALLOW = [
   /^\/api\/super\/data\/(students|groups|mentors|courses)\/[^/]+$/,
   /^\/api\/super\/admins$/,
-  /^\/api\/super\/admins\/[a-f0-9]{24}\/(status|sessions\/revoke|reset-link|restrictions)$/,
+  /^\/api\/super\/admins\/[a-f0-9]{24}\/(status|sessions\/revoke|restrictions)$/,
   /^\/api\/super\/modules$/,
   /^\/api\/super\/settings\/(general|notifications|ranking|attendance)$/,
   /^\/api\/super\/teachers\/criteria$/,
@@ -83,7 +83,7 @@ Asboblar:
 - super_post — Super Admin amallari (POST):
   /api/super/data/{students|groups|mentors|courses}/{id} body {fields:{...}} — tahrir (students: status, groupId, phone, parentName, parentPhone, notes; groups: status, mentorId, days; mentors: phone, telegram, email; courses: name, price)
   /api/super/admins body {username, firstName, lastName} — yangi admin (parol o'rnatish havolasi qaytadi); /api/super/admins/{id}/profile body {firstName, lastName} — ism-familiyani o'zgartirish. Adminni butunlay o'chirish faqat panelda parol bilan tasdiqlanadi (Administratorlar → O'chirish)
-  /api/super/admins/{id}/status body {status:"active"|"disabled"}; /api/super/admins/{id}/sessions/revoke; /api/super/admins/{id}/reset-link; /api/super/admins/{id}/restrictions body {modules:{key:{menu,api}}}
+  /api/super/admins/{id}/status body {status:"active"|"disabled"}; /api/super/admins/{id}/sessions/revoke; /api/super/admins/{id}/restrictions body {modules:{key:{menu,api}}}
   /api/super/modules body {modules:{key:{menu,api}}, settingsMenu:{admin,mentor,student}} — modul kalitlari: ${MODULES.map((m) => m.key).join(", ")}. DIQQAT: modules ichida HAMMA modullarni joriy holati bilan yubor (avval GET /api/super/modules ni o'qi), aks holda yuborilmaganlari ochiladi.
   /api/super/settings/{general|notifications|ranking}; /api/super/settings/attendance body {chargeExcused: true|false} — sababli (S) dars uchun talabadan pul yechilsinmi; /api/super/teachers/criteria; /api/super/branding body {crmName}; /api/super/backups/create
 - crm_create / crm_update / crm_delete — CRM yozuvini qo'shish, istalgan maydonini o'zgartirish, o'chirish (students, groups, mentors, courses, finance).

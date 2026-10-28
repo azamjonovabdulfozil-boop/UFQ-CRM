@@ -44,7 +44,7 @@ export const CATEGORIES = [
   ["Kirish", /^auth\.login\.success$/],
   ["Chiqish", /^auth\.logout$/],
   ["Kirish xatosi", /^auth\.(login\.(failed|unknown_user|locked|disabled|device_blocked|otp_failed)|session\.reuse_detected)/],
-  ["Parol", /^(auth\.(password|username)|bootstrap\.password|super\.admin\.reset_link)/],
+  ["Parol", /^(auth\.(password|username)|bootstrap\.password|super\.admin\.(reset_link|password_set))/],
   ["Ma'lumot o'zgarishi", /^(data\.|kv\.crm|super\.data\.|super\.ai\.action)/],
   ["AI yordamchi", /^super\.ai\.chat$/],
   ["Sozlama", /^(settings\.|super\.(settings|modules|branding)|module\.)/],
@@ -91,6 +91,7 @@ const EVENT_TEXT = {
   "super.admin.profile": "Administrator ism-familiyasi o'zgartirildi",
   "super.admin.restrictions": "Administrator ruxsatlari o'zgartirildi",
   "super.admin.reset_link": "Parolni tiklash havolasi yaratildi",
+  "super.admin.password_set": "Administrator paroli almashtirildi",
   "super.admin.sessions_revoked": "Administrator sessiyalari bekor qilindi",
   "super.data.edit": "Super Admin yozuvni tahrirladi",
   "super.ai.chat": "Super Admin AI yordamchisidan foydalandi",
@@ -915,19 +916,20 @@ export function createSuperRouter(deps) {
     if (!nm) return res.status(400).json({ ok: false, error: "Ism va familiyani kiriting (har biri 2–40 harf)" });
     if (await db().collection(sec.ACCOUNTS_COL).findOne({ username }))
       return res.status(400).json({ ok: false, error: "Bu login band" });
-    // Vaqtinchalik tasodifiy parol hech kimga ko'rsatilmaydi — admin parolini
-    // bir martalik havola orqali o'zi o'rnatadi.
+    const password = String(req.body?.password ?? "");
+    if (!password) return res.status(400).json({ ok: false, error: "Parolni kiriting" });
+    // Login va parolni Super Admin o'zi beradi; parol bazada faqat xesh holida saqlanadi
+    // va javobda qaytarilmaydi.
     const name = clip(nm.first + " " + nm.last, 120);
-    const out = await sec.upsertAccount({ username, role: "admin", name, password: sec.randomToken(24) });
+    const out = await sec.upsertAccount({ username, role: "admin", name, password });
     if (!out.ok) return res.status(400).json(out);
     await db()
       .collection(sec.ACCOUNTS_COL)
       .updateOne({ _id: out.account._id }, { $set: { firstName: nm.first, lastName: nm.last } });
     // Shu login avval o'chirilgan bo'lsa — endi qayta ishlatilmoqda
     await forgetDeleted(username);
-    const link = await makeResetLink(out.account, req);
     await audit("super.admin.create", { req, actor: req.user, target: { username, name }, severity: "warn" });
-    res.json({ ok: true, account: sec.publicView(out.account), reset: link });
+    res.json({ ok: true, account: sec.publicView(out.account) });
   });
 
   async function targetAdmin(req, res) {
@@ -1026,23 +1028,19 @@ export function createSuperRouter(deps) {
     res.json({ ok: true, revoked: n });
   });
 
-  async function makeResetLink(acc, req) {
-    const token = sec.randomToken(32);
-    const expiresAt = new Date(Date.now() + sec.CONFIG.resetTokenTtlSec * 1000);
-    await db()
-      .collection(sec.ACCOUNTS_COL)
-      .updateOne({ _id: acc._id }, { $set: { resetToken: { hash: sec.sha256(token), expiresAt, createdBy: req.user.username, createdAt: new Date() } } });
-    return { token, expiresAt, path: "?reset=" + encodeURIComponent(token) };
-  }
-
-  r.post("/api/super/admins/:id/reset-link", S, sensitiveLimiter, async (req, res) => {
+  // Administrator parolini Super Admin o'zi yangisiga almashtiradi (havolasiz).
+  // Eski parol ko'rsatilmaydi; almashgach adminning barcha sessiyalari yopiladi.
+  r.post("/api/super/admins/:id/password", S, sensitiveLimiter, async (req, res) => {
     const acc = await targetAdmin(req, res);
     if (!acc) return;
     if (acc.role === "superadmin")
       return res.status(400).json({ ok: false, error: "O'z parolingizni «Profil va xavfsizlik» bo'limida almashtiring" });
-    const link = await makeResetLink(acc, req);
-    await audit("super.admin.reset_link", { req, actor: req.user, target: { username: acc.username }, meta: { expiresAt: link.expiresAt }, severity: "warn" });
-    res.json({ ok: true, reset: link });
+    const password = String(req.body?.password ?? "");
+    if (!password) return res.status(400).json({ ok: false, error: "Yangi parolni kiriting" });
+    const out = await sec.setPasswordInternal(String(acc._id), password, req, "super.admin.password_set", req.user);
+    if (!out.ok) return res.status(400).json(out);
+    await sec.revokeAllForAccount(String(acc._id), "super-password-set").catch(() => 0);
+    res.json({ ok: true });
   });
 
   r.post("/api/super/admins/:id/restrictions", S, async (req, res) => {

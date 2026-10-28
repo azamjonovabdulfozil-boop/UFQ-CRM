@@ -2,8 +2,8 @@
   <div class="stack">
     <div class="page-head">
       <p>
-        Administratorlar ro'yxati: ism-familiyasi, holati va oxirgi kirish vaqti. Parol hech qachon ko'rsatilmaydi — tiklash uchun bir
-        martalik havola yaratiladi. Har bir admin nima qilgani «Faoliyat tarixi» bo'limida ko'rinadi.
+        Administratorlar ro'yxati: ism-familiyasi, holati va oxirgi kirish vaqti. Login va parolni Super Admin o'zi beradi; parol keyin
+        ko'rsatilmaydi, kerak bo'lsa yangisiga almashtiriladi. Har bir admin nima qilgani «Faoliyat tarixi» bo'limida ko'rinadi.
       </p>
       <button class="btn pri" @click="newOpen = true"><Icon name="plus" :size="15" /> Yangi administrator</button>
     </div>
@@ -36,7 +36,7 @@
                 <template v-if="!a.isSuper">
                   <button class="btn sm" @click="openName(a)"><Icon name="edit" :size="13" /> Ism-familiya</button>
                   <button class="btn sm" @click="perm = { a, mods: modsOf(a) }"><Icon name="key" :size="13" /> Ruxsatlar</button>
-                  <button class="btn sm" @click="askReset = a"><Icon name="lock" :size="13" /> Parolni tiklash</button>
+                  <button class="btn sm" @click="askReset = a"><Icon name="lock" :size="13" /> Parolni almashtirish</button>
                   <span class="grow"></span>
                   <button class="btn sm" :class="a.status === 'disabled' ? '' : 'danger'" @click="askStatus = a">
                     {{ a.status === "disabled" ? "Faollashtirish" : "Bloklash" }}
@@ -117,21 +117,21 @@
       </template>
     </Modal>
 
-    <!-- Tiklash havolasi -->
-    <Modal v-if="askReset" title="Parolni tiklash" @close="closeReset">
-      <div v-if="!resetLink" class="stack">
-        <p><b>{{ askReset.username }}</b> uchun bir martalik tiklash havolasi yaratiladi. Eski parol ko'rsatilmaydi va o'zgarmaydi — administrator havolani ochib yangi parol o'rnatgandagina almashadi (shundan so'ng barcha sessiyalari yopiladi).</p>
-        <div class="note">Havolani faqat administratorning o'ziga xavfsiz kanal orqali bering. U {{ 30 }} daqiqa amal qiladi va bir marta ishlaydi.</div>
-      </div>
-      <div v-else class="stack">
-        <div class="note warn">Bu havola faqat HOZIR ko'rsatiladi. Nusxa olib, administratorga yuboring.</div>
-        <div class="linkbox mono">{{ resetLink.url }}</div>
-        <div class="small muted">Amal qilish muddati: {{ fmt.dt(resetLink.expiresAt) }}</div>
+    <!-- Parolni almashtirish -->
+    <Modal v-if="askReset" title="Parolni almashtirish" @close="closeReset">
+      <div class="stack">
+        <p><b>{{ askReset.fullName || askReset.username }}</b> (login: <span class="mono">{{ askReset.username }}</span>) uchun yangi parol kiriting. Eski parol ko'rsatilmaydi; saqlangach eski parol ishlamaydi va administratorning barcha ochiq sessiyalari yopiladi.</p>
+        <label class="fld">Yangi parol
+          <div class="pw">
+            <input v-model="resetPw" :type="showResetPw ? 'text' : 'password'" class="inp" autocomplete="new-password" @keyup.enter="resetOk && makeReset()" />
+            <button type="button" class="btn sm" @click="showResetPw = !showResetPw">{{ showResetPw ? "Yashirish" : "Ko'rsatish" }}</button>
+          </div>
+        </label>
+        <div class="small muted">Kamida {{ PW_MIN }} belgi.</div>
       </div>
       <template #foot>
-        <button class="btn" @click="closeReset">Yopish</button>
-        <button v-if="!resetLink" class="btn pri" :disabled="busy" @click="makeReset">Havola yaratish</button>
-        <button v-else class="btn pri" @click="copy(resetLink.url)"><Icon name="copy" :size="14" /> Nusxa olish</button>
+        <button class="btn" @click="closeReset">Bekor qilish</button>
+        <button class="btn pri" :disabled="busy || !resetOk" @click="makeReset">Saqlash</button>
       </template>
     </Modal>
 
@@ -168,16 +168,22 @@
         <label class="fld">Ism<input v-model="nu.firstName" class="inp" placeholder="masalan: Aziz" autocomplete="off" /></label>
         <label class="fld">Familiya<input v-model="nu.lastName" class="inp" placeholder="masalan: Karimov" autocomplete="off" /></label>
         <label class="fld">Login (kirish uchun)<input v-model="nu.username" class="inp" placeholder="masalan: aziz" autocomplete="off" /></label>
-        <div class="note">Parolni administratorning o'zi bir martalik havola orqali o'rnatadi — hech kim uni bilmaydi.</div>
+        <label class="fld">Parol
+          <div class="pw">
+            <input v-model="nu.password" :type="showNewPw ? 'text' : 'password'" class="inp" autocomplete="new-password" />
+            <button type="button" class="btn sm" @click="showNewPw = !showNewPw">{{ showNewPw ? "Yashirish" : "Ko'rsatish" }}</button>
+          </div>
+        </label>
+        <div class="small muted">Parol kamida {{ PW_MIN }} belgi. Login va parolni administratorga o'zingiz bering.</div>
       </div>
       <div v-else class="stack">
-        <div class="note warn">Administrator yaratildi. Parol o'rnatish havolasi faqat hozir ko'rsatiladi:</div>
-        <div class="linkbox mono">{{ created.url }}</div>
+        <div class="note">Administrator yaratildi. Endi u quyidagi login va siz bergan parol bilan kira oladi.</div>
+        <div class="linkbox mono">Login: {{ created.username }}</div>
       </div>
       <template #foot>
         <button class="btn" @click="closeNew">Yopish</button>
-        <button v-if="!created" class="btn pri" :disabled="busy || !nu.username.trim() || nu.firstName.trim().length < 2 || nu.lastName.trim().length < 2" @click="createAdmin">Yaratish</button>
-        <button v-else class="btn pri" @click="copy(created.url)"><Icon name="copy" :size="14" /> Nusxa olish</button>
+        <button v-if="!created" class="btn pri" :disabled="busy || !newOk" @click="createAdmin">Yaratish</button>
+        <button v-else class="btn pri" @click="copy(created.username)"><Icon name="copy" :size="14" /> Loginni nusxalash</button>
       </template>
     </Modal>
   </div>
@@ -185,7 +191,7 @@
 
 <script setup>
 import { ref, reactive, computed } from "vue";
-import { api, portalUrl } from "../api.js";
+import { api } from "../api.js";
 import { fmt, toast } from "../store.js";
 import { useLoad } from "../useLoad.js";
 import State from "../components/State.vue";
@@ -313,13 +319,18 @@ async function setStatus() {
   }
 }
 
+const PW_MIN = 5; // backend: CONFIG.passwordMinLength
+
 const askReset = ref(null);
-const resetLink = ref(null);
+const resetPw = ref("");
+const showResetPw = ref(false);
+const resetOk = computed(() => resetPw.value.length >= PW_MIN);
 async function makeReset() {
   busy.value = true;
   try {
-    const r = await api(`/api/super/admins/${askReset.value.id}/reset-link`, { method: "POST" });
-    resetLink.value = { url: portalUrl(r.reset.path), expiresAt: r.reset.expiresAt };
+    await api(`/api/super/admins/${askReset.value.id}/password`, { method: "POST", body: { password: resetPw.value } });
+    toast("Parol almashtirildi, administratorning sessiyalari yopildi");
+    closeReset();
     reload();
   } catch (e) {
     toast(e.message, "error");
@@ -329,17 +340,23 @@ async function makeReset() {
 }
 function closeReset() {
   askReset.value = null;
-  resetLink.value = null;
+  resetPw.value = "";
+  showResetPw.value = false;
 }
 
 const newOpen = ref(false);
-const nu = reactive({ username: "", firstName: "", lastName: "" });
+const nu = reactive({ username: "", firstName: "", lastName: "", password: "" });
+const showNewPw = ref(false);
 const created = ref(null);
+const newOk = computed(
+  () => !!nu.username.trim() && nu.firstName.trim().length >= 2 && nu.lastName.trim().length >= 2 && nu.password.length >= PW_MIN,
+);
 async function createAdmin() {
   busy.value = true;
   try {
     const r = await api("/api/super/admins", { method: "POST", body: { ...nu } });
-    created.value = { url: portalUrl(r.reset.path) };
+    created.value = { username: r.account?.username || nu.username.trim() };
+    nu.password = "";
     reload();
   } catch (e) {
     toast(e.message, "error");
@@ -350,7 +367,8 @@ async function createAdmin() {
 function closeNew() {
   newOpen.value = false;
   created.value = null;
-  nu.username = nu.firstName = nu.lastName = "";
+  showNewPw.value = false;
+  nu.username = nu.firstName = nu.lastName = nu.password = "";
 }
 async function copy(t) {
   try {
@@ -374,5 +392,7 @@ async function copy(t) {
 .adm-facts span { display: inline-flex; align-items: center; gap: 5px; }
 .adm-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; }
 .grow { flex: 1; }
+.pw { display: flex; gap: 6px; align-items: center; }
+.pw .inp { flex: 1; min-width: 0; }
 .linkbox { padding: 10px 12px; border: 1px solid var(--border-2); border-radius: 9px; background: var(--surface-2); word-break: break-all; user-select: all; }
 </style>
