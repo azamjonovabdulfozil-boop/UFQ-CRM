@@ -1001,6 +1001,8 @@ export function createSuperRouter(deps) {
         { upsert: true },
       );
     await db().collection(sec.ACCOUNTS_COL).deleteOne({ _id: acc._id });
+    // Eski (ko'chirishdan oldingi) ro'yxatda qolgan nusxasi ham o'chiriladi
+    await db().collection("users").deleteMany({ login: acc.username, _role: { $nin: ["mentor", "student"] } }).catch(() => {});
     sec.invalidateAccount(id, acc.username);
     kickAccount(id, "deleted");
     await audit("super.admin.delete", { req, actor: req.user, target: { username: acc.username, name }, severity: "critical" });

@@ -4,11 +4,12 @@
       <div v-if="warning" class="note warn">{{ warning }}</div>
       <slot />
       <label v-if="confirmWord" class="fld">
-        Tasdiqlash uchun <b class="mono">{{ confirmWord }}</b> deb yozing
-        <input v-model="word" class="inp" autocomplete="off" />
+        <span>Tasdiqlash uchun <b class="mono">{{ confirmWord }}</b> deb yozing</span>
+        <input v-model="word" class="inp" autocomplete="off" autocapitalize="characters" />
+        <span v-if="word.trim() && !wordOk" class="small bad-text">Aynan «{{ confirmWord }}» deb yozing</span>
       </label>
       <label class="fld">
-        Parolingiz (qayta tasdiqlash)
+        Super Admin parolingiz (qayta tasdiqlash)
         <input v-model="password" type="password" class="inp" autocomplete="current-password" @keydown.enter="submit" />
       </label>
       <label v-if="needOtp" class="fld">
@@ -19,7 +20,7 @@
     </div>
     <template #foot>
       <button class="btn" @click="$emit('close')">Bekor qilish</button>
-      <button class="btn" :class="danger ? 'danger' : 'pri'" :disabled="busy || !password || (confirmWord && word.trim().toUpperCase() !== confirmWord)" @click="submit">
+      <button class="btn" :class="danger ? 'danger' : 'pri'" :disabled="busy || !password || !wordOk" @click="submit">
         <span v-if="busy" class="spin" style="width: 14px; height: 14px"></span>{{ okText }}
       </button>
     </template>
@@ -27,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import Modal from "./Modal.vue";
 const props = defineProps({
   title: { type: String, default: "Qayta tasdiqlash" },
@@ -44,8 +45,12 @@ const otp = ref("");
 const word = ref("");
 const err = ref("");
 const busy = ref(false);
+// O'zbekcha apostrof turli klaviaturada turlicha (' ‘ ’ ʻ ʼ `) yoki umuman
+// yozilmaydi — «ochirish», «O‘CHIRISH» ham qabul qilinadi.
+const norm = (v) => String(v || "").replace(/[\s'‘’ʻʼ`´]/g, "").toUpperCase();
+const wordOk = computed(() => !props.confirmWord || norm(word.value) === norm(props.confirmWord));
 async function submit() {
-  if (busy.value || !password.value) return;
+  if (busy.value || !password.value || !wordOk.value) return;
   busy.value = true;
   err.value = "";
   try {
@@ -59,3 +64,7 @@ async function submit() {
   }
 }
 </script>
+
+<style scoped>
+.bad-text { color: var(--bad, #dc2626); }
+</style>
