@@ -429,7 +429,10 @@ app.get("/api/data", requireAuth, async (req, res) => {
       const { _id, _type, _migratedAt, ...data } = doc;
       // Super Admin yopgan bo'limlar (masalan Moliya) oddiy adminga berilmaydi
       const pol = await sectionPolicy(req.user);
-      res.json({ ok: true, data: stripSections(data, pol.readBlocked) });
+      let out = stripSections(data, pol.readBlocked);
+      // Talabaga test savollarining to'g'ri javoblari berilmaydi — ball serverda hisoblanadi
+      if (req.user.role === ROLES.STUDENT && Array.isArray(out.tests)) out = { ...out, tests: out.tests.map(testForStudent) };
+      res.json({ ok: true, data: out });
     } else {
       res.json({ ok: false, data: null });
     }
@@ -583,10 +586,88 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
       // Dars birinchi marta qachon belgilangani ("o'z vaqtida" ko'rsatkichi uchun)
       if ("attendance" in clean) recordLessonMarks(getDb(), prev?.attendance, clean.attendance, req.user).catch(() => {});
     } catch {}
-    // CRM ma'lumoti ayni shu kalit ostida KV'ga ham yoziladi — mijozlar
-    // o'zgarishni shu nom orqali taniydi.
+    // CRM ning KV nusxasi (edumanage_crm_v8) ham AYNAN shu holatga keltiriladi.
+    // Ilgari faqat crm_data yangilanardi: talaba (KV kalitiga yoza olmaydi) yoki
+    // server yozgan o'zgarish KV nusxasida eski qolardi. Brauzerlar ochilganda
+    // eski KV nusxasini olib, keyingi saqlashda boshqalarning o'zgarishini
+    // (masalan yangi testni) o'chirib yuborardi.
+    await mirrorCrmToKv();
     broadcast(["edumanage_crm_v8"], originOf(req));
     res.json({ ok: true, rejectedSections: rejected });
+  } catch (e) {
+    fail(res, e, req);
+  }
+});
+
+/** crm_data dagi joriy holatni KV nusxasiga yozadi (ikkala nusxa bir xil bo'lsin). */
+async function mirrorCrmToKv() {
+  try {
+    const doc = await getDb().collection("crm_data").findOne({ _type: "main" });
+    if (!doc) return;
+    const { _id, _type, _migratedAt, ...data } = doc;
+    await getDb()
+      .collection("kv")
+      .updateOne({ key: CRM_KV_KEY }, { $set: { key: CRM_KV_KEY, value: JSON.stringify(data), _updatedAt: new Date() } }, { upsert: true });
+  } catch (e) {
+    console.warn("⚠️  CRM KV nusxasi yangilanmadi:", e.message);
+  }
+}
+
+// ─── Test topshirish: ball SERVERDA hisoblanadi ───────────────────────────────
+// Ilgari ballni talabaning brauzeri hisoblab, o'zi yozardi, to'g'ri javoblar
+// esa brauzerga ochiq kelardi — talaba konsoldan javoblarni ko'rishi yoki
+// o'ziga 100% yozishi mumkin edi. Endi talaba faqat javoblarini yuboradi.
+/** Talaba uchun test: savollardan to'g'ri javob olib tashlanadi */
+function testForStudent(t) {
+  if (!t || !Array.isArray(t.questions)) return t;
+  return { ...t, questions: t.questions.map((q) => {
+    if (!q || typeof q !== "object") return q;
+    const { correct, ...rest } = q;
+    return rest;
+  }) };
+}
+
+app.post("/api/tests/submit", requireAuth, blockUntilPasswordChanged, writeLimiter, async (req, res) => {
+  try {
+    if (req.user.role !== ROLES.STUDENT || req.user.studentId == null)
+      return res.status(403).json({ ok: false, error: "Testni faqat talaba topshiradi" });
+    const sid = String(req.user.studentId);
+    const testId = Number(req.body?.testId);
+    const answersIn = req.body?.answers && typeof req.body.answers === "object" ? req.body.answers : {};
+    if (!Number.isFinite(testId)) return res.status(400).json({ ok: false, error: "Test topilmadi" });
+
+    const doc = await getDb().collection("crm_data").findOne({ _type: "main" }, { projection: { tests: 1, students: 1, testResults: 1 } });
+    const t = (doc?.tests || []).find((x) => Number(x.id) === testId);
+    if (!t || !Array.isArray(t.questions) || !t.questions.length) return res.status(404).json({ ok: false, error: "Test topilmadi" });
+    const st = (doc?.students || []).find((x) => String(x.id) === sid);
+    if (!st) return res.status(403).json({ ok: false, error: "Talaba topilmadi" });
+    if (t.groupId != null && String(t.groupId) !== String(st.groupId))
+      return res.status(403).json({ ok: false, error: "Bu test sizning guruhingiz uchun emas" });
+    const prevRes = doc?.testResults?.[String(testId)]?.[sid];
+    if (prevRes) return res.status(409).json({ ok: false, code: "already-done", error: "Bu testni allaqachon topshirgansiz", result: prevRes });
+
+    // Javoblar: faqat savol raqami → variant raqami
+    const answers = {};
+    t.questions.forEach((q, qi) => {
+      const v = answersIn[qi] ?? answersIn[String(qi)];
+      const n = Number(v);
+      if (v !== undefined && v !== null && Number.isInteger(n) && n >= 0 && n < (q.options || []).length) answers[qi] = n;
+    });
+    let correct = 0;
+    t.questions.forEach((q, qi) => {
+      if (answers[qi] !== undefined && answers[qi] === q.correct) correct++;
+    });
+    const total = t.questions.length;
+    const result = { score: Math.round((correct / total) * 100), correct, total, answers, completedAt: new Date().toISOString() };
+
+    await getDb()
+      .collection("crm_data")
+      .updateOne({ _type: "main" }, { $set: { [`testResults.${testId}.${sid}`]: result, _updatedAt: new Date() } });
+    // CRM ning KV nusxasi ham yangilansin — portallar shu kalitni kuzatadi
+    await mirrorCrmToKv();
+    broadcast([CRM_KV_KEY], originOf(req));
+    audit("test.submit", { req, actor: req.user, meta: { testId, score: result.score } });
+    res.json({ ok: true, result });
   } catch (e) {
     fail(res, e, req);
   }
@@ -713,15 +794,14 @@ app.post("/api/coins", requireAuth, blockUntilPasswordChanged, writeLimiter, asy
     if (Array.isArray(shop) && req.user.role === ROLES.STUDENT)
       return res.status(403).json({ ok: false, code: "forbidden", error: "Do'konni o'zgartirish uchun ruxsat yo'q" });
 
-    if (Array.isArray(purchases)) {
-      const chk = checkPurchaseWrite(req.user, purchases, prev.purchases || []);
-      if (!chk.ok) return res.status(403).json({ ok: false, code: "forbidden", error: chk.error });
-    }
+    // Xaridlarni (tasdiqlash, rad etish) faqat admin o'zgartiradi; boshqalar
+    // yuborgan ro'yxat e'tiborga olinmaydi (eski nusxa coin berishni to'smasin)
+    const writePurchases = Array.isArray(purchases) && req.user.role === ROLES.ADMIN;
 
     const update = { _type: "main", _updatedAt: new Date() };
     if (coins && typeof coins === "object") update.coins = coins;
     if (Array.isArray(shop)) update.shop = shop;
-    if (Array.isArray(purchases)) update.purchases = purchases;
+    if (writePurchases) update.purchases = purchases;
 
     await getDb()
       .collection("coins")
@@ -733,6 +813,105 @@ app.post("/api/coins", requireAuth, blockUntilPasswordChanged, writeLimiter, asy
     res.json({ ok: true });
   } catch (e) {
     fail(res, e, req);
+  }
+});
+
+/**
+ * KV orqali coin/xarid yozuvi: /api/coins dagi qoidalar shu yerda ham.
+ * Ilgari KV yo'lida tekshiruv yo'q edi — talaba bitta so'rov bilan o'ziga
+ * istalgancha coin yoza olardi.
+ */
+const COIN_KV = "edu_mentor_coins_v1";
+const PURCHASE_KV = "edu_purchases_v1";
+const SHOP_KV = "edu_shop_v1";
+async function kvCoinGuard(user, key, value) {
+  if (!user || user.role === ROLES.ADMIN || (key !== COIN_KV && key !== PURCHASE_KV)) return { ok: true };
+  let next;
+  try {
+    next = value == null ? (key === COIN_KV ? {} : []) : JSON.parse(String(value));
+  } catch {
+    return { ok: false, error: "Qiymat JSON formatida emas" };
+  }
+  const cur = await getDb().collection("kv").findOne({ key });
+  let prev = key === COIN_KV ? {} : [];
+  try {
+    if (cur && cur.value != null) prev = JSON.parse(String(cur.value));
+  } catch {}
+  return key === COIN_KV ? checkCoinWrite(user, next, prev) : checkPurchaseWrite(user, next, prev);
+}
+
+// ─── Do'kondan xarid: balans tekshiruvi, coin yechish va xarid BITTA amalda ───
+// Ilgari talaba brauzeri balansni o'zi kamaytirib, xaridni o'zi yozardi: coin
+// to'lamasdan "xarid" qo'shib, admin rad etganda coin «qaytarib» olish mumkin edi.
+const _buyLocks = new Set();
+app.post("/api/shop/buy", requireAuth, blockUntilPasswordChanged, writeLimiter, async (req, res) => {
+  if (req.user.role !== ROLES.STUDENT || req.user.studentId == null)
+    return res.status(403).json({ ok: false, error: "Do'kondan faqat talaba xarid qiladi" });
+  const sid = String(req.user.studentId);
+  if (_buyLocks.has(sid)) return res.status(429).json({ ok: false, error: "Oldingi xarid hali tugamadi" });
+  _buyLocks.add(sid);
+  try {
+    const pol = await sectionPolicy(req.user);
+    if (pol.kvBlocked.has(SHOP_KV) || pol.kvBlocked.has(COIN_KV))
+      return res.status(403).json({ ok: false, code: "module-disabled", error: "Coin Shop Super Admin tomonidan o'chirilgan" });
+    const col = getDb().collection("kv");
+    const docs = await col.find({ key: { $in: [COIN_KV, SHOP_KV, PURCHASE_KV] } }).toArray();
+    const get = (k, def) => {
+      const d = docs.find((x) => x.key === k);
+      try {
+        return d && d.value != null ? JSON.parse(String(d.value)) : def;
+      } catch {
+        return def;
+      }
+    };
+    const coins = get(COIN_KV, {});
+    const shop = get(SHOP_KV, []);
+    const purchases = get(PURCHASE_KV, []);
+    if (!Array.isArray(shop) || !Array.isArray(purchases) || !coins || typeof coins !== "object")
+      return res.status(500).json({ ok: false, error: "Do'kon ma'lumoti buzilgan" });
+
+    const item = shop.find((x) => String(x?.id) === String(req.body?.itemId));
+    if (!item) return res.status(404).json({ ok: false, error: "Mahsulot topilmadi" });
+    const price = Number(item.price);
+    const stock = Number(item.stock ?? 0);
+    if (!Number.isFinite(price) || price <= 0) return res.status(400).json({ ok: false, error: "Mahsulot narxi noto'g'ri" });
+    if (!(stock > 0)) return res.status(409).json({ ok: false, error: "Mahsulot qolmagan" });
+    const bal = Number(coins["s_" + sid] || 0);
+    if (bal < price) return res.status(409).json({ ok: false, error: `Coin yetarli emas: kerak ${price}, sizda ${bal}` });
+
+    const crm = await readCrmData();
+    const st = (crm?.students || []).find((x) => String(x.id) === sid);
+    coins["s_" + sid] = bal - price;
+    item.stock = stock - 1;
+    const purchase = {
+      id: "buy_" + Date.now() + "_" + randomUUID().slice(0, 6),
+      studentId: Number(sid),
+      studentName: st ? st.name : "—",
+      itemId: item.id,
+      itemName: item.name,
+      itemImage: item.image || null,
+      coinPrice: price,
+      date: new Date().toISOString(),
+      approved: false,
+    };
+    purchases.push(purchase);
+    const now = new Date();
+    await col.bulkWrite(
+      [
+        [COIN_KV, coins],
+        [SHOP_KV, shop],
+        [PURCHASE_KV, purchases],
+      ].map(([key, v]) => ({
+        updateOne: { filter: { key }, update: { $set: { key, value: JSON.stringify(v), _updatedAt: now } }, upsert: true },
+      })),
+    );
+    broadcast([COIN_KV, SHOP_KV, PURCHASE_KV], originOf(req));
+    audit("shop.buy", { req, actor: req.user, meta: { itemId: item.id, price } });
+    res.json({ ok: true, balance: coins["s_" + sid], stock: item.stock, purchase });
+  } catch (e) {
+    fail(res, e, req);
+  } finally {
+    _buyLocks.delete(sid);
   }
 });
 
@@ -1002,7 +1181,21 @@ app.get("/api/kv", requireAuth, async (req, res) => {
       } catch {}
     }
     // Hisob ma'lumotlari va sozlamalar talaba/mentor javobiga tushmaydi
-    res.json({ ok: true, data: filterKvForRole(req.user.role, data), rev: revision, ...(sig ? { sig } : {}) });
+    const outKv = filterKvForRole(req.user.role, data);
+    // Talabaga testlarning to'g'ri javoblari KV nusxasi orqali ham berilmaydi
+    if (req.user.role === ROLES.STUDENT) {
+      for (const k of [CRM_KV_KEY, "edumanage_tests_v1"]) {
+        if (typeof outKv[k] !== "string") continue;
+        try {
+          const v = JSON.parse(outKv[k]);
+          if (Array.isArray(v)) outKv[k] = JSON.stringify(v.map(testForStudent));
+          else if (v && Array.isArray(v.tests)) outKv[k] = JSON.stringify({ ...v, tests: v.tests.map(testForStudent) });
+        } catch {
+          delete outKv[k];
+        }
+      }
+    }
+    res.json({ ok: true, data: outKv, rev: revision, ...(sig ? { sig } : {}) });
   } catch (e) {
     fail(res, e, req);
   }
@@ -1078,6 +1271,13 @@ app.post("/api/kv", requireAuth, blockUntilPasswordChanged, writeLimiter, async 
     }
     if (value != null && byteLength(value) > SEC.maxKvValueBytes)
       return res.status(413).json({ ok: false, code: "payload-too-large", error: "Qiymat juda katta" });
+
+    // Coin balansi va xaridlar — KV orqali ham /api/coins dagi qoidalar bilan
+    const coinChk = await kvCoinGuard(req.user, key, value);
+    if (!coinChk.ok) {
+      await audit("coins.write.denied", { req, actor: req.user, meta: { key, reason: coinChk.error }, severity: "warn" });
+      return res.status(403).json({ ok: false, code: "forbidden", error: coinChk.error });
+    }
 
     // Super Admin yopgan modul kalitlari (masalan Coin Shop) va CRM bo'limlari
     const pol = await sectionPolicy(req.user);
@@ -1173,6 +1373,11 @@ app.post("/api/kv/bulk", requireAuth, blockUntilPasswordChanged, writeLimiter, a
       if (p.value != null && byteLength(p.value) > SEC.maxKvValueBytes)
         return res.status(413).json({ ok: false, code: "payload-too-large", error: "Qiymat juda katta: " + k });
       p.value = kvIn(k, p.value);
+      const coinChk = await kvCoinGuard(req.user, k, p.value);
+      if (!coinChk.ok) {
+        await audit("coins.write.denied", { req, actor: req.user, meta: { key: k, reason: coinChk.error }, severity: "warn" });
+        return res.status(403).json({ ok: false, code: "forbidden", error: coinChk.error });
+      }
       if (k === "edumanage_crm_v8" && pol.writeBlocked.size && p.value != null) {
         try {
           const cur = await getDb().collection("kv").findOne({ key: k });

@@ -38,15 +38,14 @@ const STAFF_KEYS = new Set([
 ]);
 
 /** Talabaga ochiq prefikslar (o'z natijalari, chat, xabarnomalar, UI). */
+// Coin balansi va xaridlar talabaga yopiq: xarid faqat /api/shop/buy orqali
+// (server balansni tekshirib, coin yechib, xaridni bitta amalda yozadi).
 const STUDENT_WRITABLE = [
-  /^edu_purchases_v1$/,
-  /^edu_mentor_coins_v1$/, // maxsus qoida bilan — pastdagi checkCoinWrite
   /^edumanage_ui_/,
   /^edu_chat_/,
   /^edumanage_chat_/,
   /^edumanage_notifications_/,
   /^edu_notif_/,
-  /^edumanage_test_results_/,
   /^edu_student_/,
 ];
 
@@ -110,10 +109,12 @@ export function filterKvForRole(role, dataMap) {
 
 // ─── CRM obyektining bo'limlari ───────────────────────────────────────────────
 
-/** Talaba o'zgartira oladigan bo'limlar — faqat o'z faoliyati natijalari. */
+/**
+ * Talaba o'zgartira oladigan bo'limlar.
+ * testResults — faqat /api/tests/submit orqali (ball serverda hisoblanadi);
+ * simpleGrades — mentor qo'yadigan baholar, talaba ularga tegolmaydi.
+ */
 const STUDENT_CRM_SECTIONS = new Set([
-  "testResults",
-  "simpleGrades",
   "chats",
   "notifications",
   "studentNotes",
@@ -184,9 +185,10 @@ export function applyCrmWritePolicy(role, incoming, current) {
  *
  * Qoidalar:
  *   admin   — hamma narsa
- *   mentor  — talabalarning balansini o'zgartirishi va O'Z balansini faqat
- *             KAMAYTIRISHI mumkin (coin berish o'z hisobidan yechiladi)
- *   talaba  — faqat O'Z balansini va faqat KAMAYTIRA oladi (do'kondan xarid)
+ *   mentor  — faqat o'z kalitlari (m_<ism>, mg_<ism>_<guruh>) va talabalar
+ *             (s_*) o'zgaradi, JAMI coin esa OSHMAYDI: talabaga berilgan coin
+ *             mentorning o'z balansidan yechiladi, qaytarib olingani qaytadi
+ *   talaba  — hech narsa (xarid /api/shop/buy orqali, serverda)
  *
  * @returns {{ok:true} | {ok:false, error:string}}
  */
@@ -198,12 +200,7 @@ export function checkCoinWrite(user, nextCoins, prevCoins) {
   const next = nextCoins && typeof nextCoins === "object" ? nextCoins : {};
   const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
 
-  const ownKey =
-    user.role === ROLES.STUDENT
-      ? "s_" + user.studentId
-      : user.mentorName
-        ? "m_" + user.mentorName
-        : null;
+  let netDelta = 0;
 
   for (const k of keys) {
     const before = Number(prev[k] || 0);
@@ -212,39 +209,33 @@ export function checkCoinWrite(user, nextCoins, prevCoins) {
     if (!Number.isFinite(after) || after < 0)
       return { ok: false, error: "Coin qiymati noto'g'ri" };
 
-    if (user.role === ROLES.STUDENT) {
-      if (k !== ownKey) return { ok: false, error: "Boshqa foydalanuvchining balansini o'zgartirib bo'lmaydi" };
-      if (after > before) return { ok: false, error: "Balansni o'zingiz oshira olmaysiz" };
-      continue;
-    }
+    if (user.role === ROLES.STUDENT)
+      return { ok: false, error: "Coin faqat do'kon orqali sarflanadi" };
 
     if (user.role === ROLES.MENTOR) {
-      if (k.startsWith("m_")) {
-        if (k !== ownKey) return { ok: false, error: "Boshqa mentorning balansini o'zgartirib bo'lmaydi" };
-        if (after > before) return { ok: false, error: "O'z balansingizni oshira olmaysiz" };
-      }
-      continue; // s_* — talabaga coin berish, ruxsat
+      const name = user.mentorName || "";
+      const own = name && (k === "m_" + name || (k.startsWith("mg_" + name + "_") && /^\d+$/.test(k.slice(("mg_" + name + "_").length))));
+      if (!own && !k.startsWith("s_"))
+        return { ok: false, error: "Boshqa mentorning balansini o'zgartirib bo'lmaydi" };
+      netDelta += after - before;
+      continue;
     }
 
     return { ok: false, error: "Ruxsat yo'q" };
   }
+  // Mentor coin yarata olmaydi: talabaga berilgani o'z balansidan yechilishi shart
+  if (user.role === ROLES.MENTOR && netDelta > 0)
+    return { ok: false, error: "Coin faqat o'z balansingizdan beriladi — balans yetarli emas yoki ma'lumot eskirgan, sahifani yangilang" };
   return { ok: true };
 }
 
 /** Xaridlar ro'yxati — talaba faqat o'ziniki uchun yozuv qo'sha oladi. */
 export function checkPurchaseWrite(user, nextPurchases, prevPurchases) {
   if (!user) return { ok: false, error: "Avtorizatsiya kerak" };
-  if (user.role !== ROLES.STUDENT) return { ok: true };
-
-  const prev = Array.isArray(prevPurchases) ? prevPurchases : [];
-  const next = Array.isArray(nextPurchases) ? nextPurchases : [];
-  if (next.length < prev.length)
-    return { ok: false, error: "Xaridlar tarixini o'chirib bo'lmaydi" };
-
-  for (const p of next.slice(prev.length)) {
-    const sid = Number(p?.studentId ?? p?.sid);
-    if (Number.isFinite(sid) && sid !== Number(user.studentId))
-      return { ok: false, error: "Boshqa talaba nomidan xarid qilib bo'lmaydi" };
-  }
+  if (user.role === ROLES.ADMIN) return { ok: true };
+  // Xaridni tasdiqlash/rad etish (coin qaytarish) — faqat admin; talaba
+  // xaridni /api/shop/buy orqali qiladi
+  if (JSON.stringify(nextPurchases || []) !== JSON.stringify(prevPurchases || []))
+    return { ok: false, error: "Xaridlarni faqat administrator o'zgartira oladi" };
   return { ok: true };
 }

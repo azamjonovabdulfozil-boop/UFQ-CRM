@@ -35,8 +35,10 @@ function resolveBackend() {
   if (!isLocal) return { api: '', sse: PROD_API }
 
   // Backend sahifani o'zi bergan bo'lsa (localhost:3000/student) — o'sha origin
+  // Backend panelni o'zi bergan bo'lsa (istalgan PORT) — API ham o'sha manzilda.
+  // Boshqa portga faqat Vite dev/preview serveridan murojaat qilinadi.
   const base =
-    port === LOCAL_API_PORT ? '' : `${protocol}//${hostname}:${LOCAL_API_PORT}`
+    port === LOCAL_API_PORT || !/^(5173|5174|5175|5176|5177|5178|4173)$/.test(port) ? '' : `${protocol}//${hostname}:${LOCAL_API_PORT}`
   return { api: base, sse: base }
 }
 

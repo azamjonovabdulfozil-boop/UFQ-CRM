@@ -1137,25 +1137,41 @@ async function submitStudentTest(testId, studentId, autoSubmit) {
     if (!(await crmConfirm(`${t.questions.length - answered} ta savol javobsiz. Baribir topshirasizmi?`)))
       return;
   }
-  // Calculate score
-  let correct = 0;
-  t.questions.forEach((q, qi) => {
-    if (_testAnswers[qi] === q.correct) correct++;
-  });
-  const score = Math.round((correct / t.questions.length) * 100);
+  // Ball SERVERDA hisoblanadi: to'g'ri javoblar talabaga berilmaydi va
+  // natijani brauzerdan o'zgartirib bo'lmaydi. Demo rejimda — shu yerda.
+  let result;
+  if (!window.__CRM_DEMO__) {
+    try {
+      const r = await fetch('/api/tests/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testId, answers: _testAnswers }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) result = d.result;
+      else if (d.code === 'already-done' && d.result) result = d.result;
+      else {
+        toast('❌ ' + (d.error || 'Test topshirilmadi') + ' — qayta urinib ko\'ring');
+        return;
+      }
+    } catch (e) {
+      toast("❌ Internet bilan aloqa yo'q — javoblaringiz saqlanib turibdi, «Topshirish» ni qayta bosing");
+      return;
+    }
+  } else {
+    let c = 0;
+    t.questions.forEach((q, qi) => {
+      if (_testAnswers[qi] === q.correct) c++;
+    });
+    result = { score: Math.round((c / t.questions.length) * 100), correct: c, total: t.questions.length, answers: { ..._testAnswers }, completedAt: new Date().toISOString() };
+  }
+  const score = result.score, correct = result.correct;
   if (!D.testResults[testId]) D.testResults[testId] = {};
-  D.testResults[testId][studentId] = {
-    score,
-    correct,
-    total: t.questions.length,
-    answers: { ..._testAnswers },
-    completedAt: new Date().toISOString()
-  };
-  saveData();
+  D.testResults[testId][studentId] = result;
   _activeTestId = null;
   _testAnswers = {};
   // Show result
-  renderStudentTestResult(testId, studentId, score, correct, t.questions.length);
+  renderStudentTestResult(testId, studentId, score, correct, result.total || t.questions.length);
 }
 
 function renderStudentTestResult(testId, studentId, score, correct, total) {

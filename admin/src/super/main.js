@@ -20,7 +20,10 @@ function resolveBackend() {
     hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" ||
     hostname.endsWith(".local") || /^192\.168\./.test(hostname) || /^10\./.test(hostname);
   if (!isLocal) return { api: "", sse: PROD_API };
-  const base = port === LOCAL_API_PORT ? "" : `${protocol}//${hostname}:${LOCAL_API_PORT}`;
+  // Backend panelni o'zi bergan bo'lsa (istalgan PORT) — API ham o'sha manzilda.
+  // Boshqa portga faqat Vite dev/preview serveridan murojaat qilinadi.
+  const base =
+    port === LOCAL_API_PORT || !/^(5173|5174|5175|5176|5177|5178|4173)$/.test(port) ? "" : `${protocol}//${hostname}:${LOCAL_API_PORT}`;
   return { api: base, sse: base };
 }
 const backend = resolveBackend();

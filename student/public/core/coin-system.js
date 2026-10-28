@@ -2675,6 +2675,64 @@
       return;
     }
 
+    // Haqiqiy rejimda xarid SERVERDA bajariladi: balans tekshiriladi, coin
+    // yechiladi va xarid yoziladi — bitta amalda. Brauzer faqat natijani oladi.
+    if (!window.__CRM_DEMO__) {
+      var goBtn = document.getElementById("cs-buy-go");
+      if (goBtn) {
+        goBtn.disabled = true;
+        goBtn.style.opacity = ".6";
+      }
+      fetch(API_BASE + "/api/shop/buy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: itemId }),
+      })
+        .then(function (r) {
+          return r.json().catch(function () {
+            return {};
+          });
+        })
+        .then(function (d) {
+          if (!d || !d.ok) {
+            if (goBtn) {
+              goBtn.disabled = false;
+              goBtn.style.opacity = "1";
+            }
+            crmAlert("❌ " + ((d && d.error) || tl("Xarid amalga oshmadi!", "Покупка не удалась!", "Purchase failed!")));
+            return;
+          }
+          // Mahalliy nusxa serverdagi natija bilan yangilanadi (serverga qayta yozilmaydi)
+          var raw = function (k, v) {
+            try {
+              Storage.prototype.setItem.call(localStorage, k, JSON.stringify(v));
+            } catch (e) {}
+          };
+          var c = getCoins();
+          c["s_" + stuId] = d.balance;
+          raw(COIN_KEY, c);
+          var sh = getShop();
+          var it = sh.find(function (x) {
+            return x.id === itemId;
+          });
+          if (it) it.stock = d.stock;
+          raw(SHOP_KEY, sh);
+          var pl = getPurchases();
+          pl.push(d.purchase);
+          raw(PURCHASE_KEY, pl);
+          _boughtUI(item);
+        })
+        .catch(function () {
+          if (goBtn) {
+            goBtn.disabled = false;
+            goBtn.style.opacity = "1";
+          }
+          crmAlert("❌ " + tl("Internet bilan aloqa yo'q — qayta urinib ko'ring", "Нет связи — попробуйте ещё раз", "No connection — try again"));
+        });
+      return;
+    }
+
+    // Demo rejim: server yo'q — shu oynada
     setStudentBal(stuId, bal - item.price);
     item.stock = Math.max(0, item.stock - 1);
     saveShop(items);
@@ -2695,7 +2753,10 @@
       approved: false,
     });
     savePurchases(purchases);
+    _boughtUI(item);
+  };
 
+  function _boughtUI(item) {
     var m = document.getElementById("cs-buy-modal");
     if (m) m.remove();
     toast(
