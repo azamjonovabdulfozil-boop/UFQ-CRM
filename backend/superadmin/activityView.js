@@ -86,6 +86,8 @@ export function crmLookups(D) {
 
 /** CRM o'zgarishini gaplarga aylantiradi. */
 function describeDataChange(meta, L) {
+  // Yangi yozuvlarda har bir amal tayyor gap bilan saqlangan
+  if (meta && Array.isArray(meta.actions) && meta.actions.length) return meta.actions.map((a) => String(a.text || "")).filter(Boolean);
   const lines = [];
   const sec = (meta && meta.sections) || {};
   for (const [k, w] of Object.entries(ENT)) {
@@ -248,6 +250,12 @@ export function describeEvent(e, ctx) {
           details: [],
         };
       return { title: "Tizim sozlamalarini o'zgartirdi", details: [] };
+    case "super.trash.restore":
+      return { title: `Savatdan tikladi: ${t.name || ""}`, details: [] };
+    case "super.trash.purge":
+      return { title: `Savatdan butunlay o'chirdi: ${t.name || ""}`, details: [] };
+    case "super.trash.empty":
+      return { title: `Savatni tozaladi (${m.count || 0} ta yozuv)`, details: [] };
     case "super.branding.update":
       return { title: "CRM nomi yoki logotipini o'zgartirdi", details: [] };
     case "server.start":

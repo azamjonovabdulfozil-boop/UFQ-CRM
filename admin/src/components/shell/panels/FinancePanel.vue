@@ -34,6 +34,18 @@
           >
             🎓 Mentor oylik
           </button>
+          <button
+            class="btn"
+            style="
+              background: var(--teal-light);
+              color: var(--teal-text);
+              border-color: rgba(13, 148, 136, 0.3);
+            "
+            onclick="openFinExport()"
+            title="Moliyani Excel faylga chiqarish"
+          >
+            📊 Excel
+          </button>
           <div style="flex: 1"></div>
           <select class="fsel" id="fin-filter-type" onchange="renderFinance()">
             <option value="">Barchasi</option>

@@ -71,7 +71,7 @@ function diffMapKeys(prev, next) {
  * [{ groupId, year, month, lesson, marks: {K, Y, S} }] — faqat sonlar,
  * talabalarning ismi yoki boshqa shaxsiy ma'lumot yozilmaydi.
  */
-function attendanceLessons(prev, next, keys) {
+export function attendanceLessons(prev, next, keys) {
   const out = [];
   for (const key of keys) {
     const m = /^att_(\d+)_(\d{4})_(\d{1,2})$/.exec(key);

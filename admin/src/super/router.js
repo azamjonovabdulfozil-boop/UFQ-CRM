@@ -19,6 +19,7 @@ export const NAV = [
   { path: "/activity", name: "Faoliyat tarixi", icon: "list", comp: () => import("./pages/Activity.vue") },
   { path: "/reports", name: "Hisobotlar", icon: "file", comp: () => import("./pages/Reports.vue") },
   { path: "/backups", name: "Zaxira nusxalari", icon: "archive", comp: () => import("./pages/Backups.vue") },
+  { path: "/trash", name: "Savat", icon: "trash", comp: () => import("./pages/Trash.vue") },
   { group: "Hisob" },
   { path: "/profile", name: "Profil va xavfsizlik", icon: "shield", comp: () => import("./pages/Profile.vue") },
 ];

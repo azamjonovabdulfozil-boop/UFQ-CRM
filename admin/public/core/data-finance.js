@@ -910,7 +910,7 @@ function renderFinanceList() {
         <div style="font-size:12px;color:var(--text2)">${fmtDateTime(tx.date)}</div>
         <div><span class="badge ${tx.type === "income" ? "b-teal" : tx.type === "salary" ? "b-purple" : "b-orange"}">${typeName[tx.type]}</span></div>
         <div class="${amountClass[tx.type]}">${sign[tx.type]}${fmtMoney(tx.amount)} so'm</div>
-        <div style="text-align:right"><button class="fin-tx-del" onclick="deleteFinTx(${tx.id})" title="O'chirish">🗑</button></div>
+        <div style="text-align:right">${tx.type === "income" && typeof crmReceipt === "function" ? `<button class="fin-tx-rc" onclick="crmReceipt(${tx.id})" title="Chek chiqarish">🧾</button>` : ""}<button class="fin-tx-del" onclick="deleteFinTx(${tx.id})" title="O'chirish">🗑</button></div>
       </div>
     `,
       )

@@ -57,6 +57,8 @@ import { createSuperRouter } from "./superadmin/router.js";
 import { createSuperAiRouter } from "./superadmin/ai.js";
 import { cleanDeep, cleanDeepCached, cleanKvValue, cleanKvCached } from "./security/xssData.js";
 import { setKickHandler } from "./security/kick.js";
+import { describeCrmActions, removedItems, TRASH_COL, buildFinanceReport } from "./superadmin/crmActions.js";
+import { render as renderReport, MIME as REPORT_MIME } from "./superadmin/exporters.js";
 import { createWaPublicRouter, createWaSuperRouter, startWaMonitor } from "./webanalytics/router.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -529,7 +531,18 @@ async function snapshotCrmData(prev, reason, opts = {}) {
   }
 }
 
-app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, async (req, res) => {
+// CRM butun ma'lumotni bir necha so'rov bilan deyarli bir vaqtda yuboradi.
+// O'qish → solishtirish → yozish ketma-ket bajarilsin: aks holda har bir
+// so'rov eski holatni ko'rib, bitta to'lovni bir necha marta «yangi» deb
+// hisoblardi (faoliyat tarixida va savatda takrorlar paydo bo'lardi).
+let crmWriteChain = Promise.resolve();
+function withCrmWriteLock(fn) {
+  const run = crmWriteChain.then(fn, fn);
+  crmWriteChain = run.catch(() => {});
+  return run;
+}
+
+app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, (req, res) => withCrmWriteLock(async () => {
   try {
     const payload = req.body;
     if (!payload || typeof payload !== "object")
@@ -563,6 +576,19 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
         meta: { sections: rejected.slice(0, 20) },
         severity: "warn",
       });
+    // Yangi to'lov yozuviga kim qabul qilgani (server biladi — brauzerga ishonilmaydi).
+    // Mavjud yozuvlardagi bu belgi brauzer nusxasida bo'lmasa ham saqlanib qoladi.
+    if (Array.isArray(clean.finance)) {
+      const old = new Map((Array.isArray(prev?.finance) ? prev.finance : []).filter((x) => x && x.id != null).map((x) => [String(x.id), x]));
+      const by = String(req.user.name || req.user.username || "").slice(0, 80);
+      clean.finance = clean.finance.map((tx) => {
+        if (!tx || typeof tx !== "object" || tx.id == null) return tx;
+        const o = old.get(String(tx.id));
+        // Kim kiritgani faqat server belgilaydi va keyin o'zgarmaydi
+        if (o) return o.createdBy ? { ...tx, createdBy: o.createdBy, createdByLogin: o.createdByLogin || null } : tx;
+        return { ...tx, createdBy: by, createdByLogin: req.user.username };
+      });
+    }
     const prevW = dataWeight(prev);
     const nextW = dataWeight(clean);
 
@@ -595,12 +621,34 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
     // (nomlar, id'lar va maydon NOMLARI; qiymatlar — telefon va h.k. — yozilmaydi)
     try {
       const change = summarizeCrmChange(prev, clean);
-      if (change)
+      // Har bir amal alohida gap bilan: «Alidan to'lov oldi — 500 000 so'm»
+      const actions = change ? describeCrmActions(prev, clean) : [];
+      // Faqat formatlash (masalan "600000" ↔ 600000) bo'lsa — bu admin amali emas
+      const LISTED = ["students", "groups", "mentors", "courses", "finance", "tests", "certificates", "attendance", "simpleGrades"];
+      const meaningful = change && (actions.length || Object.keys(change.sections).some((k) => !LISTED.includes(k)));
+      if (meaningful)
         audit("data.change", {
           req,
           actor: req.user,
-          meta: { summary: change.summary, sections: change.sections, ids: change.ids.slice(0, 50) },
+          meta: { summary: change.summary, sections: change.sections, ids: change.ids.slice(0, 50), actions },
         });
+      // O'chirilgan yozuvlar — savatga (faqat Super Admin ko'radi va tiklaydi)
+      const gone = removedItems(prev, clean);
+      if (gone.length) {
+        const now = new Date();
+        getDb()
+          .collection(TRASH_COL)
+          .insertMany(
+            gone.slice(0, 500).map(({ kind, item }) => ({
+              kind,
+              itemId: String(item.id),
+              item,
+              deletedAt: now,
+              deletedBy: { id: req.user.sub, username: req.user.username, name: req.user.name || "", role: req.user.accountRole || req.user.role },
+            })),
+          )
+          .catch((e) => console.warn("⚠️  Savatga yozilmadi:", e.message));
+      }
       // Dars birinchi marta qachon belgilangani ("o'z vaqtida" ko'rsatkichi uchun)
       if ("attendance" in clean) recordLessonMarks(getDb(), prev?.attendance, clean.attendance, req.user).catch(() => {});
     } catch {}
@@ -612,6 +660,34 @@ app.post("/api/data", requireAuth, blockUntilPasswordChanged, writeLimiter, asyn
     await mirrorCrmToKv();
     broadcast(["edumanage_crm_v8"], originOf(req));
     res.json({ ok: true, rejectedSections: rejected });
+  } catch (e) {
+    fail(res, e, req);
+  }
+}));
+
+// ─── Moliya → Excel ───────────────────────────────────────────────────────────
+// Admin «Moliya» bo'limidan oy yoki butun yil bo'yicha to'lovlarni yuklab oladi.
+// Fayl serverda quriladi (tashqi kutubxonasiz XLSX).
+app.get("/api/finance/export", requireAdmin, async (req, res) => {
+  try {
+    const pol = await sectionPolicy(req.user);
+    if (pol.readBlocked.has("finance"))
+      return res.status(403).json({ ok: false, code: "module-disabled", error: "Moliya bo'limi Super Admin tomonidan yopilgan" });
+    const year = Number(req.query.year);
+    const month = req.query.month === undefined || req.query.month === "" || req.query.month === "all" ? null : Number(req.query.month);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100 || (month != null && !(Number.isInteger(month) && month >= 0 && month <= 11)))
+      return res.status(400).json({ ok: false, error: "Yil yoki oy noto'g'ri" });
+    const format = req.query.format === "csv" ? "csv" : "xlsx";
+    const tz = (await getSettings()).general.timezone || "Asia/Tashkent";
+    const D = (await getDb().collection("crm_data").findOne({ _type: "main" })) || {};
+    const rep = buildFinanceReport(D, { year, month }, tz);
+    rep.generatedAt = new Date().toLocaleString("uz-UZ", { timeZone: tz, hour12: false });
+    rep.generatedBy = req.user.name || req.user.username;
+    audit("report.export", { req, actor: req.user, meta: { report: "Moliya " + rep.period, format, rows: rep.totals.count } });
+    res.setHeader("Content-Type", REPORT_MIME[format]);
+    res.setHeader("Content-Disposition", `attachment; filename="${rep.fileBase}.${format}"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.send(renderReport(rep, format));
   } catch (e) {
     fail(res, e, req);
   }

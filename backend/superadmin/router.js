@@ -35,6 +35,7 @@ import { summarizeCrmChange, LESSON_MARKS_COL } from "./changes.js";
 import { describeEvent, deviceText, kindOf, crmLookups, ROLE_TEXT, STAFF_ROLES } from "./activityView.js";
 import { DELETED_ACCOUNTS_DOC } from "../security/bootstrap.js";
 import { kickAccount } from "../security/kick.js";
+import { TRASH_COL, TRASH_KINDS, trashLabel, buildFinanceReport } from "./crmActions.js";
 import { parseRange, prevRange, todayIn, dayOf, escRe, maskPhone, clip, addDays, dayStartUtc } from "./util.js";
 
 const eld = monitorEventLoopDelay({ resolution: 20 });
@@ -93,6 +94,9 @@ const EVENT_TEXT = {
   "super.admin.restrictions": "Administrator ruxsatlari o'zgartirildi",
   "super.admin.reset_link": "Parolni tiklash havolasi yaratildi",
   "super.admin.password_set": "Administrator paroli almashtirildi",
+  "super.trash.restore": "Savatdan tiklandi",
+  "super.trash.purge": "Savatdan butunlay o'chirildi",
+  "super.trash.empty": "Savat tozalandi",
   "super.admin.sessions_revoked": "Administrator sessiyalari bekor qilindi",
   "super.data.edit": "Super Admin yozuvni tahrirladi",
   "super.ai.chat": "Super Admin AI yordamchisidan foydalandi",
@@ -960,6 +964,249 @@ export function createSuperRouter(deps) {
     });
   });
 
+  // ── Admin CRM'da nima qildi: har bir amal vaqti bilan ─────────────────────
+  // data.change yozuvlaridagi `actions` (guruh ochdi, talaba qo'shdi, to'lov
+  // oldi...) alohida qatorlarga yoyiladi. Eski yozuvlarda actions bo'lmasa —
+  // umumiy tavsif ko'rsatiladi.
+  const ACT_CATS = {
+    groups: "Guruhlar",
+    students: "Talabalar",
+    finance: "To'lovlar",
+    attendance: "Davomat",
+    grades: "Baholar",
+    mentors: "Mentorlar",
+    courses: "Kurslar",
+    auth: "Kirish",
+    other: "Boshqa",
+  };
+  const AUTH_EVENTS = ["auth.login.success", "auth.logout", "auth.login.failed", "auth.password.changed", "auth.username.changed"];
+  r.get("/api/super/admins/:id/actions", S, async (req, res) => {
+    try {
+      const acc = await targetAdmin(req, res);
+      if (!acc) return;
+      const tz = (await getSettings()).general.timezone;
+      const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 366);
+      const to = isoOrNull(req.query.to) ? new Date(req.query.to) : new Date();
+      const from = isoOrNull(req.query.from) ? new Date(req.query.from) : new Date(to.getTime() - days * 86400_000);
+      const events = await db()
+        .collection("security_audit")
+        .find({ actorId: String(acc._id), at: { $gte: from, $lte: to } })
+        .sort({ at: -1 })
+        .limit(4000)
+        .toArray();
+      const [dir, lookups] = await Promise.all([staffDirectory(), crmNames()]);
+      const items = [];
+      for (const e of events) {
+        if (e.event === "data.change" && Array.isArray(e.meta?.actions) && e.meta.actions.length) {
+          e.meta.actions.forEach((a, i) =>
+            items.push({
+              id: String(e._id) + ":" + i,
+              at: e.at,
+              cat: ACT_CATS[a.cat] ? a.cat : "other",
+              type: a.type || "",
+              text: a.text,
+              amount: a.amount ?? null,
+              txDate: a.txDate || null,
+              auto: !!a.auto,
+              deleted: !!a.deleted,
+            }),
+          );
+          continue;
+        }
+        const v = viewEvent(e, dir, lookups);
+        const cat = AUTH_EVENTS.includes(e.event) ? "auth" : "other";
+        const lines = [v.title, ...v.details].filter(Boolean);
+        lines.forEach((t, i) =>
+          items.push({
+            id: String(e._id) + ":" + i,
+            at: e.at,
+            cat,
+            type: e.event,
+            text: t + (i === 0 && cat === "auth" && v.device ? ` (${v.device})` : ""),
+            amount: null,
+            warn: v.kind === "warn",
+          }),
+        );
+      }
+      // Xulosa — tanlangan davr bo'yicha
+      const summary = { total: items.length, byCat: {}, payments: { count: 0, sum: 0 }, expenses: { count: 0, sum: 0 }, deleted: 0, days: 0 };
+      const daySet = new Set();
+      for (const it of items) {
+        summary.byCat[it.cat] = (summary.byCat[it.cat] || 0) + 1;
+        if (it.type === "pay.income") {
+          summary.payments.count++;
+          summary.payments.sum += Number(it.amount) || 0;
+        }
+        if (it.type === "pay.expense" || it.type === "pay.salary") {
+          summary.expenses.count++;
+          summary.expenses.sum += Number(it.amount) || 0;
+        }
+        if (it.deleted) summary.deleted++;
+        if (it.cat !== "auth") daySet.add(dayOf(it.at, tz));
+      }
+      summary.days = daySet.size;
+      const cat = String(req.query.cat || "");
+      const q = String(req.query.q || "").trim().toLowerCase().slice(0, 80);
+      let list = cat && ACT_CATS[cat] ? items.filter((x) => x.cat === cat) : items;
+      if (q) list = list.filter((x) => String(x.text).toLowerCase().includes(q));
+      const limit = Math.min(Math.max(Number(req.query.limit) || 60, 10), 200);
+      const page = Math.max(Number(req.query.page) || 1, 1);
+      res.json({
+        ok: true,
+        tz,
+        from,
+        to,
+        cats: ACT_CATS,
+        summary,
+        total: list.length,
+        page,
+        pages: Math.max(1, Math.ceil(list.length / limit)),
+        items: list.slice((page - 1) * limit, page * limit).map((x) => ({ ...x, day: dayOf(x.at, tz) })),
+        truncated: events.length >= 4000,
+      });
+    } catch (e) {
+      fail(res, e, "Faoliyat yuklanmadi");
+    }
+  });
+
+  // ═══════════════════════ SAVAT (o'chirilgan yozuvlar) ════════════════════
+  // CRM'da o'chirilgan har bir talaba, guruh, to'lov va h.k. shu yerga tushadi.
+  // Adminlar buni ko'rmaydi va bilmaydi — faqat Super Admin ko'radi, tiklaydi
+  // yoki butunlay o'chiradi.
+  r.get("/api/super/trash", S, async (req, res) => {
+    try {
+      const col = db().collection(TRASH_COL);
+      const match = {};
+      const kind = String(req.query.kind || "");
+      if (TRASH_KINDS[kind]) match.kind = kind;
+      const by = String(req.query.by || "");
+      if (by) match["deletedBy.id"] = clip(by, 40);
+      const q = String(req.query.q || "").trim().slice(0, 80);
+      if (q) {
+        const re = { $regex: escRe(q), $options: "i" };
+        match.$or = [{ "item.name": re }, { "item.title": re }, { "item.firstName": re }, { "item.lastName": re }];
+      }
+      const limit = Math.min(Math.max(Number(req.query.limit) || 30, 10), 100);
+      const page = Math.max(Number(req.query.page) || 1, 1);
+      const D = (await db().collection("crm_data").findOne({ _type: "main" }, { projection: { groups: 1, students: 1 } })) || {};
+      const [counts, docs, total, dir, people] = await Promise.all([
+        col.aggregate([{ $group: { _id: "$kind", n: { $sum: 1 } } }]).toArray(),
+        col.find(match).sort({ deletedAt: -1 }).skip((page - 1) * limit).limit(limit).toArray(),
+        col.countDocuments(match),
+        staffDirectory(),
+        col
+          .aggregate([
+            { $group: { _id: "$deletedBy.id", n: { $sum: 1 }, username: { $first: "$deletedBy.username" }, name: { $first: "$deletedBy.name" } } },
+            { $sort: { n: -1 } },
+            { $limit: 30 },
+          ])
+          .toArray(),
+      ]);
+      res.json({
+        ok: true,
+        kinds: TRASH_KINDS,
+        counts: Object.fromEntries(counts.map((c) => [c._id, c.n])),
+        people: people.map((p) => {
+          const x = (p._id && dir.byId.get(p._id)) || null;
+          return { id: p._id || "", n: p.n, name: (x && x.name) || p.name || p.username || "—", username: p.username || "" };
+        }),
+        total,
+        page,
+        pages: Math.max(1, Math.ceil(total / limit)),
+        items: docs.map((d) => {
+          const lab = trashLabel(d.kind, d.item || {}, D);
+          const p = (d.deletedBy?.id && dir.byId.get(d.deletedBy.id)) || null;
+          return {
+            id: String(d._id),
+            kind: d.kind,
+            kindText: TRASH_KINDS[d.kind] || d.kind,
+            name: lab.name,
+            sub: lab.sub,
+            amount: lab.amount ?? null,
+            deletedAt: d.deletedAt,
+            by: {
+              id: d.deletedBy?.id || "",
+              name: (p && p.name) || d.deletedBy?.name || "",
+              username: d.deletedBy?.username || "",
+              roleText: ROLE_TEXT[d.deletedBy?.role] || d.deletedBy?.role || "",
+            },
+            item: d.item,
+          };
+        }),
+      });
+    } catch (e) {
+      fail(res, e, "Savat yuklanmadi");
+    }
+  });
+
+  async function trashDoc(req, res) {
+    const id = sec.safeObjectIdHex(req.params.id);
+    const d = id ? await db().collection(TRASH_COL).findOne({ _id: new ObjectId(id) }) : null;
+    if (!d) res.status(404).json({ ok: false, error: "Savatda bunday yozuv yo'q" });
+    return d;
+  }
+
+  r.post("/api/super/trash/:id/restore", S, async (req, res) => {
+    try {
+      const d = await trashDoc(req, res);
+      if (!d) return;
+      const col = db().collection("crm_data");
+      const prev = await col.findOne({ _type: "main" });
+      if (!prev) return res.status(404).json({ ok: false, error: "CRM ma'lumoti topilmadi" });
+      const list = Array.isArray(prev[d.kind]) ? prev[d.kind].slice() : [];
+      if (list.some((x) => x && String(x.id) === String(d.itemId)))
+        return res.status(400).json({ ok: false, error: "Bu yozuv CRM'da allaqachon bor" });
+      const warnings = [];
+      if (d.kind === "students" && d.item.groupId != null && !(prev.groups || []).some((g) => String(g.id) === String(d.item.groupId)))
+        warnings.push("Talabaning guruhi o'chirilgan — CRM'da unga yangi guruh tanlang.");
+      if (d.kind === "students") warnings.push("Talabaning kirish logini qayta tiklanmaydi — kerak bo'lsa CRM'da yangidan bering.");
+      if (d.kind === "groups" && d.item.mentorId != null && !(prev.mentors || []).some((m) => String(m.id) === String(d.item.mentorId)))
+        warnings.push("Guruhning mentori o'chirilgan — yangi mentor tayinlang.");
+      list.push(d.item);
+      await snapshotCrmData(prev, "pre-trash-restore");
+      await col.updateOne({ _type: "main" }, { $set: { [d.kind]: list, _updatedAt: new Date() } });
+      try {
+        const kv = await db().collection("kv").findOne({ key: CRM_KV_KEY });
+        if (kv) {
+          const obj = JSON.parse(String(kv.value));
+          obj[d.kind] = list;
+          await db().collection("kv").updateOne({ key: CRM_KV_KEY }, { $set: { value: JSON.stringify(obj), _updatedAt: new Date() } });
+        }
+      } catch {}
+      await db().collection(TRASH_COL).deleteOne({ _id: d._id });
+      const lab = trashLabel(d.kind, d.item, prev);
+      await audit("super.trash.restore", { req, actor: req.user, target: { kind: d.kind, id: d.itemId, name: lab.name } });
+      broadcast([CRM_KV_KEY]);
+      res.json({ ok: true, warnings });
+    } catch (e) {
+      fail(res, e, "Tiklanmadi");
+    }
+  });
+
+  r.post("/api/super/trash/:id/purge", S, async (req, res) => {
+    try {
+      const d = await trashDoc(req, res);
+      if (!d) return;
+      await db().collection(TRASH_COL).deleteOne({ _id: d._id });
+      const lab = trashLabel(d.kind, d.item || {}, {});
+      await audit("super.trash.purge", { req, actor: req.user, target: { kind: d.kind, id: d.itemId, name: lab.name }, severity: "warn" });
+      res.json({ ok: true });
+    } catch (e) {
+      fail(res, e, "O'chirilmadi");
+    }
+  });
+
+  r.post("/api/super/trash/empty", S, sensitiveLimiter, async (req, res) => {
+    try {
+      if (!(await reauth(req, res))) return;
+      const out = await db().collection(TRASH_COL).deleteMany({});
+      await audit("super.trash.empty", { req, actor: req.user, meta: { count: out.deletedCount }, severity: "critical" });
+      res.json({ ok: true, deleted: out.deletedCount });
+    } catch (e) {
+      fail(res, e, "Savat tozalanmadi");
+    }
+  });
+
   r.post("/api/super/admins/:id/profile", S, async (req, res) => {
     const acc = await targetAdmin(req, res);
     if (!acc) return;
@@ -1550,12 +1797,25 @@ export function createSuperRouter(deps) {
           ],
         };
       }
-      const rep = buildReport(kind, {
-        all: L.all,
-        filters: { group: req.query.group ? clip(req.query.group, 40) : "", teacher: req.query.teacher ? clip(req.query.teacher, 40) : "" },
-        ranking: L.settings.ranking,
-        extra,
-      });
+      const rep =
+        kind === "finance"
+          ? buildFinanceReport(
+              L.D,
+              {
+                range: {
+                  fromMs: dayStartUtc(L.range.from, L.tz).getTime(),
+                  toMs: dayStartUtc(addDays(L.range.to, 1), L.tz).getTime(),
+                  label: L.range.label,
+                },
+              },
+              L.tz,
+            )
+          : buildReport(kind, {
+              all: L.all,
+              filters: { group: req.query.group ? clip(req.query.group, 40) : "", teacher: req.query.teacher ? clip(req.query.teacher, 40) : "" },
+              ranking: L.settings.ranking,
+              extra,
+            });
       rep.generatedAt = fmtAt(new Date(), L.tz);
       rep.generatedBy = req.user.username;
       if (format === "json") return res.json({ ok: true, report: rep });

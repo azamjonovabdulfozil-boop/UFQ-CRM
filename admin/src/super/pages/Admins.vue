@@ -3,7 +3,8 @@
     <div class="page-head">
       <p>
         Administratorlar ro'yxati: ism-familiyasi, holati va oxirgi kirish vaqti. Login va parolni Super Admin o'zi beradi; parol keyin
-        ko'rsatilmaydi, kerak bo'lsa yangisiga almashtiriladi. Har bir admin nima qilgani «Faoliyat tarixi» bo'limida ko'rinadi.
+        ko'rsatilmaydi, kerak bo'lsa yangisiga almashtiriladi. «Nima qildi» tugmasi adminning CRM'dagi har bir amalini vaqti bilan ko'rsatadi:
+        qaysi guruhni ochgani, kimni qo'shgani, kimdan qancha to'lov olgani va h.k.
       </p>
       <button class="btn pri" @click="newOpen = true"><Icon name="plus" :size="15" /> Yangi administrator</button>
     </div>
@@ -32,7 +33,8 @@
                 <span v-if="!a.isSuper">Cheklovlar: <b>{{ restrictText(a) }}</b></span>
               </div>
               <div class="adm-acts">
-                <button class="btn sm" @click="openDetail(a)"><Icon name="eye" :size="13" /> Batafsil</button>
+                <button class="btn sm pri" @click="openDetail(a)"><Icon name="list" :size="13" /> Nima qildi</button>
+                <button class="btn sm" @click="openDetail(a, 'info')"><Icon name="eye" :size="13" /> Sessiyalar</button>
                 <template v-if="!a.isSuper">
                   <button class="btn sm" @click="openName(a)"><Icon name="edit" :size="13" /> Ism-familiya</button>
                   <button class="btn sm" @click="perm = { a, mods: modsOf(a) }"><Icon name="key" :size="13" /> Ruxsatlar</button>
@@ -50,9 +52,14 @@
       </div>
     </div>
 
-    <!-- Batafsil: sessiyalar va faoliyat -->
-    <Modal v-if="det" :title="(det.a.fullName || det.a.username) + ' — batafsil'" wide @close="det = null">
-      <State :loading="det.loading" :error="det.err">
+    <!-- Batafsil: CRM'dagi amallari va sessiyalar -->
+    <Modal v-if="det" :title="`${det.a.fullName || det.a.username} — CRM'da nima qildi`" wide @close="det = null">
+      <div class="tabs">
+        <button :class="{ on: det.tab === 'acts' }" @click="det.tab = 'acts'"><Icon name="list" :size="14" /> Amallari</button>
+        <button :class="{ on: det.tab === 'info' }" @click="det.tab = 'info'"><Icon name="user" :size="14" /> Hisob va sessiyalar</button>
+      </div>
+      <AdminTimeline v-if="det.tab === 'acts'" :admin-id="det.a.id" />
+      <State v-else :loading="det.loading" :error="det.err">
         <template v-if="det.data">
           <dl class="kv" style="margin-bottom: 14px">
             <dt>Ism familiya</dt><dd>{{ det.a.fullName || "kiritilmagan" }}</dd>
@@ -73,10 +80,6 @@
             </div>
             <button v-if="!det.data.account.isSuper" class="btn sm" @click="revoke(s.id)">Bekor qilish</button>
           </div>
-          <div class="section-t" style="margin-top: 16px">Faoliyat tarixi (oxirgi 100)</div>
-          <DataTable :columns="actCols" :rows="det.data.activity.map((x, i) => ({ ...x, id: i }))">
-            <template #severity="{ value }"><span class="badge" :class="value === 'info' ? 'b-good' : value === 'critical' ? 'b-bad' : 'b-warn'">{{ value === "info" ? "ok" : value }}</span></template>
-          </DataTable>
         </template>
       </State>
     </Modal>
@@ -196,9 +199,9 @@ import { fmt, toast } from "../store.js";
 import { useLoad } from "../useLoad.js";
 import State from "../components/State.vue";
 import Modal from "../components/Modal.vue";
-import DataTable from "../components/DataTable.vue";
 import Icon from "../components/Icon.vue";
 import ReauthDialog from "../components/ReauthDialog.vue";
+import AdminTimeline from "../components/AdminTimeline.vue";
 
 const { data: d, loading, error, reload } = useLoad(() => api("/api/super/admins"));
 function initials(a) {
@@ -244,10 +247,6 @@ function afterDelete() {
   reload();
 }
 const busy = ref(false);
-const actCols = [
-  { key: "at", label: "Vaqt", fmt: (v) => fmt.dt(v), nowrap: true }, { key: "category", label: "Toifa" }, { key: "text", label: "Amal" },
-  { key: "severity", label: "Natija" }, { key: "ip", label: "IP" },
-];
 function restrictText(a) {
   const m = a.restrictions?.modules;
   if (!m) return a.isSuper ? "cheklanmaydi" : "—";
@@ -269,12 +268,14 @@ function toggleApi(x) {
 }
 
 const det = ref(null);
-async function openDetail(a) {
-  det.value = { a, loading: true, err: "", data: null };
+async function openDetail(a, tab = "acts") {
+  const keepTab = det.value && det.value.a.id === a.id ? det.value.tab : tab;
+  det.value = { a, tab: keepTab, loading: true, err: "", data: null };
   try {
-    det.value = { a, loading: false, err: "", data: await api("/api/super/admins/" + a.id) };
+    const data = await api("/api/super/admins/" + a.id);
+    if (det.value && det.value.a.id === a.id) Object.assign(det.value, { loading: false, data });
   } catch (e) {
-    det.value = { a, loading: false, err: e.message, data: null };
+    if (det.value && det.value.a.id === a.id) Object.assign(det.value, { loading: false, err: e.message });
   }
 }
 async function revoke(sessionId) {

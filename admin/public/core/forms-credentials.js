@@ -674,7 +674,7 @@ function delItem(type, id) {
   if (_uses > 0) {
     const _msg =
       type === "group"
-        ? `Bu guruhda ${_uses} ta talaba bor. Avval ularni boshqa guruhga o'tkazing (Talabalar → Tahrirlash → Guruh), keyin guruhni o'chiring.`
+        ? `Bu guruhda ${_uses} ta talaba bor. Avval ularni boshqa guruhga o'tkazing (Talabalar → 🔀 O'tkazish), keyin guruhni o'chiring.`
         : type === "course"
           ? `Bu kursda ${_uses} ta guruh bor. Avval guruhlarni boshqa kursga o'tkazing yoki o'chiring, keyin kursni o'chiring.`
           : `Bu mentorga ${_uses} ta guruh biriktirilgan. Avval guruhlarga boshqa mentor tayinlang, keyin mentorni o'chiring.`;

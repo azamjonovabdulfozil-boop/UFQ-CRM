@@ -44,6 +44,8 @@ export const SCRIPT_GROUPS = [
   // Group 7: live-sync + responsive-ui (oxirida, hammasi yuklanganidan keyin)
   // Qarzdorlar sahifasi — attendance/data funksiyalariga tayanadi
   ["debtors.js"],
+  // Chek, talabani guruhga o'tkazish, moliyani Excel'ga chiqarish (to'lov funksiyalarini o'raydi)
+  ["crm-extras.js"],
   // Sertifikatlar — D (data-finance) va brending sozlamalariga tayanadi
   ["certificates.js"],
   // Kengaytirilgan dashboard analitikasi — render funksiyalarini o'raydi

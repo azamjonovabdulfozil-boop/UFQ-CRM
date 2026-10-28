@@ -13,6 +13,7 @@ export const REPORTS = {
   homework: "Uy vazifalari",
   students: "O'quvchilar natijalari",
   admins: "Admin va mentorlar faoliyati",
+  finance: "Moliya: to'lovlar, chiqimlar, oyliklar",
   system: "Tizim monitoringi",
 };
 

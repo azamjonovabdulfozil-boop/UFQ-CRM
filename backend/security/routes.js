@@ -484,6 +484,9 @@ export function createAuthRouter() {
 
   // ── Admin: xavfsizlik jurnali ───────────────────────────────────────────
   r.get("/admin/audit", admin, async (req, res) => {
+    // Jurnalda Super Admin amallari (savat, adminlar nazorati) ham bor —
+    // oddiy admin uni ko'rmasligi kerak.
+    if (!req.user.isSuper) return res.status(403).json({ ok: false, code: "forbidden", error: "Jurnal faqat Super Admin uchun" });
     const limit = Math.min(Number(req.query?.limit) || 100, 500);
     const event = safeString(req.query?.event, 80);
     const events = await recentEvents({ limit, event });
