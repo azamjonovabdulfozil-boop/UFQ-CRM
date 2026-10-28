@@ -662,6 +662,26 @@ function delItem(type, id) {
   };
   const item = map[type].find((x) => x.id === id);
   if (!item) return;
+  // Bog'langan yozuvlar «egasiz» qolmasin: avval ularni boshqa joyga o'tkazish kerak
+  const _uses =
+    type === "group"
+      ? (D.students || []).filter((s) => s.groupId === id).length
+      : type === "course"
+        ? (D.groups || []).filter((g) => g.courseId === id || (g.courseId == null && g.course === item.name)).length
+        : type === "mentor"
+          ? (D.groups || []).filter((g) => g.mentorId === id || (g.mentorId == null && g.mentor === item.name)).length
+          : 0;
+  if (_uses > 0) {
+    const _msg =
+      type === "group"
+        ? `Bu guruhda ${_uses} ta talaba bor. Avval ularni boshqa guruhga o'tkazing (Talabalar → Tahrirlash → Guruh), keyin guruhni o'chiring.`
+        : type === "course"
+          ? `Bu kursda ${_uses} ta guruh bor. Avval guruhlarni boshqa kursga o'tkazing yoki o'chiring, keyin kursni o'chiring.`
+          : `Bu mentorga ${_uses} ta guruh biriktirilgan. Avval guruhlarga boshqa mentor tayinlang, keyin mentorni o'chiring.`;
+    if (typeof crmAlert === "function") crmAlert(_msg, { title: "O'chirib bo'lmaydi" });
+    else toast("⚠️ " + _msg);
+    return;
+  }
   const displayName =
     item.name ||
     (item.firstName
@@ -693,6 +713,19 @@ function delItem(type, id) {
     if (document.getElementById("panel-dashboard").classList.contains("active"))
       renderDashboard();
     toast("\u{1F5D1} O'chirildi");
+    // O'chirilgan talaba/mentor tizimga kira olmasin — portal hisobi ham o'chadi
+    if (!window.__CRM_DEMO__) {
+      const rm =
+        type === "student" && typeof _removeStudentAccount === "function"
+          ? _removeStudentAccount(id)
+          : type === "mentor" && typeof _removeMentorAccount === "function"
+            ? _removeMentorAccount(id)
+            : null;
+      if (rm)
+        rm.then((r) => {
+          if (r && !r.ok) toast("⚠️ Login/parol o'chirilmadi: " + r.error + " — Sozlamalar → Hisoblar bo'limidan o'chiring");
+        }).catch(() => {});
+    }
   });
 }
 function showDelModal(name, cb) {
@@ -1540,13 +1573,18 @@ function _paintMentorCreds() {
     Pager.html("mentor-creds");
 }
 
-async function deleteMentorCredential(mentorId) {
-  if (!(await crmConfirm("Bu mentorning login/paroli o'chirilsinmi?", { danger: true }))) return;
+/** Mentorning portal hisobini serverdan o'chiradi (tasdiqsiz). Hisob bo'lmasa — hech narsa qilmaydi. */
+async function _removeMentorAccount(mentorId) {
   await _freshPortalUsers();
   const all = getMentorUsers();
   const gone = all.filter((u) => String(u.mentorId) === String(mentorId)).map((u) => u.login);
+  if (!gone.length) return { ok: true, none: true };
   const filtered = all.filter((u) => String(u.mentorId) !== String(mentorId));
-  const r = await saveMentorUsers(filtered, gone);
+  return saveMentorUsers(filtered, gone);
+}
+async function deleteMentorCredential(mentorId) {
+  if (!(await crmConfirm("Bu mentorning login/paroli o'chirilsinmi?", { danger: true }))) return;
+  const r = await _removeMentorAccount(mentorId);
   renderMentorCredsList();
   toast(r.ok ? "🗑 Login/parol o'chirildi" : "⚠️ O'chirilmadi: " + r.error);
 }
@@ -1664,13 +1702,18 @@ function _paintStudentCreds() {
     Pager.html("student-creds");
 }
 
-async function deleteStudentCredential(studentId) {
-  if (!(await crmConfirm("Bu talabaning login/paroli o'chirilsinmi?", { danger: true }))) return;
+/** Talabaning portal hisobini serverdan o'chiradi (tasdiqsiz). Hisob bo'lmasa — hech narsa qilmaydi. */
+async function _removeStudentAccount(studentId) {
   await _freshPortalUsers();
   const all = getStudentUsers();
   const gone = all.filter((u) => String(u.studentId) === String(studentId)).map((u) => u.login);
+  if (!gone.length) return { ok: true, none: true };
   const filtered = all.filter((u) => String(u.studentId) !== String(studentId));
-  const r = await saveStudentUsers(filtered, gone);
+  return saveStudentUsers(filtered, gone);
+}
+async function deleteStudentCredential(studentId) {
+  if (!(await crmConfirm("Bu talabaning login/paroli o'chirilsinmi?", { danger: true }))) return;
+  const r = await _removeStudentAccount(studentId);
   renderStudentCredsList();
   toast(r.ok ? "🗑 Talaba login/paroli o'chirildi" : "⚠️ O'chirilmadi: " + r.error);
 }

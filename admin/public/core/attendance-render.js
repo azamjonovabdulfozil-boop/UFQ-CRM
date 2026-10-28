@@ -302,7 +302,7 @@ function renderCourses(){
       </div>
       <div class="card-foot">
         <button class="btn btn-sm" onclick="editItem('course',${c.id})">✏️ Tahrirlash</button>
-        <button class="btn btn-sm btn-del-outline" onclick="showDelModal(${jsq(c.name)},()=>execDelCourse(${c.id}))">🗑 O'chirish</button>
+        <button class="btn btn-sm btn-del-outline" onclick="delItem('course',${c.id})">🗑 O'chirish</button>
       </div>
     </div>`;
   }).join('');

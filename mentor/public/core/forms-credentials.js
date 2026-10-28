@@ -623,6 +623,26 @@ function delItem(type, id) {
   };
   const item = map[type].find((x) => x.id === id);
   if (!item) return;
+  // Bog'langan yozuvlar «egasiz» qolmasin: avval ularni boshqa joyga o'tkazish kerak
+  const _uses =
+    type === "group"
+      ? (D.students || []).filter((s) => s.groupId === id).length
+      : type === "course"
+        ? (D.groups || []).filter((g) => g.courseId === id || (g.courseId == null && g.course === item.name)).length
+        : type === "mentor"
+          ? (D.groups || []).filter((g) => g.mentorId === id || (g.mentorId == null && g.mentor === item.name)).length
+          : 0;
+  if (_uses > 0) {
+    const _msg =
+      type === "group"
+        ? `Bu guruhda ${_uses} ta talaba bor. Avval ularni boshqa guruhga o'tkazing (Talabalar → Tahrirlash → Guruh), keyin guruhni o'chiring.`
+        : type === "course"
+          ? `Bu kursda ${_uses} ta guruh bor. Avval guruhlarni boshqa kursga o'tkazing yoki o'chiring, keyin kursni o'chiring.`
+          : `Bu mentorga ${_uses} ta guruh biriktirilgan. Avval guruhlarga boshqa mentor tayinlang, keyin mentorni o'chiring.`;
+    if (typeof crmAlert === "function") crmAlert(_msg, { title: "O'chirib bo'lmaydi" });
+    else toast("⚠️ " + _msg);
+    return;
+  }
   const displayName =
     item.name ||
     (item.firstName
@@ -654,6 +674,19 @@ function delItem(type, id) {
     if (document.getElementById("panel-dashboard").classList.contains("active"))
       renderDashboard();
     toast("\u{1F5D1} O'chirildi");
+    // O'chirilgan talaba/mentor tizimga kira olmasin — portal hisobi ham o'chadi
+    if (!window.__CRM_DEMO__) {
+      const rm =
+        type === "student" && typeof _removeStudentAccount === "function"
+          ? _removeStudentAccount(id)
+          : type === "mentor" && typeof _removeMentorAccount === "function"
+            ? _removeMentorAccount(id)
+            : null;
+      if (rm)
+        rm.then((r) => {
+          if (r && !r.ok) toast("⚠️ Login/parol o'chirilmadi: " + r.error + " — Sozlamalar → Hisoblar bo'limidan o'chiring");
+        }).catch(() => {});
+    }
   });
 }
 function showDelModal(name, cb) {
